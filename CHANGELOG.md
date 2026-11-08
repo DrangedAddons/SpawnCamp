@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.1
+
+- Fixed the "blocked from an action only available to the Blizzard UI" popups. The marker was placed by calling SetRaidTarget from the addon, which this client forbids, and it retried on every press. It now goes on with a `/tm` line in the key's macro. The line is there only for the press that casts, is taken out straight after (before combat freezes the macro, so the marker can't be toggled off), and is skipped if the mob already has that marker.
+- "The game blocked ..." chat lines are shown at most every 30 seconds.
+
 ## 0.14.0
 
 - **Marker on the target:** as soon as a key press puts you on the free, alive mob, it gets a raid marker (skull by default). It's only set when the mob doesn't already have that marker, so spamming doesn't toggle it off. Works solo and in a party; in a raid it needs lead or assist.

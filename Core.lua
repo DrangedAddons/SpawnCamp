@@ -397,16 +397,16 @@ end)
 
 -- When the game blocks one of SpawnCamp's calls, say which and keep the last
 -- few in SpawnCampDB.blocked, so it can be fixed without guessing.
+local lastBlockedAt
 local function Blocked(kind)
     return function(addon, func)
         if addon ~= ADDON then return end
         local what = string.format("%s %s: %s", date("%m-%d %H:%M:%S"), kind, tostring(func))
-        if tostring(func):find("SetRaidTarget") and SC.char then
-            SC.char.markTarget = false
-            SC.Print("the game doesn't let addons place raid markers here, so marking is off (Settings).")
-            return
+        local now = GetTime()
+        if not lastBlockedAt or now - lastBlockedAt > 30 then
+            SC.Print("|cffff4040the game blocked|r " .. tostring(func) .. ". Please tell Dranged.")
         end
-        SC.Print("|cffff4040the game blocked|r " .. tostring(func) .. ". Please tell Dranged.")
+        lastBlockedAt = now
         if SpawnCampDB then
             SpawnCampDB.blocked = SpawnCampDB.blocked or {}
             table.insert(SpawnCampDB.blocked, what)

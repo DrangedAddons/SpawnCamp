@@ -66,6 +66,11 @@ keyBtn:HookScript("OnClick", function()
     local now = GetTime()
     if SC.lastPress.key and now - SC.lastPress.key < 0.1 then return end
     SC.lastPress.key = now
+    -- The marker line has run: take it out before combat freezes the macro.
+    if not SC.markDone and (keyBtn:GetAttribute("macrotext") or ""):find("\n/tm ") then
+        SC.markDone = true
+        SC.UpdateKeyMacro()
+    end
     if SC.OnKeyPressed then
         local ok, err = pcall(SC.OnKeyPressed)
         if not ok then SC.Print("|cffff4040error|r " .. tostring(err)) end
@@ -104,8 +109,25 @@ end
 SC.fastUnit = nil
 SC.onMob = false
 
+-- Raid marker over the mob. Addons can't call SetRaidTarget on this client
+-- (it raised "blocked" errors), but a /tm line in the key's macro can. It goes
+-- in only until one press has run it (SC.markDone), and not when the target
+-- already has that marker, because /tm on a marked mob takes the marker off.
+SC.markDone = false
+
+local function MarkLine(lines, unitKnown)
+    if not (SC.char.markTarget and unitKnown and not SC.markDone) then return end
+    local icon = SC.char.markIcon or 8
+    if SC.onMob and GetRaidTargetIndex then
+        local ok, cur = pcall(GetRaidTargetIndex, "target")
+        if ok and SC.Plain(cur) == icon then return end
+    end
+    lines[#lines + 1] = "/tm " .. icon
+end
+
 local function TalkAndAttack(lines, attack, talk, at)
     if #attack > 0 and at then
+        MarkLine(lines, not SC.inCombat)
         local A = SC.char.attack
         if A.macro and strtrim(A.macro) ~= "" then
             lines[#lines + 1] = strtrim(A.macro)
