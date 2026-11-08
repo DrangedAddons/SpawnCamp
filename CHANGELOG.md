@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+
+- Sword and bubble states are much clearer. Pressed: bright red, thick gold border, gold glow, shaded top and a gold icon nudged down. Not pressed: dark grey with a grey border and a clean grey icon, no red tint.
+
 ## 0.9.0
 
 - **ETA** next to the target's name: a countdown to the average respawn, with the average under it; **DUE** once it has passed, **UP** once the mob is seen.

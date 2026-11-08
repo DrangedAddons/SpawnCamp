@@ -337,10 +337,10 @@ local function PlacePortrait(name, holder)
 end
 
 ------------------------------------------------------------------------------
--- Attack / Talk buttons: big square red buttons with a gold icon, no text.
--- A pressed/raised pair: pressed = darker red, bright gold border, full gold
--- icon nudged in; raised = plain red, dull border, dimmer icon. Clicking the
--- pressed one does nothing. Right-click opens that action's options.
+-- Attack / Talk buttons: big square icon-only buttons. A pressed/raised pair:
+-- pressed = bright red, thick gold border, gold glow, shaded top, gold icon
+-- nudged down; raised = dark grey, grey border, light top band, grey icon.
+-- Clicking the pressed one does nothing. Right-click opens its options.
 ------------------------------------------------------------------------------
 
 local MODE_SIZE = 46
@@ -356,15 +356,28 @@ local function ModeButton(parent, icon, onLeft, onRight, title, body)
     local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
     b:SetSize(MODE_SIZE, MODE_SIZE)
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    b:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 2 })
+    b:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 3 })
+    -- Gold glow around the pressed one.
+    b.glow = b:CreateTexture(nil, "BACKGROUND", nil, -8)
+    b.glow:SetPoint("TOPLEFT", -10, 10)
+    b.glow:SetPoint("BOTTOMRIGHT", 10, -10)
+    b.glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+    b.glow:SetBlendMode("ADD")
+    b.glow:SetVertexColor(1, 0.8, 0.2, 0.9)
     b.fill = b:CreateTexture(nil, "BACKGROUND")
-    b.fill:SetPoint("TOPLEFT", 2, -2)
-    b.fill:SetPoint("BOTTOMRIGHT", -2, 2)
+    b.fill:SetPoint("TOPLEFT", 3, -3)
+    b.fill:SetPoint("BOTTOMRIGHT", -3, 3)
+    -- Raised: light band on top. Pressed: dark band on top (pushed in).
     b.shine = b:CreateTexture(nil, "BORDER")
-    b.shine:SetPoint("TOPLEFT", 2, -2)
-    b.shine:SetPoint("TOPRIGHT", -2, -2)
+    b.shine:SetPoint("TOPLEFT", 3, -3)
+    b.shine:SetPoint("TOPRIGHT", -3, -3)
     b.shine:SetHeight(MODE_SIZE * 0.4)
-    b.shine:SetColorTexture(1, 1, 1, 0.08)
+    b.shine:SetColorTexture(1, 1, 1, 0.10)
+    b.inset = b:CreateTexture(nil, "BORDER")
+    b.inset:SetPoint("TOPLEFT", 3, -3)
+    b.inset:SetPoint("TOPRIGHT", -3, -3)
+    b.inset:SetHeight(8)
+    b.inset:SetColorTexture(0, 0, 0, 0.45)
     b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
     b:GetHighlightTexture():SetVertexColor(1, 0.8, 0.3, 0.12)
     b.icon = b:CreateTexture(nil, "ARTWORK")
@@ -380,20 +393,24 @@ end
 
 local function SetPressed(b, pressed)
     b.icon:ClearAllPoints()
+    b.icon:SetDesaturated(true)
+    b.icon:SetAlpha(1)
     if pressed then
-        Gradient(b.fill, { 0.42, 0.04, 0.02 }, { 0.62, 0.08, 0.04 })
+        Gradient(b.fill, { 0.55, 0.05, 0.03 }, { 0.9, 0.15, 0.06 })
         b:SetBackdropBorderColor(1, 0.82, 0.1, 1)
+        b.glow:Show()
         b.shine:Hide()
-        b.icon:SetPoint("CENTER", 1, -1)
-        b.icon:SetVertexColor(1, 0.84, 0.1)
-        b.icon:SetAlpha(1)
+        b.inset:Show()
+        b.icon:SetPoint("CENTER", 1, -2)
+        b.icon:SetVertexColor(1, 0.86, 0.15)
     else
-        Gradient(b.fill, { 0.82, 0.14, 0.08 }, { 0.5, 0.06, 0.03 })
-        b:SetBackdropBorderColor(0.5, 0.36, 0.1, 1)
+        Gradient(b.fill, { 0.3, 0.3, 0.32 }, { 0.13, 0.13, 0.14 })
+        b:SetBackdropBorderColor(0.38, 0.38, 0.4, 1)
+        b.glow:Hide()
         b.shine:Show()
-        b.icon:SetPoint("CENTER", 0, 0)
-        b.icon:SetVertexColor(0.85, 0.7, 0.35)
-        b.icon:SetAlpha(0.7)
+        b.inset:Hide()
+        b.icon:SetPoint("CENTER", 0, 1)
+        b.icon:SetVertexColor(0.72, 0.72, 0.72)
     end
 end
 local function SetMode(mode)
