@@ -7,16 +7,20 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
 ```
               SpawnCamp             Recent  [> Log] [gear] [x]
  Log drawer   [ Shift-Wheel Down ] [Unassign]   Attacks Mechanized Sentry.
- (left, or    [ type or paste a mob name ] [Add] [My Target] [Nearby] [Quest] [Auto Quest]
-  right)      +----------------------------------------------------------------+
-              | (portrait) Mechanized Sentry   ETA 2:55  [SWORD] [BUBBLE] [Clear] |
+ (left, or    +----------------------------------------------------------------+
+  right)      | (portrait) Mechanized Sentry   ETA 2:55  [SWORD] [BUBBLE] [Clear] |
               |            dead 2:05, earliest in 1:10  Avg respawn 5:00           |
+              +----------------------------------------------------------------+
+              [+ Add another target]  -> opens a blank box:
+              +----------------------------------------------------------------+
+              | New target [ type or paste a mob name ] [Add]               [x] |
+              | [My Target] [Nearby] [Quest] [Auto Quest]                        |
               +----------------------------------------------------------------+
 ```
 
 - **Key button**: shows the bound key (e.g. "Shift-Wheel Down"), or **Click to Bind Key**. Click it and press a key, roll the mouse wheel, or press mouse button 3-5 (Shift/Ctrl/Alt combos work). **Unassign** removes it. The key only does something while you have a **target**.
 - **Target**: the mob your key works on. Set it by typing or pasting a name (**Add** or Enter), with **My Target** (your in-game target), from **Nearby**, or from **Recent**. **Click the target's name** to target it in game. **Clear** unsets it: the key then does nothing and goes back to its normal binding. Getting the kill clears it too, unless **Keep** (under Clear) is ticked for that mob.
-- **More targets** (up to 8): every add joins the list, and **+ Add another target** sits under the last box. Each gets the same controls, and the key goes for whichever is alive, untagged and found first. Click the log's title to step through them.
+- **More targets** (up to 8): every add joins the list, and **+ Add another target** under the last box opens a blank target box with the ways to add one: type a name, **My Target**, **Nearby**, **Quest** or **Auto Quest**. With nothing on your key that box is always open. Each gets the same controls, and the key goes for whichever is alive, untagged and found first. Click the log's title to step through them.
 - **ETA / Avg respawn**: *Avg respawn* is how long this mob usually takes to come back after it dies (from the log). *ETA* counts down to that from its last death. It shows **DUE** once the average has passed without a sighting, and **UP** once the mob is seen.
 - **Sword / bubble**: big square buttons, one always pressed. The sword means your key targets the mob and casts your attack spell. The bubble means it targets the NPC and talks to it: chat, quest hand-ins, new and follow-up quests. Clicking the pressed one does nothing; clicking the other swaps them. **Right-click the sword** for the spell or your own macro lines, **right-click the bubble** for the chat and quest options. Clicking anywhere outside an options box closes it.
 - **Log** (header button): a drawer on the left of the window (or the right, in the settings). It shows the target's respawn times (fastest, average, slowest), a known respawn time you can enter, the manual "it died / it's up" buttons, and every sighting with its time.

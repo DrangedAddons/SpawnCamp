@@ -587,8 +587,22 @@ local function BuildTop()
     ui.keyNote = Text(F, "", 240, -34)
     ui.keyNote:SetWidth(220)
 
-    -- Add row
-    ui.addName = Edit(F, 150, 4, -56, function() end)
+end
+
+local BOX_H = 64   -- height of a target box (and the picker)
+
+-- The picker: a blank target box with the ways to add one. Shown when you have
+-- no targets (and Auto Quest is off), or after "+ Add another target".
+--   New target [ type or paste a mob name      ] [Add]               [x]
+--   [My Target] [Nearby] [Quest] [Auto Quest]
+local function BuildPicker()
+    local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
+    T:SetHeight(BOX_H)
+    Backdrop(T, 0.6)
+    T:SetBackdropBorderColor(1, 0.82, 0, 0.6)
+    ui.picker = T
+    Text(T, "New target", 10, -11, "GameFontNormal")
+    ui.addName = Edit(T, 230, 84, -8, function() end)
     local hint = ui.addName:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     hint:SetPoint("LEFT", 2, 0)
     hint:SetText("type or paste a mob name")
@@ -607,21 +621,30 @@ local function BuildTop()
     end
     ui.addName:SetScript("OnEnterPressed", addTyped)
     ui.addName:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    Tip(Btn(F, "Add", 44, 166, -56, addTyped), "Add", "Adds the typed name to your targets. Use the exact name the game shows.")
-    Tip(Btn(F, "My Target", 84, 212, -56, function() SC.AddTarget(); SC.Refresh() end),
+    Tip(Btn(T, "Add", 44, 326, -8, addTyped), "Add", "Adds the typed name to your targets. Use the exact name the game shows.")
+    Tip(Btn(T, "My Target", 84, 8, -36, function() SC.AddTarget(); SC.Refresh() end),
         "My Target", "Adds the mob you have targeted in game to your targets: Attack if hostile, Talk if friendly.")
-    Tip(Btn(F, "Nearby", 64, 298, -56, function() SC.ToggleNearby() end),
+    Tip(Btn(T, "Nearby", 64, 94, -36, function() SC.ToggleNearby() end),
         "Nearby", "Lists mobs around you, with a button to use each one.")
-    Tip(Btn(F, "Quest", 56, 364, -56, function() SC.ToggleQuests() end),
+    Tip(Btn(T, "Quest", 56, 160, -36, function() SC.ToggleQuests() end),
         "Quest", "Mobs your current quests want: kill objectives from your quest log, plus mobs nearby that your quests need (item drops too).")
-    ui.autoQuest = Btn(F, "Auto Quest", 92, 422, -56, function() SC.SetAnyQuest(not SC.char.anyQuest) end)
+    ui.autoQuest = Btn(T, "Auto Quest", 92, 218, -36, function() SC.SetAnyQuest(not SC.char.anyQuest) end)
     Tip(ui.autoQuest, "Auto Quest", "On, your key goes for any mob your quests still need, alive and not tagged by someone else, after your own targets. Finished objectives drop off by themselves.")
+
+    ui.pickCancel = CreateFrame("Button", nil, T, "UIPanelCloseButton")
+    ui.pickCancel:SetSize(22, 22)
+    ui.pickCancel:SetPoint("TOPRIGHT", -2, -2)
+    ui.pickCancel:SetScript("OnClick", function()
+        ui.picking = false
+        if ui.addName then ui.addName:ClearFocus() end
+        SC.Refresh()
+    end)
+    Tip(ui.pickCancel, "Cancel", "Closes this without adding a target.")
 end
 
 -- Target boxes, one per slot, left to right:
 --   [portrait] Name               ETA 0:15        [sword] [bubble]  [Clear]
 --              dead 0:05, ...     Avg respawn 0:20                  Keep [x]
-local BOX_H = 64
 
 -- quest = the Auto Quest box: same look, but the key picks the mob.
 local function BuildTargetBox(slot, quest)
@@ -699,7 +722,6 @@ local function BuildTargetBox(slot, quest)
     bx.status:SetWordWrap(false)
     bx.nameArea = nameArea
 
-    bx.empty = Text(T, "No target. Your key does nothing until you add one,\npick one from Recent or Quest, or turn on Auto Quest.", 10, -14, "GameFontHighlight")
 
     if quest then
         bx.talk:Hide()
@@ -719,8 +741,9 @@ local function BuildTarget()
     ui.questBox = BuildTargetBox(SC.MAX_TARGETS + 1, true)
     -- Under the last target: add another.
     ui.addAnother = Btn(F, "+ Add another target", 160, 0, 0, function()
+        ui.picking = true
+        SC.Refresh()
         if ui.addName then ui.addName:SetFocus() end
-        SC.Print("add another target: type a name, use My Target, or Use one from Nearby, Recent or Quest.")
     end)
     Tip(ui.addAnother, "Another target", "Your key goes for whichever target shows up first, alive and untagged; each keeps its own Attack/Talk. Up to " .. SC.MAX_TARGETS .. ".")
 end
@@ -1205,6 +1228,7 @@ local function Build()
     ui.checks, ui.keys = {}, {}
     BuildTop()
     BuildTarget()
+    BuildPicker()
     BuildNameSecure()
     BuildRecent()
     BuildAttackPopup()
@@ -1283,7 +1307,6 @@ end
 -- the one the key last went for), else "Any quest mob" with the count.
 local function RefreshQuestBox(bx)
     for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.clear }) do w:Show() end
-    bx.empty:Hide()
     local wanted = SC.QuestWanted()
     local name = SC.QuestShown()
     local info = name and SC.QuestInfo(name)
@@ -1312,7 +1335,6 @@ end
 
 local function RefreshBox(bx, m, slot)
     for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear, bx.keep }) do w:SetShown(m ~= nil) end
-    bx.empty:SetShown(m == nil and slot == 1)
     if not m then return end
     PlacePortrait(m.name, bx.portrait)
     bx.name:SetText(m.name)
@@ -1327,11 +1349,14 @@ end
 
 -- Lays out a box per target and the "add another" button; returns the y below.
 local function RefreshTarget()
-    local y = -84
+    local y = -56
     local n = #SC.Actives()
+    -- Adding a target (or turning on Auto Quest) closes the picker.
+    if (ui.lastN and n > ui.lastN) or (SC.char.anyQuest and not ui.lastAQ) then ui.picking = false end
+    ui.lastN, ui.lastAQ = n, SC.char.anyQuest
     for slot = 1, SC.MAX_TARGETS do
         local bx, m = ui.boxes[slot], SC.Active(slot)
-        if m or (slot == 1 and not SC.char.anyQuest) then
+        if m then
             bx.frame:ClearAllPoints()
             bx.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
             bx.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
@@ -1353,8 +1378,21 @@ local function RefreshTarget()
     else
         qb.frame:Hide()
     end
+    -- Nothing on the key: the picker stays open (no cancel).
+    local empty = n == 0 and not SC.char.anyQuest
+    local pick = n < SC.MAX_TARGETS and (empty or ui.picking)
+    ui.picker:ClearAllPoints()
     ui.addAnother:ClearAllPoints()
-    if n < SC.MAX_TARGETS then
+    if pick then
+        ui.picker:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
+        ui.picker:SetPoint("RIGHT", F, "RIGHT", -6, 0)
+        ui.picker:Show()
+        ui.pickCancel:SetShown(not empty)
+        y = y - BOX_H - 4
+    else
+        ui.picker:Hide()
+    end
+    if not pick and n < SC.MAX_TARGETS then
         ui.addAnother:SetPoint("TOPLEFT", F, "TOPLEFT", 8, y)
         ui.addAnother:Show()
         y = y - 26
@@ -1519,6 +1557,7 @@ end
 -- Focuses the name box (when the game hides a target's name).
 function SC.FocusAddName()
     SC.char.shown = true
+    ui.picking = true
     SC.Refresh()
     if ui.addName then ui.addName:SetFocus() end
 end
