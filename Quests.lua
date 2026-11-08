@@ -43,7 +43,7 @@ local function WindowMob()
     for _, unit in ipairs({ "npc", "questnpc" }) do
         local name = SC.UnitNameSafe(unit)
         local mob = name and SC.char.mobs[name]
-        if mob and mob.mode == "interact" then return S end
+        if mob and mob.mode == "interact" and name == SC.char.active then return S end
     end
     return nil
 end

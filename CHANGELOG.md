@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0
+
+- **One selected target.** The key works on that mob only; with no target it does nothing and goes back to its normal binding. **Clear** unsets it.
+- **Recent**: mobs you've targeted before, newest first, with timers. Click to make one the target again.
+- The key is on the front: assign, change or **Unassign** it there.
+- Sword and bubble are big square red buttons with gold icons, no text. **Right-click** the sword for the spell/macro, the bubble for chat and quest options. Both open beside the window.
+- The respawn log opens beside the window (target name, or right-click a Recent mob) instead of expanding under it.
+- Portraits fall back to a creature-type icon (saved the first time the mob is seen), then to a sword or scroll, instead of a question mark.
+- Deaths are also read from the combat log when Forever allows it: any unit within about 50 yards, in or out of combat. `/spc probe` reports whether it works.
+- Getting the kill clears the mob as your target.
+
 ## 0.7.0
 
 - Sharing has separate **Party**, **Raid** and **Guild** boxes. Messages are only sent to and accepted from ticked ones.

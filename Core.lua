@@ -85,14 +85,33 @@ SC.MOB_DEFAULTS = {
     manualMax = 0,        -- minutes; >0 overrides the history's latest respawn
 }
 
--- Mobs on the key in a mode, in list order (ones you already got are off it).
+-- The selected target: the one mob the key works on. nil = the key does nothing.
+function SC.Active()
+    local n = SC.char and SC.char.active
+    return n and SC.char.mobs[n] or nil
+end
+
+-- The selected target as a list when it's in this mode, else an empty list.
 function SC.MobsIn(mode)
-    local out = {}
-    for _, n in ipairs(SC.char.order) do
-        local m = SC.char.mobs[n]
-        if m and m.mode == mode and m.hunting then out[#out + 1] = m end
+    local m = SC.Active()
+    if m and m.mode == mode then return { m } end
+    return {}
+end
+
+-- Makes a mob the selected target and moves it to the top of the recent list.
+function SC.SetActive(name)
+    if name and not SC.char.mobs[name] then return end
+    SC.char.active = name
+    if name then
+        local m = SC.char.mobs[name]
+        m.hunting = true
+        for i, n in ipairs(SC.char.order) do
+            if n == name then table.remove(SC.char.order, i); break end
+        end
+        table.insert(SC.char.order, 1, name)
     end
-    return out
+    SC.ApplyBindings()
+    SC.Refresh()
 end
 
 local function Fill(t, defaults)
@@ -132,10 +151,8 @@ function SC.AddMob(name, mode)
         mobs[name] = { name = name }
         Fill(mobs[name], SC.MOB_DEFAULTS)
         mobs[name].mode = mode or "attack"
-        table.insert(SC.char.order, name)
     end
-    SC.ApplyBindings()
-    SC.Refresh()
+    SC.SetActive(name)
     return mobs[name]
 end
 
@@ -150,6 +167,7 @@ function SC.RemoveMob(name)
         SC.char.selected = nil
         if SC.char.panel == "mob" then SC.char.panel = nil end
     end
+    if SC.char.active == name then SC.char.active = nil end
     SC.ApplyBindings()
     SC.Refresh()
 end
@@ -363,6 +381,7 @@ SC.On("ADDON_LOADED", function(name)
         if not seen[n] then order[#order + 1] = n end
     end
     SC.char.order = order
+    if SC.char.active and not SC.char.mobs[SC.char.active] then SC.char.active = nil end
     SC.char.expanded, SC.char.tab, SC.char.showTimers = nil, nil, nil
 end)
 
@@ -442,6 +461,7 @@ function SC.AddTarget()
     end
     local friendly = SC.Bool(UnitCanAttack("player", "target")) == false
     SC.AddMob(name, friendly and "interact" or "attack")
+    if SC.CapturePortrait then SC.CapturePortrait(name, "target") end
 end
 
 -- /spc probe: every read the addon relies on, for target, mouseover and the
@@ -476,6 +496,11 @@ function SC.Debug()
         line("  -> name used: " .. (n and ('"' .. n .. '"') or ("none (" .. why .. ")")))
     end
     if SC.ScanNearby then line("nearby scan: " .. SC.ScanNearby()) end
+    local cl = SC.combatLog
+    if cl then
+        line(string.format("combat log: registered %s, events seen %d, death names hidden %d",
+            tostring(cl.registered), cl.seen, cl.hidden))
+    end
     SpawnCampDB.probe = { time = date("%Y-%m-%d %H:%M:%S"), lines = out }
 end
 

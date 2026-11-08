@@ -79,9 +79,12 @@ function SC.Observe(name, kind, spawn, t, src, extra)
         end
         if kind == "D" and e.mine and mob.mode ~= "interact" then
             mob.hunting = false
+            if SC.char.active == name then
+                SC.char.active = nil
+                SC.Print("cleared " .. name .. " as your target, so your key does nothing now. Pick it from Recent to camp it again.")
+            end
             SC.ApplyBindings()
             SC.Alert("You got " .. name .. "!")
-            SC.Print("took " .. name .. " off your key. Tick \"Still hunting\" in its details to hunt it again.")
         end
     end
     SC.Refresh()
@@ -243,6 +246,7 @@ local function NoteNearby(unit)
         e.hostile = SC.Bool(UnitCanAttack("player", unit))
         e.level = SC.Plain(UnitLevel(unit))
         e.class = SC.Plain(UnitClassification(unit))
+        e.ctype = SC.Plain(UnitCreatureType(unit))
         e.dead = SC.Bool(UnitIsDead(unit))
         SC.nearby[n] = e
         return "ok"
@@ -442,6 +446,31 @@ local function Scan()
 end
 
 SC.Scan = Scan
+
+-- The combat log, when the game lets addons read it: UNIT_DIED gives the death
+-- of any unit near you (about 50 yards), whoever killed it, in or out of
+-- combat. Forever may block or hide it (retail Midnight rules); then deaths come
+-- only from nameplates, target, mouseover and the key. /spc probe reports which.
+SC.combatLog = { registered = false, seen = 0, hidden = 0 }
+
+local function OnCombatLog()
+    if not CombatLogGetCurrentEventInfo then return end
+    local ok, _, sub, _, _, _, _, _, destGUID, destName = pcall(CombatLogGetCurrentEventInfo)
+    if not ok then return end
+    SC.combatLog.seen = SC.combatLog.seen + 1
+    if sub ~= "UNIT_DIED" and sub ~= "PARTY_KILL" then return end
+    local name = SC.Plain(destName)
+    if not name then SC.combatLog.hidden = SC.combatLog.hidden + 1; return end
+    if not SC.char.mobs[name] then return end
+    -- The combat log has the real time of death, so it's exact even if the
+    -- mob was never seen alive.
+    local _, spawn = SC.ParseGUID(destGUID)
+    SC.Observe(name, "D", spawn, nil, "you", { approx = false })
+end
+
+if SC.EventValid("COMBAT_LOG_EVENT_UNFILTERED") then
+    SC.combatLog.registered = SC.On("COMBAT_LOG_EVENT_UNFILTERED", OnCombatLog)
+end
 
 SC.On("NAME_PLATE_UNIT_ADDED", function(unit)
     plates[unit] = true

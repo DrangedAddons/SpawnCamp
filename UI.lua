@@ -1,25 +1,30 @@
 -- SpawnCamp window. Always on screen:
 --
---   [icon] SpawnCamp                                   [gear] [x]
---   Key: F   attack: Moonfire
---   [ mob name...      ] [Add] [Current Target] [Nearby]
---   (portrait) Big Name                     [Attack] [Talk]
+--   [icon] SpawnCamp                                         [gear] [x]
+--   Key [ F ] [Clear]                       works on your target below
+--   [ type or paste a mob name ] [Add] [My Target] [Nearby]
+--   TARGET
+--   (portrait) Mechanized Sentry            [Attack] [Talk] [Clear]
 --              dead 2:05, due in 2:55
+--   RECENT
+--   (p) Other Mob      up, seen 0:12 ago                          [x]
 --
--- Attack and Talk are a pressed/raised pair per mob: the pressed one says what
--- the key does to it. Clicking a name opens its details (respawn times,
--- history, alarms); the gear opens the settings.
+-- The key works on the selected target only; with none it does nothing.
+-- Attack / Talk are a pressed/raised pair; right-click either for its options.
+-- Click a Recent mob to make it the target, right-click it (or click the
+-- target's name) for its respawn log, which opens beside the window. The gear
+-- holds general settings.
 
 local ADDON, SC = ...
 
 local F
 local ui = {}
-local rowOffset, histOffset = 0, 0
-local MAX_ROWS, HIST_ROWS = 10, 10
-local ROW_H = 40
-local W_COMPACT, W_PANEL = 420, 440
-local PANEL_H = { mob = 330, settings = 482 }
-local capturing     -- the settings table whose key is being set, or nil
+local recentOffset, histOffset = 0, 0
+local RECENT_ROWS, HIST_ROWS = 8, 10
+local RECENT_H = 26
+local W = 470
+local PANEL_H = { settings = 112 }
+local capturing     -- { settings = table with .key, button = key button } while setting a key
 
 -- The game's sword and chat cursors, tinted gold on the buttons.
 local SWORD = "Interface\\CURSOR\\Attack"
@@ -139,6 +144,21 @@ local function Header(parent, text, y)
     return fs
 end
 
+local function Popup(name, w, h, title)
+    local p = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
+    p:SetSize(w, h)
+    p:SetFrameStrata("DIALOG")
+    p:EnableMouse(true)
+    Backdrop(p, 0.95)
+    Text(p, title, 10, -10, "GameFontNormal")
+    local close = CreateFrame("Button", nil, p, "UIPanelCloseButton")
+    close:SetSize(22, 22)
+    close:SetPoint("TOPRIGHT", -1, -1)
+    p:Hide()
+    tinsert(UISpecialFrames, name)
+    return p
+end
+
 ------------------------------------------------------------------------------
 -- Spell field
 ------------------------------------------------------------------------------
@@ -193,9 +213,9 @@ local function SetKey(key)
     StopCapture()
 end
 
-local function KeyButton(parent, x, y, settings, what)
+local function KeyButton(parent, x, y, settings)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    b:SetSize(140, 22)
+    b:SetSize(130, 22)
     b:SetPoint("TOPLEFT", x, y)
     b:RegisterForClicks("AnyUp")
     b.settings = settings
@@ -204,7 +224,7 @@ local function KeyButton(parent, x, y, settings, what)
             if capturing.button == self and MOUSE_KEYS[button] then SetKey(MOUSE_KEYS[button]) else StopCapture() end
             return
         end
-        if InCombatLockdown() then SC.Print("set keys out of combat"); return end
+        if InCombatLockdown() then SC.Print("set the key out of combat"); return end
         capturing = { settings = settings, button = self }
         self:SetText("|cffffd100press a key...|r")
         self:EnableKeyboard(true)
@@ -218,13 +238,7 @@ local function KeyButton(parent, x, y, settings, what)
     end)
     b:EnableKeyboard(false)
     b:SetScript("OnHide", function(self) if capturing and capturing.button == self then StopCapture() end end)
-    Tip(b, what, "Click, then press a key (Shift/Ctrl/Alt combos work) or mouse button 3-5. Escape cancels. The key only takes over while some mob has a sword or bubble.")
-    local clear = Btn(parent, "Clear", 50, x + 144, y, function()
-        settings.key = ""
-        SC.ApplyBindings()
-        SC.Refresh()
-    end)
-    b.clear = clear
+    Tip(b, "SpawnCamp key", "Click, then press a key (Shift/Ctrl/Alt combos work) or mouse button 3-5. Escape cancels. It only takes over while you have a target selected.")
     table.insert(ui.keys, b)
     return b
 end
@@ -247,71 +261,6 @@ local BAR = {
 }
 
 ------------------------------------------------------------------------------
--- Mode toggles
-------------------------------------------------------------------------------
-
-local function OpenSettings()
-    SC.char.panel = "settings"
-    SC.Refresh()
-end
-
--- Pressed/raised pair: clicking the pressed one does nothing.
-local function SetMode(mob, mode)
-    if not mob or mob.mode == mode then return end
-    mob.mode = mode
-    mob.hunting = true
-    SC.ApplyBindings()
-    SC.Refresh()
-end
-
--- Attack / Talk buttons: the game's red panel button with gold trim, a gold
--- icon and gold text. Pressed = the "down" art with the face nudged in.
-local MODE_W, MODE_H = 82, 26
-local PANEL_TC = { 0, 0.625, 0, 0.6875 }
-
-local function ModeButton(parent, icon, label, onClick, title, body)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetSize(MODE_W, MODE_H)
-    local function art(path)
-        local t = b:CreateTexture(nil, "BACKGROUND")
-        t:SetAllPoints()
-        t:SetTexture(path)
-        t:SetTexCoord(unpack(PANEL_TC))
-        return t
-    end
-    b.up = art("Interface\\Buttons\\UI-Panel-Button-Up")
-    b.down = art("Interface\\Buttons\\UI-Panel-Button-Down")
-    b:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight", "ADD")
-    b:GetHighlightTexture():SetTexCoord(unpack(PANEL_TC))
-    b.icon = b:CreateTexture(nil, "ARTWORK")
-    b.icon:SetSize(MODE_H - 8, MODE_H - 8)
-    b.icon:SetTexture(icon)
-    b.icon:SetDesaturated(true)
-    b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    b.text:SetText(label)
-    b:SetScript("OnClick", Safe(onClick))
-    Tip(b, title, body)
-    return b
-end
-
-local function SetPressed(b, pressed)
-    b.up:SetShown(not pressed)
-    b.down:SetShown(pressed)
-    local o = pressed and 1 or 0
-    b.icon:ClearAllPoints()
-    b.icon:SetPoint("LEFT", 8 + o, -o)
-    b.text:ClearAllPoints()
-    b.text:SetPoint("LEFT", b.icon, "RIGHT", 3, 0)
-    if pressed then
-        b.icon:SetVertexColor(1, 0.82, 0)
-        b.text:SetTextColor(1, 0.82, 0)
-    else
-        b.icon:SetVertexColor(0.6, 0.5, 0.3)
-        b.text:SetTextColor(0.65, 0.55, 0.35)
-    end
-end
-
-------------------------------------------------------------------------------
 -- Portraits: the game draws a unit's portrait only while the unit exists, so
 -- each mob's is captured whenever it's seen (target, nameplate, mouseover) and
 -- kept for the session. Until then a question mark.
@@ -319,40 +268,190 @@ end
 
 local portraits = {}   -- mob name -> frame
 
+-- Until a real portrait is captured: an icon for the creature type (saved the
+-- first time the mob is seen), else one for its action.
+local TYPE_ICON = {
+    Beast = "Ability_Hunter_Pet_Wolf",
+    Humanoid = "INV_Misc_Head_Human_01",
+    Undead = "INV_Misc_Bone_HumanSkull_01",
+    Demon = "Spell_Shadow_SummonFelHunter",
+    Elemental = "Spell_Nature_EarthElemental_Totem",
+    Dragonkin = "INV_Misc_Head_Dragon_01",
+    Giant = "Ability_Warrior_BattleShout",
+    Mechanical = "INV_Gizmo_02",
+    Critter = "Ability_Hunter_Pet_Rat",
+    Aberration = "Spell_Shadow_UnholyFrenzy",
+}
+
+local function DefaultIcon(name)
+    local m = SC.char.mobs[name]
+    local icon = m and m.ctype and TYPE_ICON[m.ctype]
+    if not icon then icon = (m and m.mode == "interact") and "INV_Scroll_03" or "INV_Sword_04" end
+    return "Interface\\Icons\\" .. icon
+end
+
 local function Portrait(name)
     local p = portraits[name]
     if p then return p end
     p = CreateFrame("Frame", nil, F)
     p.tex = p:CreateTexture(nil, "ARTWORK")
     p.tex:SetAllPoints()
-    p.tex:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    p.tex:SetTexture(DefaultIcon(name))
     pcall(function()
         local mask = p:CreateMaskTexture()
         mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
         mask:SetAllPoints(p.tex)
         p.tex:AddMaskTexture(mask)
     end)
-    p.ring = p:CreateTexture(nil, "OVERLAY")
-    p.ring:SetPoint("TOPLEFT", -3, 3)
-    p.ring:SetPoint("BOTTOMRIGHT", 3, -3)
-    p.ring:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-    p.ring:SetTexCoord(0, 0.6, 0, 0.6)
-    p.ring:Hide()
     portraits[name] = p
     return p
 end
 
 function SC.CapturePortrait(name, unit)
-    if not F or not SC.char.mobs[name] then return end
+    local m = SC.char.mobs[name]
+    if not m then return end
+    local ok, ctype = pcall(UnitCreatureType, unit)
+    ctype = ok and SC.Plain(ctype)
+    if ctype then m.ctype = ctype end
+    if not F then return end
     local p = Portrait(name)
     local now = GetTime()
     if p.at and now - p.at < 15 then return end
     if pcall(SetPortraitTexture, p.tex, unit) then p.at = now end
 end
 
+local function PlacePortrait(name, holder)
+    local p = Portrait(name)
+    if not p.at then p.tex:SetTexture(DefaultIcon(name)) end
+    p:SetParent(holder)
+    p:ClearAllPoints()
+    p:SetAllPoints(holder)
+    p:Show()
+    holder.portrait = p
+end
 
 ------------------------------------------------------------------------------
--- Build: header, key line, mob rows
+-- Attack / Talk buttons: big square red buttons with a gold icon, no text.
+-- A pressed/raised pair: pressed = darker red, bright gold border, full gold
+-- icon nudged in; raised = plain red, dull border, dimmer icon. Clicking the
+-- pressed one does nothing. Right-click opens that action's options.
+------------------------------------------------------------------------------
+
+local MODE_SIZE = 46
+
+local function Gradient(tex, top, bottom)
+    tex:SetColorTexture(1, 1, 1, 1)
+    local ok = CreateColor and pcall(tex.SetGradient, tex, "VERTICAL",
+        CreateColor(bottom[1], bottom[2], bottom[3], 1), CreateColor(top[1], top[2], top[3], 1))
+    if not ok then tex:SetColorTexture(top[1], top[2], top[3], 1) end
+end
+
+local function ModeButton(parent, icon, onLeft, onRight, title, body)
+    local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    b:SetSize(MODE_SIZE, MODE_SIZE)
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    b:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 2 })
+    b.fill = b:CreateTexture(nil, "BACKGROUND")
+    b.fill:SetPoint("TOPLEFT", 2, -2)
+    b.fill:SetPoint("BOTTOMRIGHT", -2, 2)
+    b.shine = b:CreateTexture(nil, "BORDER")
+    b.shine:SetPoint("TOPLEFT", 2, -2)
+    b.shine:SetPoint("TOPRIGHT", -2, -2)
+    b.shine:SetHeight(MODE_SIZE * 0.4)
+    b.shine:SetColorTexture(1, 1, 1, 0.08)
+    b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
+    b:GetHighlightTexture():SetVertexColor(1, 0.8, 0.3, 0.12)
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetSize(MODE_SIZE - 14, MODE_SIZE - 14)
+    b.icon:SetTexture(icon)
+    b.icon:SetDesaturated(true)
+    b:SetScript("OnClick", Safe(function(self, button)
+        if button == "RightButton" then onRight(self) else onLeft(self) end
+    end))
+    Tip(b, title, body)
+    return b
+end
+
+local function SetPressed(b, pressed)
+    b.icon:ClearAllPoints()
+    if pressed then
+        Gradient(b.fill, { 0.42, 0.04, 0.02 }, { 0.62, 0.08, 0.04 })
+        b:SetBackdropBorderColor(1, 0.82, 0.1, 1)
+        b.shine:Hide()
+        b.icon:SetPoint("CENTER", 1, -1)
+        b.icon:SetVertexColor(1, 0.84, 0.1)
+        b.icon:SetAlpha(1)
+    else
+        Gradient(b.fill, { 0.82, 0.14, 0.08 }, { 0.5, 0.06, 0.03 })
+        b:SetBackdropBorderColor(0.5, 0.36, 0.1, 1)
+        b.shine:Show()
+        b.icon:SetPoint("CENTER", 0, 0)
+        b.icon:SetVertexColor(0.85, 0.7, 0.35)
+        b.icon:SetAlpha(0.7)
+    end
+end
+local function SetMode(mode)
+    local mob = SC.Active()
+    if not mob or mob.mode == mode then return end
+    mob.mode = mode
+    SC.ApplyBindings()
+    SC.Refresh()
+end
+
+------------------------------------------------------------------------------
+-- Attack and Talk options (right-click popups)
+------------------------------------------------------------------------------
+
+local AP, TP, N, LP
+
+local function HideSidePanels(except)
+    for _, p in ipairs({ AP, TP, N, LP }) do
+        if p and p ~= except then p:Hide() end
+    end
+end
+
+local function ShowBeside(p)
+    HideSidePanels(p)
+    p:ClearAllPoints()
+    p:SetPoint("TOPLEFT", F, "TOPRIGHT", 2, 0)
+    p:SetShown(not p:IsShown())
+    SC.Refresh()
+end
+
+local function BuildAttackPopup()
+    local A = SC.char.attack
+    AP = Popup("SpawnCampAttackOptions", 330, 170, "Attack  |T" .. SWORD .. ":14|t")
+    Text(AP, "Spell", 10, -38)
+    ui.spell = Edit(AP, 150, 44, -34, function(t)
+        A.spell = strtrim(t)
+        SC.ApplyBindings()
+    end)
+    ui.spell:SetScript("OnReceiveDrag", TakeDroppedSpell)
+    ui.spell:HookScript("OnMouseDown", TakeDroppedSpell)
+    Text(AP, "drag from your spellbook;\nempty = auto attack", 210, -34)
+    ui.spellNote = Text(AP, "", 50, -58)
+    Text(AP, "Or your own macro lines (replace the spell; run after targeting):", 10, -78)
+    ui.macroEdit = BigEdit(AP, 310, 66, 10, -94, 800, function(t) A.macro = t end)
+end
+
+local function BuildTalkPopup()
+    local I = SC.char.interact
+    TP = Popup("SpawnCampTalkOptions", 330, 236, "Talk  |T" .. BUBBLE .. ":14|t")
+    Check(TP, "Hand in and accept quests (follow-ups too)", 6, -30,
+        function() return I.autoQuest end, function(v) I.autoQuest = v end)
+    Check(TP, "Click through chat", 6, -52,
+        function() return I.gossip end, function(v) I.gossip = v end,
+        "Picks a chat option for you: one matching the list below if there is one, otherwise the first option.")
+    Text(TP, "Prefer chat options containing (one per line, optional):", 10, -82)
+    ui.prefer = BigEdit(TP, 310, 46, 10, -98, 600, function(t) I.prefer = t end)
+    Text(TP, "Quest reward", 10, -158)
+    ui.reward = Edit(TP, 30, 84, -154, function(t) I.reward = tonumber(t) or 0 end, true)
+    Text(TP, "when a quest offers a choice: 1 = first,\n2 = second... Empty = I pick.", 130, -154)
+    Text(TP, "Hold Shift while talking to do a window yourself.", 10, -200)
+end
+
+------------------------------------------------------------------------------
+-- Build: header, key row, add row, target, recent
 ------------------------------------------------------------------------------
 
 local function SavePos()
@@ -360,18 +459,19 @@ local function SavePos()
     SC.char.framePos = { p, rp, x, y }
 end
 
-local function BuildHeader()
+local function BuildTop()
     local icon = F:CreateTexture(nil, "ARTWORK")
     icon:SetSize(16, 16)
     icon:SetPoint("TOPLEFT", 6, -5)
     icon:SetTexture(SC.ICON)
-    Text(F, "SpawnCamp", 26, -7, "GameFontNormalSmall")
+    Text(F, "SpawnCamp", 26, -7, "GameFontNormal")
 
     local close = CreateFrame("Button", nil, F, "UIPanelCloseButton")
     close:SetSize(22, 22)
     close:SetPoint("TOPRIGHT", -1, -1)
     close:SetScript("OnClick", function()
         SC.char.shown = false
+        HideSidePanels()
         SC.Print("hidden. /spawncamp (or the minimap button) brings it back.")
         SC.Refresh()
     end)
@@ -385,26 +485,22 @@ local function BuildHeader()
         SC.char.panel = SC.char.panel ~= "settings" and "settings" or nil
         SC.Refresh()
     end)
-    Tip(gear, "Settings", "Your SpawnCamp key, the attack spell, and how talking works.")
+    Tip(gear, "Settings", "Sharing, sound, and the list.")
 
-    -- Key summary; clicking it opens the settings.
-    local keys = CreateFrame("Button", nil, F)
-    keys:SetPoint("TOPLEFT", 8, -24)
-    keys:SetPoint("RIGHT", F, "RIGHT", -8, 0)
-    keys:SetHeight(14)
-    ui.keyLine = keys:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    ui.keyLine:SetAllPoints()
-    ui.keyLine:SetJustifyH("LEFT")
-    ui.keyLine:SetWordWrap(false)
-    keys:SetScript("OnClick", OpenSettings)
-    Tip(keys, "Your key", "One key for every mob: the sword or bubble on each line says what it does. Click to change it.")
+    -- Key row
+    Text(F, "Key", 10, -34, "GameFontNormal")
+    KeyButton(F, 40, -29, SC.char)
+    local clearKey = Btn(F, "Unassign", 70, 174, -29, function()
+        SC.char.key = ""
+        SC.ApplyBindings()
+        SC.Refresh()
+    end)
+    Tip(clearKey, "Unassign", "Removes the key. Your normal binding for it comes back.")
+    ui.keyNote = Text(F, "", 250, -34)
+    ui.keyNote:SetWidth(210)
 
-    -- Add row: type or paste a name, or take your target, or pick from Nearby.
-    local add = CreateFrame("Frame", nil, F)
-    add:SetPoint("TOPLEFT", 4, -40)
-    add:SetPoint("RIGHT", F, "RIGHT", -4, 0)
-    add:SetHeight(24)
-    ui.addName = Edit(add, 150, 0, -2, function() end)
+    -- Add row
+    ui.addName = Edit(F, 150, 4, -56, function() end)
     local hint = ui.addName:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     hint:SetPoint("LEFT", 2, 0)
     hint:SetText("type or paste a mob name")
@@ -423,72 +519,118 @@ local function BuildHeader()
     end
     ui.addName:SetScript("OnEnterPressed", addTyped)
     ui.addName:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    local addBtn = Btn(add, "Add", 44, 162, -2, addTyped)
-    Tip(addBtn, "Add", "Adds the name in the box. Use the exact name the game shows.")
-    local cur = Btn(add, "Current Target", 104, 208, -2, function() SC.AddTarget(); SC.Refresh() end)
-    Tip(cur, "Current Target", "Adds the mob you have targeted: Attack if it's hostile, Talk if it's friendly.")
-    local near = Btn(add, "Nearby", 64, 314, -2, function() SC.ToggleNearby() end)
-    Tip(near, "Nearby", "Lists mobs around you, with a button to add each one.")
+    Tip(Btn(F, "Add", 44, 166, -56, addTyped), "Add", "Makes the typed name your target. Use the exact name the game shows.")
+    Tip(Btn(F, "My Target", 84, 212, -56, function() SC.AddTarget(); SC.Refresh() end),
+        "My Target", "Makes the mob you have targeted in game your SpawnCamp target: Attack if hostile, Talk if friendly.")
+    Tip(Btn(F, "Nearby", 64, 298, -56, function() SC.ToggleNearby() end),
+        "Nearby", "Lists mobs around you, with a button to use each one.")
 end
 
-local function BuildRows()
-    ui.rows = {}
-    for i = 1, MAX_ROWS do
-        -- [portrait] Big Name               [sword] [bubble]
-        --            status / timer (bar behind)
+local function BuildTarget()
+    local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
+    T:SetPoint("TOPLEFT", 6, -84)
+    T:SetPoint("RIGHT", F, "RIGHT", -6, 0)
+    T:SetHeight(60)
+    Backdrop(T, 0.6)
+    T:SetBackdropBorderColor(1, 0.82, 0, 0.6)
+    ui.target = T
+
+    ui.tPortrait = CreateFrame("Frame", nil, T)
+    ui.tPortrait:SetSize(48, 48)
+    ui.tPortrait:SetPoint("LEFT", 6, 0)
+
+    local nameBtn = CreateFrame("Button", nil, T)
+    nameBtn:SetPoint("TOPLEFT", ui.tPortrait, "TOPRIGHT", 6, 0)
+    nameBtn:SetSize(220, 48)
+    nameBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    ui.tName = nameBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    ui.tName:SetPoint("TOPLEFT", 0, -4)
+    ui.tName:SetPoint("RIGHT", 0, 0)
+    ui.tName:SetJustifyH("LEFT")
+    ui.tName:SetWordWrap(false)
+    ui.tStatus = nameBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    ui.tStatus:SetPoint("BOTTOMLEFT", 0, 4)
+    ui.tStatus:SetPoint("RIGHT", 0, 0)
+    ui.tStatus:SetJustifyH("LEFT")
+    ui.tStatus:SetWordWrap(false)
+    nameBtn:SetScript("OnClick", function()
+        local m = SC.Active(); if m then SC.OpenLog(m.name) end
+    end)
+    Tip(nameBtn, "Respawn log", "Click for this mob's respawn times, full history and alarms, beside the window.")
+    ui.tNameBtn = nameBtn
+
+    ui.clearTarget = Btn(T, "Clear", 54, 0, 0, function()
+        SC.SetActive(nil)
+    end)
+    ui.clearTarget:ClearAllPoints()
+    ui.clearTarget:SetPoint("RIGHT", -6, 0)
+    Tip(ui.clearTarget, "Clear target", "Your key stops doing anything until you pick a target again. The mob stays in Recent.")
+    ui.talk = ModeButton(T, BUBBLE, function() SetMode("interact") end, function() ShowBeside(TP) end,
+        "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests.\n|cffffd100Right-click|r for the chat and quest options.")
+    ui.talk:SetPoint("RIGHT", ui.clearTarget, "LEFT", -8, 0)
+    ui.attack = ModeButton(T, SWORD, function() SetMode("attack") end, function() ShowBeside(AP) end,
+        "Attack", "Your key targets this mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro.")
+    ui.attack:SetPoint("RIGHT", ui.talk, "LEFT", -6, 0)
+
+    ui.tEmpty = Text(T, "No target. Your key does nothing until you add one\nor pick one from Recent.", 10, -12, "GameFontHighlight")
+end
+
+local function BuildRecent()
+    ui.recentHeader = Header(F, "Recent", 0)
+    ui.recent = {}
+    for i = 1, RECENT_ROWS do
         local r = CreateFrame("Button", nil, F)
-        r:SetHeight(ROW_H - 2)
+        r:SetHeight(RECENT_H - 2)
+        r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         r.bg = r:CreateTexture(nil, "BACKGROUND")
         r.bg:SetAllPoints()
-        r.portraitHolder = CreateFrame("Frame", nil, r)
-        r.portraitHolder:SetSize(ROW_H - 4, ROW_H - 4)
-        r.portraitHolder:SetPoint("LEFT", 2, 0)
+        r.bg:SetColorTexture(1, 1, 1, 0.04)
         r.bar = CreateFrame("StatusBar", nil, r)
-        r.bar:SetPoint("BOTTOMLEFT", r.portraitHolder, "BOTTOMRIGHT", 4, 1)
-        r.bar:SetPoint("RIGHT", r, "RIGHT", -(MODE_W * 2 + 14), 0)
-        r.bar:SetHeight(14)
+        r.bar:SetPoint("TOPLEFT", RECENT_H, 0)
+        r.bar:SetPoint("BOTTOMRIGHT", -22, 0)
         r.bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
         r.bar:SetMinMaxValues(0, 1)
-        r.name = r:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        r.name:SetPoint("TOPLEFT", r.portraitHolder, "TOPRIGHT", 6, -1)
-        r.name:SetPoint("RIGHT", r.bar, "RIGHT", 0, 0)
+        r.holder = CreateFrame("Frame", nil, r)
+        r.holder:SetSize(RECENT_H - 4, RECENT_H - 4)
+        r.holder:SetPoint("LEFT", 1, 0)
+        r.name = r.bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        r.name:SetPoint("LEFT", 4, 0)
+        r.name:SetWidth(170)
         r.name:SetJustifyH("LEFT")
         r.name:SetWordWrap(false)
         r.status = r.bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        r.status:SetPoint("LEFT", 3, 0)
-        r.status:SetPoint("RIGHT", -3, 0)
+        r.status:SetPoint("LEFT", r.name, "RIGHT", 4, 0)
+        r.status:SetPoint("RIGHT", -4, 0)
         r.status:SetJustifyH("LEFT")
         r.status:SetWordWrap(false)
-        r.talk = ModeButton(r, BUBBLE, "Talk", function() SetMode(SC.char.mobs[r.mobName], "interact") end,
-            "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests.")
-        r.talk:SetPoint("RIGHT", -4, 0)
-        r.sword = ModeButton(r, SWORD, "Attack", function() SetMode(SC.char.mobs[r.mobName], "attack") end,
-            "Attack", "Your key targets this mob and casts your attack spell.")
-        r.sword:SetPoint("RIGHT", r.talk, "LEFT", -4, 0)
+        r.x = CreateFrame("Button", nil, r)
+        r.x:SetSize(18, 18)
+        r.x:SetPoint("RIGHT", -2, 0)
+        r.x:SetNormalFontObject("GameFontRed")
+        r.x:SetText("x")
+        r.x:SetScript("OnClick", function() SC.RemoveMob(r.mobName) end)
+        Tip(r.x, "Remove", "Removes it from Recent. Its sighting history is kept.")
         r:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
-        r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
+        r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
+        r:SetScript("OnClick", Safe(function(self, button)
+            if button == "RightButton" then
+                SC.OpenLog(self.mobName)
+            else
+                SC.SetActive(self.mobName)
+            end
+        end))
+        Tip(r, "Recent target", "|cffffd100Click|r to make it your target.\n|cffffd100Right-click|r for its respawn log.")
+        r:EnableMouseWheel(true)
+        r:SetScript("OnMouseWheel", function(_, d)
+            recentOffset = math.max(0, recentOffset - d)
+            SC.Refresh()
+        end)
         r:RegisterForDrag("LeftButton")
         r:SetScript("OnDragStart", function() if not SC.char.locked then F:StartMoving() end end)
         r:SetScript("OnDragStop", function() F:StopMovingOrSizing(); SavePos() end)
-        r:SetScript("OnClick", function(self)
-            if SC.char.panel == "mob" and SC.char.selected == self.mobName then
-                SC.char.panel = nil
-            else
-                SC.char.selected = self.mobName
-                SC.char.panel = "mob"
-                histOffset = 0
-            end
-            SC.Refresh()
-        end)
-        Tip(r, "Details", "Click for respawn times, history and alarms.")
-        r:EnableMouseWheel(true)
-        r:SetScript("OnMouseWheel", function(_, d)
-            rowOffset = math.max(0, math.min(rowOffset - d, #SC.char.order - MAX_ROWS))
-            SC.Refresh()
-        end)
-        ui.rows[i] = r
+        ui.recent[i] = r
     end
-    ui.hint = Text(F, "No mobs yet: type a name, use |cffffd100Current Target|r, or pick from |cffffd100Nearby|r.", 10, 0)
+    ui.recentEmpty = Text(F, "Mobs you've targeted show up here.", 10, 0, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------
@@ -500,16 +642,17 @@ local function Sel()
     return n and SC.char.mobs[n]
 end
 
-local function BuildMobPanel(P)
+local function BuildLogPopup()
+    LP = Popup("SpawnCampLog", 460, 352, "Respawn log")
+    local P = CreateFrame("Frame", nil, LP)
+    P:SetPoint("TOPLEFT", 0, -22)
+    P:SetSize(460, 330)
     ui.mobName = Text(P, "", 8, -8, "GameFontNormalLarge")
-    ui.mobName:SetWidth(300)
-    Btn(P, "Remove", 70, 352, -6, function()
-        local m = Sel(); if m then SC.RemoveMob(m.name) end
-    end)
+    ui.mobName:SetWidth(400)
     ui.status = Text(P, "", 8, -32, "GameFontNormal")
-    ui.status:SetWidth(420)
+    ui.status:SetWidth(440)
     ui.stats = Text(P, "", 8, -50)
-    ui.stats:SetWidth(420)
+    ui.stats:SetWidth(440)
 
     Check(P, "Alert when it spawns", 4, -66,
         function() local m = Sel(); return m and m.alertSpawn end,
@@ -548,7 +691,7 @@ local function BuildMobPanel(P)
     ui.hist = {}
     for i = 1, HIST_ROWS do
         local r = CreateFrame("Frame", nil, P)
-        r:SetSize(416, 16)
+        r:SetSize(440, 16)
         r:SetPoint("TOPLEFT", 6, -164 - (i - 1) * 16)
         r.text = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         r.text:SetPoint("LEFT", 2, 0)
@@ -575,70 +718,27 @@ local function BuildMobPanel(P)
 end
 
 ------------------------------------------------------------------------------
--- Build: settings panel
+-- Build: settings panel (general)
 ------------------------------------------------------------------------------
 
-
 local function BuildSettings(P)
-    local A, I = SC.char.attack, SC.char.interact
-
-    -- Key
-    local y = -8
-    Header(P, "Key", y)
-    Text(P, "Key", 8, y - 24)
-    KeyButton(P, 60, y - 20, SC.char, "SpawnCamp key")
-    Text(P, "One key for every mob. The sword or bubble on a mob\nsays what the key does to it.", 8, y - 46)
-
-    -- Attack
-    y = -78
-    Header(P, "Attack  |TInterface\\CURSOR\\Attack:14|t", y)
-    Text(P, "Spell", 8, y - 24)
-    ui.spell = Edit(P, 160, 54, y - 20, function(t)
-        A.spell = strtrim(t)
-        SC.ApplyBindings()
-    end)
-    ui.spell:SetScript("OnReceiveDrag", TakeDroppedSpell)
-    ui.spell:HookScript("OnMouseDown", TakeDroppedSpell)
-    Text(P, "drag one from your spellbook;\nempty = auto attack", 230, y - 20)
-    ui.spellNote = Text(P, "", 60, y - 44)
-    Text(P, "Custom attack lines (optional, replace the spell lines; run after targeting):", 8, y - 62)
-    ui.macroEdit = BigEdit(P, 420, 54, 8, y - 78, 800, function(t)
-        A.macro = t
-    end)
-
-    -- Talk
-    y = -222
-    Header(P, "Talk  |TInterface\\CURSOR\\Speak:14|t", y)
-    Check(P, "Hand in and accept quests (follow-ups too)", 4, y - 16,
-        function() return I.autoQuest end, function(v) I.autoQuest = v end)
-    Check(P, "Click through chat", 4, y - 38,
-        function() return I.gossip end, function(v) I.gossip = v end,
-        "Picks a chat option for you: one matching the Prefer list below if there is one, otherwise the first option.")
-    Text(P, "Prefer chat options containing (one per line, optional):", 8, y - 66)
-    ui.prefer = BigEdit(P, 270, 46, 8, y - 82, 600, function(t) I.prefer = t end)
-    Text(P, "Quest reward", 290, y - 84)
-    ui.reward = Edit(P, 30, 370, y - 80, function(t) I.reward = tonumber(t) or 0 end, true)
-    Text(P, "When a quest offers a\nchoice: 1 = first, 2 =\nsecond... Empty = I pick.", 290, y - 104)
-    Text(P, "Hold Shift while talking to do it yourself.", 8, y - 136)
-
-    -- General
-    y = -380
-    Header(P, "General", y)
-    Text(P, "Share sightings with:", 8, y - 22)
+    Header(P, "Settings", -8)
+    Text(P, "Share sightings with:", 8, -30)
     local tip = "Sends spawns and deaths you see to other SpawnCamp users there, and logs theirs for mobs you watch."
-    Check(P, "Party", 130, y - 16,
+    Check(P, "Party", 130, -24,
         function() return SC.char.shareParty end, function(v) SC.char.shareParty = v end, tip)
-    Check(P, "Raid", 200, y - 16,
+    Check(P, "Raid", 200, -24,
         function() return SC.char.shareRaid end, function(v) SC.char.shareRaid = v end, tip)
-    Check(P, "Guild", 266, y - 16,
+    Check(P, "Guild", 266, -24,
         function() return SC.char.shareGuild end, function(v) SC.char.shareGuild = v end, tip)
-    Check(P, "Show mobs I've already killed", 4, y - 40,
+    Check(P, "Show mobs I've already killed", 4, -48,
         function() return SC.char.showDone end, function(v) SC.char.showDone = v end,
-        "When you get the kill on a mob, it comes off your key and is marked \"got\". Ticked, it stays on the list; unticked, it's hidden.")
-    Check(P, "Sound with alerts", 230, y - 40,
+        "When you get the kill on a mob it's marked \"got\" in Recent. Ticked, it stays listed; unticked, it's hidden.")
+    Check(P, "Sound with alerts", 240, -48,
         function() return SC.char.sound end, function(v) SC.char.sound = v end)
-    Check(P, "Lock window", 4, y - 62,
+    Check(P, "Lock window", 4, -72,
         function() return SC.char.locked end, function(v) SC.char.locked = v end)
+    Text(P, "Right-click Attack or Talk for their options.", 240, -78, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------
@@ -646,13 +746,12 @@ end
 ------------------------------------------------------------------------------
 
 local NEAR_ROWS = 16
-local N
 
 local CLASS_TAG = { worldboss = "|cffff4040boss|r", rareelite = "|cffd0d0ffrare elite|r",
                     rare = "|cffd0d0ffrare|r", elite = "|cffffd100elite|r" }
 
-local EMPTY_TEXT = "Nothing yet. The list fills from what your game\nalready shows: nameplates, your target and\nyour mouseover.\n\nTurn on nameplates (V = enemies, Shift-V =\nfriendly NPCs), or mouse over a mob, then\npress Scan now.\n\nObjects (chests, quest items) have no nameplate:\nuse + and type the name."
-local HIDDEN_TEXT = "|cffff8040The game hides NPC names here|r\n(dungeons do), so they can't be listed.\n\nUse + and type the name exactly as your\ntarget frame shows it."
+local EMPTY_TEXT = "Nothing yet. The list fills from what your game\nalready shows: nameplates, your target and\nyour mouseover.\n\nTurn on nameplates (V = enemies, Shift-V =\nfriendly NPCs), or mouse over a mob, then\npress Scan now.\n\nObjects (chests, quest items) have no nameplate:\ntype their name instead."
+local HIDDEN_TEXT = "|cffff8040The game hides NPC names here|r\n(dungeons do), so they can't be listed.\n\nType the name exactly as your target\nframe shows it."
 
 local function RefreshNearby()
     if not (N and N:IsShown()) then return end
@@ -672,10 +771,10 @@ local function RefreshNearby()
             if ago > 3 then bits[#bits + 1] = "|cff999999" .. SC.Clock(ago) .. " ago|r" end
             r.name:SetText(color .. item.name .. "|r")
             r.info:SetText(table.concat(bits, " "))
-            local have = SC.char.mobs[item.name] ~= nil
-            r.watching:SetShown(have)
-            r.add:SetShown(not have)
-            r.mobName, r.hostile = item.name, e.hostile
+            local current = SC.char.active == item.name
+            r.use:SetShown(not current)
+            r.current:SetShown(current)
+            r.mobName, r.hostile, r.ctype = item.name, e.hostile, e.ctype
             r:Show()
         else
             r:Hide()
@@ -687,31 +786,21 @@ local function RefreshNearby()
 end
 
 local function BuildNearby()
-    N = CreateFrame("Frame", nil, F, "BackdropTemplate")
-    N:SetSize(320, 92 + NEAR_ROWS * 18)
-    N:SetPoint("TOPLEFT", F, "TOPRIGHT", 2, 0)
-    Backdrop(N, 0.9)
-    N:EnableMouse(true)
-    Text(N, "Nearby mobs", 8, -8, "GameFontNormal")
-    local scan = Btn(N, "Scan now", 74, 104, -4, function()
+    N = Popup("SpawnCampNearby", 320, 92 + NEAR_ROWS * 18, "Nearby mobs")
+    local scan = Btn(N, "Scan now", 74, 104, -6, function()
         N.report:SetText((SC.ScanNearby()))
         RefreshNearby()
     end)
     Tip(scan, "Scan now", "Reads every nameplate, your target and your mouseover right now. The list also fills by itself a few times a second.")
-    local close = CreateFrame("Button", nil, N, "UIPanelCloseButton")
-    close:SetSize(22, 22)
-    close:SetPoint("TOPRIGHT", -1, -1)
-    N.count = Text(N, "", 8, -28 - NEAR_ROWS * 18 - 4)
-    N.report = Text(N, "", 8, -28 - NEAR_ROWS * 18 - 20)
+    N.count = Text(N, "", 8, -30 - NEAR_ROWS * 18 - 4)
+    N.report = Text(N, "", 8, -30 - NEAR_ROWS * 18 - 20)
     N.report:SetWidth(304)
-    N.empty = Text(N, EMPTY_TEXT, 8, -30)
+    N.empty = Text(N, EMPTY_TEXT, 8, -32)
     N.rows = {}
     for i = 1, NEAR_ROWS do
-        local r = CreateFrame("Button", nil, N)
+        local r = CreateFrame("Frame", nil, N)
         r:SetSize(304, 17)
-        r:SetPoint("TOPLEFT", 8, -28 - (i - 1) * 18)
-        r:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
-        r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
+        r:SetPoint("TOPLEFT", 8, -30 - (i - 1) * 18)
         r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         r.name:SetPoint("LEFT", 2, 0)
         r.name:SetWidth(130)
@@ -722,21 +811,23 @@ local function BuildNearby()
         r.info:SetPoint("RIGHT", -52, 0)
         r.info:SetJustifyH("LEFT")
         r.info:SetWordWrap(false)
-        r.add = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
-        r.add:SetSize(46, 17)
-        r.add:SetPoint("RIGHT", 0, 0)
-        r.add:SetText("Add")
-        r.add:SetScript("OnClick", Safe(function()
-            if not SC.char.mobs[r.mobName] then
-                SC.AddMob(r.mobName, r.hostile == false and "interact" or "attack")
+        r.use = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
+        r.use:SetSize(46, 17)
+        r.use:SetPoint("RIGHT", 0, 0)
+        r.use:SetText("Use")
+        r.use:SetScript("OnClick", Safe(function()
+            if SC.char.mobs[r.mobName] then
+                SC.SetActive(r.mobName)
+            else
+                local m = SC.AddMob(r.mobName, r.hostile == false and "interact" or "attack")
+                if m and r.ctype then m.ctype = r.ctype; SC.Refresh() end
             end
-            SC.Refresh()
             RefreshNearby()
         end))
-        Tip(r.add, "Add this mob", "Hostile ones start on Attack, friendly ones on Talk.")
-        r.watching = r:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        r.watching:SetPoint("RIGHT", -4, 0)
-        r.watching:SetText("added")
+        Tip(r.use, "Use this mob", "Makes it your target. Hostile ones start on Attack, friendly ones on Talk.")
+        r.current = r:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        r.current:SetPoint("RIGHT", -4, 0)
+        r.current:SetText("target")
         r:EnableMouseWheel(true)
         r:SetScript("OnMouseWheel", function(_, d)
             N.offset = (N.offset or 0) - d
@@ -748,13 +839,11 @@ local function BuildNearby()
         N.report:SetText((SC.ScanNearby()))
         RefreshNearby()
     end)
-    N:Hide()
 end
 
 function SC.ToggleNearby()
     if not F then return end
-    if not N then BuildNearby() end
-    N:SetShown(not N:IsShown())
+    ShowBeside(N)
     RefreshNearby()
 end
 
@@ -764,7 +853,7 @@ end
 
 local function Build()
     F = CreateFrame("Frame", "SpawnCampFrame", UIParent, "BackdropTemplate")
-    F:SetSize(W_COMPACT, 60)
+    F:SetSize(W, 200)
     F:SetPoint("TOP", UIParent, "TOP", 0, -160)
     F:SetFrameStrata("MEDIUM")
     F:SetClampedToScreen(true)
@@ -773,17 +862,22 @@ local function Build()
     F:RegisterForDrag("LeftButton")
     F:SetScript("OnDragStart", function(self) if not SC.char.locked then self:StartMoving() end end)
     F:SetScript("OnDragStop", function(self) self:StopMovingOrSizing(); SavePos() end)
-    Backdrop(F, 0.75)
+    Backdrop(F, 0.8)
     local pos = SC.char.framePos
     if pos then
         F:ClearAllPoints()
         F:SetPoint(pos[1], UIParent, pos[2], pos[3], pos[4])
     end
     ui.checks, ui.keys = {}, {}
-    BuildHeader()
-    BuildRows()
+    BuildTop()
+    BuildTarget()
+    BuildRecent()
+    BuildAttackPopup()
+    BuildTalkPopup()
+    BuildNearby()
+    BuildLogPopup()
     ui.panels = {}
-    for id, build in pairs({ mob = BuildMobPanel, settings = BuildSettings }) do
+    for id, build in pairs({ settings = BuildSettings }) do
         local P = CreateFrame("Frame", nil, F, "BackdropTemplate")
         P:SetPoint("LEFT", F, "LEFT", 6, 0)
         P:SetPoint("RIGHT", F, "RIGHT", -6, 0)
@@ -799,61 +893,80 @@ end
 -- Refresh
 ------------------------------------------------------------------------------
 
-local function RefreshKeyLine()
-    local A = SC.char.attack
-    local key = SC.char.key ~= "" and ("|cffffd100" .. SC.char.key .. "|r") or "|cffff6060not set, click to set|r"
-    local spell = A.spell ~= "" and A.spell or "auto attack"
-    if strtrim(A.macro or "") ~= "" then spell = "custom" end
-    ui.keyLine:SetText("Key: " .. key .. "   |cff999999attack: " .. spell .. "|r")
+local function RefreshKey()
+    for _, b in ipairs(ui.keys) do
+        if not (capturing and capturing.button == b) then
+            b:SetText(SC.char.key ~= "" and ("|cffffd100" .. SC.char.key .. "|r") or "Click to set")
+        end
+    end
+    local m = SC.Active()
+    if SC.char.key == "" then
+        ui.keyNote:SetText("|cffff6060No key assigned.|r")
+    elseif not m then
+        ui.keyNote:SetText("|cff999999Does nothing: no target.|r")
+    elseif InCombatLockdown() then
+        ui.keyNote:SetText("|cff999999Changes apply after combat.|r")
+    else
+        ui.keyNote:SetText("|cff40ff40" .. (m.mode == "attack" and "Attacks " or "Talks to ") .. m.name .. ".|r")
+    end
 end
 
-local function RefreshRows(top)
+local function RefreshTarget()
+    local m = SC.Active()
+    local on = m ~= nil
+    for _, w in ipairs({ ui.tPortrait, ui.tNameBtn, ui.attack, ui.talk, ui.clearTarget }) do w:SetShown(on) end
+    ui.tEmpty:SetShown(not on)
+    if not m then return end
+    PlacePortrait(m.name, ui.tPortrait)
+    ui.tName:SetText(m.name)
+    local state, text = SC.Status(m.name)
+    ui.tStatus:SetText(StatusColor(state) .. text .. "|r")
+    SetPressed(ui.attack, m.mode == "attack")
+    SetPressed(ui.talk, m.mode == "interact")
+end
+
+-- Returns the y below the last row.
+local function RefreshRecent(top)
+    ui.recentHeader:ClearAllPoints()
+    ui.recentHeader:SetPoint("TOPLEFT", F, "TOPLEFT", 8, top)
     local list = {}
     for _, n in ipairs(SC.char.order) do
         local m = SC.char.mobs[n]
-        if m and (m.hunting or SC.char.showDone) then list[#list + 1] = n end
+        if m and n ~= SC.char.active and (m.hunting or SC.char.showDone) then list[#list + 1] = n end
     end
-    rowOffset = math.max(0, math.min(rowOffset, #list - MAX_ROWS))
-    for _, p in pairs(portraits) do p:Hide() end
-    local shown = 0
-    for i, r in ipairs(ui.rows) do
-        local n = list[i + rowOffset]
+    recentOffset = math.max(0, math.min(recentOffset, #list - RECENT_ROWS))
+    local y = top - 18
+    for i, r in ipairs(ui.recent) do
+        local n = list[i + recentOffset]
         if n then
             local m = SC.char.mobs[n]
             local state, text, frac = SC.Status(n)
             local c = BAR[state] or BAR.none
             r:ClearAllPoints()
-            r:SetPoint("TOPLEFT", F, "TOPLEFT", 6, top - shown * ROW_H)
+            r:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
             r:SetPoint("RIGHT", F, "RIGHT", -6, 0)
             r.mobName = n
-            r.bar:SetStatusBarColor(c[1], c[2], c[3], 0.55)
+            r.bar:SetStatusBarColor(c[1], c[2], c[3], 0.45)
             r.bar:SetValue((state == "up" or state == "window" or state == "late") and 1 or (frac or 0))
             r.name:SetText(n .. (m.hunting and "" or " |cff40ff40(got)|r"))
-            local p = Portrait(n)
-            p:SetParent(r.portraitHolder)
-            p:ClearAllPoints()
-            p:SetAllPoints(r.portraitHolder)
-            p:Show()
             r.status:SetText(StatusColor(state) .. text .. "|r")
-            SetPressed(r.sword, m.mode == "attack")
-            SetPressed(r.talk, m.mode == "interact")
-            local sel = SC.char.panel == "mob" and n == SC.char.selected
-            r.bg:SetColorTexture(1, 0.6, 0.2, sel and 0.3 or 0.06)
+            PlacePortrait(n, r.holder)
             r:Show()
-            shown = shown + 1
+            y = y - RECENT_H
         else
             r:Hide()
         end
     end
-    ui.hint:ClearAllPoints()
-    ui.hint:SetPoint("TOPLEFT", F, "TOPLEFT", 10, top - 3)
-    ui.hint:SetShown(#list == 0)
-    return math.max(shown, 1)
+    ui.recentEmpty:ClearAllPoints()
+    ui.recentEmpty:SetPoint("TOPLEFT", F, "TOPLEFT", 10, top - 20)
+    ui.recentEmpty:SetShown(#list == 0)
+    if #list == 0 then y = y - 18 end
+    return y
 end
 
 local function RefreshMobPanel()
     local mob = Sel()
-    if not mob then SC.char.panel = nil; return false end
+    if not mob then LP:Hide(); return false end
     ui.mobName:SetText(mob.name)
     local state, text = SC.Status(mob.name)
     ui.status:SetText(StatusColor(state) .. text .. "|r")
@@ -898,16 +1011,13 @@ local function RefreshMobPanel()
     return true
 end
 
-local function RefreshSettings()
+local function RefreshPopups()
     local A, I = SC.char.attack, SC.char.interact
-    for _, b in ipairs(ui.keys) do
-        if not (capturing and capturing.button == b) then
-            b:SetText(b.settings.key ~= "" and b.settings.key or "Click to set")
-        end
-    end
     SetEditText(ui.spell, A.spell)
     local sname, cast = SpellInfo(A.spell)
-    if A.spell == "" then
+    if strtrim(A.macro or "") ~= "" then
+        ui.spellNote:SetText("|cffffd100Your macro lines are used instead of the spell.|r")
+    elseif A.spell == "" then
         ui.spellNote:SetText("|cffccccccNo spell: the key starts auto attack.|r")
     elseif not sname then
         ui.spellNote:SetText("|cffff6060Not a spell you know.|r")
@@ -924,22 +1034,23 @@ end
 function SC.RefreshWindow()
     if not SC.char then return end
     if not SC.char.shown then
-        if F then F:Hide() end
+        if F then F:Hide(); HideSidePanels() end
         return
     end
     if not F then Build() end
     F:Show()
+    for _, p in pairs(portraits) do p:Hide() end
+
+    RefreshKey()
+    RefreshTarget()
+    local y = RefreshRecent(-152)
+    for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
+    RefreshPopups()
 
     local panel = SC.char.panel
-    if panel == "mob" and not Sel() then panel = nil; SC.char.panel = nil end
-    F:SetWidth(panel and W_PANEL or W_COMPACT)
-    RefreshKeyLine()
-
-    local rows = RefreshRows(-68)
-    local top = -68
-    for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
-
-    local height = -top + rows * ROW_H + 6
+    if panel ~= "settings" then panel = nil; SC.char.panel = nil end
+    if LP:IsShown() then RefreshMobPanel() end
+    local height = -y + 6
     for id, P in pairs(ui.panels) do
         if id == panel then
             P:ClearAllPoints()
@@ -950,12 +1061,27 @@ function SC.RefreshWindow()
             P:Hide()
         end
     end
-    if panel == "mob" then RefreshMobPanel() elseif panel == "settings" then RefreshSettings() end
     if panel then height = height + PANEL_H[panel] + 6 end
     F:SetHeight(height)
 end
 
--- Shows the name box (from + when the name can't be read).
+-- Opens the respawn log for a mob beside the window; again for the same mob closes it.
+function SC.OpenLog(name)
+    if not (F and SC.char.mobs[name]) then return end
+    if LP:IsShown() and SC.char.selected == name then
+        LP:Hide()
+        return
+    end
+    SC.char.selected = name
+    histOffset = 0
+    HideSidePanels(LP)
+    LP:ClearAllPoints()
+    LP:SetPoint("TOPLEFT", F, "TOPRIGHT", 2, 0)
+    LP:Show()
+    SC.Refresh()
+end
+
+-- Focuses the name box (when the game hides a target's name).
 function SC.FocusAddName()
     SC.char.shown = true
     SC.Refresh()
