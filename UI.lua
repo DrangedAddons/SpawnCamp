@@ -20,10 +20,10 @@ local ADDON, SC = ...
 local F
 local ui = {}
 local recentOffset, histOffset = 0, 0
-local RECENT_ROWS, HIST_ROWS = 8, 10
-local RECENT_H = 26
+local RECENT_ROWS, HIST_ROWS = 14, 14
+local RECENT_H = 22
 local W = 470
-local PANEL_H = { settings = 112 }
+local PANEL_H = { settings = 166 }
 local capturing     -- { settings = table with .key, button = key button } while setting a key
 
 -- The game's sword and chat cursors, tinted gold on the buttons.
@@ -425,10 +425,10 @@ end
 -- Attack and Talk options (right-click popups)
 ------------------------------------------------------------------------------
 
-local AP, TP, N
+local AP, TP, N, RP
 
 local function HideSidePanels(except)
-    for _, p in ipairs({ AP, TP, N }) do
+    for _, p in ipairs({ AP, TP, N, RP }) do
         if p and p ~= except then p:Hide() end
     end
 end
@@ -444,7 +444,8 @@ local function ShowBeside(p, opener)
     if not wasShown then
         p.opener = opener
         p:ClearAllPoints()
-        p:SetPoint("TOPLEFT", F, "TOPRIGHT", 2, 0)
+        local beside = (SC.char.logRight and ui.log and ui.log:IsShown()) and ui.log or F
+        p:SetPoint("TOPLEFT", beside, "TOPRIGHT", 2, 0)
         p:Show()
     end
     SC.Refresh()
@@ -532,7 +533,16 @@ local function BuildTop()
         SC.char.panel = SC.char.panel ~= "settings" and "settings" or nil
         SC.Refresh()
     end)
-    Tip(gear, "Settings", "Sharing, sound, and the list.")
+    Tip(gear, "Settings", "Sharing, alerts, sound, the list and the log side.")
+
+    ui.logToggle = CreateFrame("Button", nil, F, "UIPanelButtonTemplate")
+    ui.logToggle:SetSize(52, 18)
+    ui.logToggle:SetPoint("RIGHT", gear, "LEFT", -6, 0)
+    ui.logToggle:SetScript("OnClick", function()
+        SC.char.logOpen = not SC.char.logOpen
+        SC.Refresh()
+    end)
+    Tip(ui.logToggle, "Log", "Opens or closes the target's log: respawn times and every sighting.")
 
     -- Key row
     KeyButton(F, 8, -29, SC.char)
@@ -570,6 +580,8 @@ local function BuildTop()
         "My Target", "Makes the mob you have targeted in game your SpawnCamp target: Attack if hostile, Talk if friendly.")
     Tip(Btn(F, "Nearby", 64, 298, -56, function() SC.ToggleNearby() end),
         "Nearby", "Lists mobs around you, with a button to use each one.")
+    Tip(Btn(F, "Recent", 64, 364, -56, function() SC.ToggleRecent() end),
+        "Recent", "Every mob you've targeted before. Pick one again or remove it.")
 end
 
 local function BuildTarget()
@@ -605,7 +617,7 @@ local function BuildTarget()
     ui.tStatus:SetPoint("RIGHT", ui.tAvg, "LEFT", -6, 0)
     ui.tStatus:SetJustifyH("LEFT")
     ui.tStatus:SetWordWrap(false)
-    Tip(nameBtn, "ETA", "Counts down to the average respawn time from its last death. When it reaches zero you get a soft ding, whether or not the mob has shown. The full log is below.")
+    Tip(nameBtn, "Respawn ETA", "Counts down to the average respawn time: how long this mob usually takes to come back after dying. At zero you get a soft ding, whether or not it has shown.")
     ui.tNameBtn = nameBtn
 
     ui.clearTarget = Btn(T, "Clear", 54, 0, 0, function()
@@ -624,42 +636,67 @@ local function BuildTarget()
     ui.tEmpty = Text(T, "No target. Your key does nothing until you add one\nor pick one from Recent.", 10, -12, "GameFontHighlight")
 end
 
+-- Clicking the target's name targets the mob in game. Targeting is protected,
+-- so a secure button sits over the name. It's parented to UIParent and placed
+-- by screen position (a protected frame anchored to the window would make the
+-- window itself protected), and only moved or changed out of combat.
+local nameSecure
+
+local function BuildNameSecure()
+    local b = CreateFrame("Button", "SpawnCampTargetName", UIParent, "SecureActionButtonTemplate")
+    b:RegisterForClicks("LeftButtonUp", "LeftButtonDown")
+    b:SetAttribute("type", "macro")
+    b:SetAttribute("macrotext", "")
+    b:SetFrameStrata("MEDIUM")
+    b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
+    b:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.15)
+    Tip(b, "Target it", "Click to target this mob in game, if it's in range.")
+    b:Hide()
+    nameSecure = b
+end
+
+local function PlaceNameSecure()
+    if not nameSecure or InCombatLockdown() then return end
+    local m = SC.Active()
+    local l, bottom = ui.tName:GetLeft(), ui.tName:GetBottom()
+    if not (m and F:IsShown() and ui.tName:IsVisible() and l and bottom) then
+        nameSecure:Hide()
+        return
+    end
+    nameSecure:SetAttribute("macrotext", "/targetexact " .. m.name)
+    local s = ui.tName:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    local w = math.max(ui.tName:GetStringWidth() or 0, 40)
+    nameSecure:ClearAllPoints()
+    nameSecure:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l * s, bottom * s - 2)
+    nameSecure:SetSize(w * s, ui.tName:GetHeight() * s + 4)
+    nameSecure:SetFrameLevel(F:GetFrameLevel() + 30)
+    nameSecure:Show()
+end
+
+-- Recent targets: a pop-out beside the window listing every mob you've
+-- targeted, newest first, with Use and remove.
+
 local function BuildRecent()
-    -- Header that expands / collapses the list.
-    local h = CreateFrame("Button", nil, F)
-    h:SetHeight(16)
-    h.text = h:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    h.text:SetPoint("LEFT", 2, 0)
-    h.line = h:CreateTexture(nil, "ARTWORK")
-    h.line:SetColorTexture(1, 0.82, 0, 0.25)
-    h.line:SetHeight(1)
-    h.line:SetPoint("LEFT", h.text, "RIGHT", 6, 0)
-    h.line:SetPoint("RIGHT", 0, 0)
-    h:SetScript("OnClick", function()
-        SC.char.recentOpen = not SC.char.recentOpen
-        SC.Refresh()
-    end)
-    Tip(h, "Recent targets", "Mobs you've targeted before. Click to show or hide them.")
-    ui.recentHeader = h
+    RP = Popup("SpawnCampRecent", 380, 60 + RECENT_ROWS * RECENT_H, "Recent targets")
+    ui.recentEmpty = Text(RP, "Mobs you've targeted show up here.", 12, -36, "GameFontDisableSmall")
+    ui.recentCount = Text(RP, "", 12, -40 - RECENT_ROWS * RECENT_H, "GameFontDisableSmall")
     ui.recent = {}
     for i = 1, RECENT_ROWS do
-        local r = CreateFrame("Button", nil, F)
+        local r = CreateFrame("Frame", nil, RP)
         r:SetHeight(RECENT_H - 2)
-        r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-        r.bg = r:CreateTexture(nil, "BACKGROUND")
-        r.bg:SetAllPoints()
-        r.bg:SetColorTexture(1, 1, 1, 0.04)
+        r:SetPoint("TOPLEFT", 8, -32 - (i - 1) * RECENT_H)
+        r:SetPoint("RIGHT", RP, "RIGHT", -8, 0)
         r.bar = CreateFrame("StatusBar", nil, r)
         r.bar:SetPoint("TOPLEFT", RECENT_H, 0)
-        r.bar:SetPoint("BOTTOMRIGHT", -22, 0)
+        r.bar:SetPoint("BOTTOMRIGHT", -70, 0)
         r.bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
         r.bar:SetMinMaxValues(0, 1)
         r.holder = CreateFrame("Frame", nil, r)
         r.holder:SetSize(RECENT_H - 4, RECENT_H - 4)
         r.holder:SetPoint("LEFT", 1, 0)
-        r.name = r.bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        r.name = r.bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         r.name:SetPoint("LEFT", 4, 0)
-        r.name:SetWidth(170)
+        r.name:SetWidth(130)
         r.name:SetJustifyH("LEFT")
         r.name:SetWordWrap(false)
         r.status = r.bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -672,78 +709,77 @@ local function BuildRecent()
         r.x:SetPoint("RIGHT", -2, 0)
         r.x:SetNormalFontObject("GameFontRed")
         r.x:SetText("x")
-        r.x:SetScript("OnClick", function() SC.RemoveMob(r.mobName) end)
-        Tip(r.x, "Remove", "Removes it from Recent. Its sighting history is kept.")
-        r:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
-        r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
-        r:SetScript("OnClick", Safe(function(self) SC.SetActive(self.mobName) end))
-        Tip(r, "Recent target", "Click to make it your target again. Its log shows under the target.")
+        r.x:SetScript("OnClick", Safe(function() SC.RemoveMob(r.mobName) end))
+        Tip(r.x, "Remove", "Takes it off the list. Its sighting history is kept.")
+        r.use = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
+        r.use:SetSize(44, 18)
+        r.use:SetPoint("RIGHT", r.x, "LEFT", -4, 0)
+        r.use:SetText("Use")
+        r.use:SetScript("OnClick", Safe(function() SC.SetActive(r.mobName) end))
+        Tip(r.use, "Use", "Makes it your target again.")
+        r.current = r:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        r.current:SetPoint("RIGHT", r.x, "LEFT", -6, 0)
+        r.current:SetText("target")
         r:EnableMouseWheel(true)
         r:SetScript("OnMouseWheel", function(_, d)
             recentOffset = math.max(0, recentOffset - d)
             SC.Refresh()
         end)
-        r:RegisterForDrag("LeftButton")
-        r:SetScript("OnDragStart", function() if not SC.char.locked then F:StartMoving() end end)
-        r:SetScript("OnDragStop", function() F:StopMovingOrSizing(); SavePos() end)
         ui.recent[i] = r
     end
-    ui.recentEmpty = Text(F, "Mobs you've targeted show up here.", 10, 0, "GameFontDisableSmall")
 end
 
-------------------------------------------------------------------------------
--- Build: mob details panel
-------------------------------------------------------------------------------
-
+function SC.ToggleRecent()
+    if not F then return end
+    ShowBeside(RP)
+end
 -- The log describes the selected target.
 local function Sel()
     return SC.Active()
 end
 
-local LOG_H = 92 + HIST_ROWS * 16
+local LOG_W = 380
+local LOG_H = 138 + HIST_ROWS * 16
 
+-- A drawer beside the window (left by default; right in the settings).
 local function BuildLog()
-    local P = CreateFrame("Frame", nil, F)
-    P:SetHeight(LOG_H)
+    local P = CreateFrame("Frame", "SpawnCampLog", F, "BackdropTemplate")
+    P:SetSize(LOG_W, LOG_H)
+    Backdrop(P, 0.9)
+    P:EnableMouse(true)
     ui.log = P
-    Header(P, "Log", -2)
-    ui.stats = Text(P, "", 8, -20)
-    ui.stats:SetWidth(440)
+    ui.logTitle = Text(P, "", 10, -10, "GameFontNormal")
+    ui.logTitle:SetWidth(330)
+    ui.logTitle:SetWordWrap(false)
+    local close = CreateFrame("Button", nil, P, "UIPanelCloseButton")
+    close:SetSize(22, 22)
+    close:SetPoint("TOPRIGHT", -1, -1)
+    close:SetScript("OnClick", function() SC.char.logOpen = false; SC.Refresh() end)
+    ui.stats = Text(P, "", 10, -32)
+    ui.stats:SetWidth(LOG_W - 20)
+    ui.stats:SetWordWrap(true)
 
-    Check(P, "Alert when it spawns", 4, -34,
-        function() local m = Sel(); return m and m.alertSpawn end,
-        function(v) local m = Sel(); if m then m.alertSpawn = v end end)
-    Check(P, "Respawn alarm", 160, -34,
-        function() local m = Sel(); return m and m.alarm end,
-        function(v) local m = Sel(); if m then m.alarm = v end end,
-        "Goes off a set time before the earliest expected respawn, and again when the window opens.")
-    ui.lead = Edit(P, 34, 276, -36, function(t)
-        local m = Sel(); if m then m.lead = tonumber(t) or 0 end
-    end, true)
-    Text(P, "sec early", 320, -40)
-
-    Text(P, "Known respawn", 8, -64)
-    ui.min = Edit(P, 30, 88, -60, function(t)
+    Text(P, "Known respawn time", 10, -72)
+    ui.min = Edit(P, 30, 118, -68, function(t)
         local m = Sel(); if m then m.manualMin = tonumber(t) or 0 end
     end, true)
-    Text(P, "to", 128, -64)
-    ui.max = Edit(P, 30, 142, -60, function(t)
+    Text(P, "to", 158, -72)
+    ui.max = Edit(P, 30, 172, -68, function(t)
         local m = Sel(); if m then m.manualMax = tonumber(t) or 0 end
     end, true)
-    Text(P, "min", 182, -64)
-    Tip(Btn(P, "It died now", 88, 262, -58, function()
+    Text(P, "min (empty = from the log)", 212, -72)
+    Tip(Btn(P, "It died now", 100, 10, -94, function()
         local m = Sel(); if m then SC.Observe(m.name, "D", nil, nil, "you", { manual = true }) end
     end), "It died now", "Logs a death now, for one SpawnCamp missed.")
-    Tip(Btn(P, "It's up now", 88, 352, -58, function()
+    Tip(Btn(P, "It's up now", 100, 114, -94, function()
         local m = Sel(); if m then SC.Observe(m.name, "A", nil, nil, "you", { manual = true }) end
     end), "It's up now", "Logs a spawn now, for one SpawnCamp missed.")
-
-    ui.histCount = Text(P, "", 8, -86, "GameFontDisableSmall")
+    ui.histCount = Text(P, "", 10, -122, "GameFontDisableSmall")
     ui.hist = {}
     for i = 1, HIST_ROWS do
         local r = CreateFrame("Frame", nil, P)
         r:SetHeight(16)
-        r:SetPoint("TOPLEFT", 6, -100 - (i - 1) * 16)
+        r:SetPoint("TOPLEFT", 8, -136 - (i - 1) * 16)
         r:SetPoint("RIGHT", P, "RIGHT", -6, 0)
         r.text = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         r.text:SetPoint("LEFT", 2, 0)
@@ -789,7 +825,19 @@ local function BuildSettings(P)
         function() return SC.char.sound end, function(v) SC.char.sound = v end)
     Check(P, "Lock window", 4, -72,
         function() return SC.char.locked end, function(v) SC.char.locked = v end)
-    Text(P, "Right-click Attack or Talk for their options.", 240, -78, "GameFontDisableSmall")
+    Check(P, "Log on the right side", 240, -72,
+        function() return SC.char.logRight end, function(v) SC.char.logRight = v end,
+        "Unticked, the log opens on the left of the window.")
+    Check(P, "Alert when a mob spawns", 4, -96,
+        function() return SC.char.alertSpawn end, function(v) SC.char.alertSpawn = v end,
+        "Loud alert (raid warning sound) when a watched mob is seen alive.")
+    Check(P, "Respawn dings", 240, -96,
+        function() return SC.char.alarm end, function(v) SC.char.alarm = v end,
+        "Soft ding: a set time before the earliest respawn, when the respawn window opens, and when the average respawn time is reached.")
+    Text(P, "Early ding", 8, -124)
+    ui.lead = Edit(P, 36, 66, -120, function(t) SC.char.lead = tonumber(t) or 0 end, true)
+    Text(P, "seconds before the earliest respawn (0 = off)", 112, -124)
+    Text(P, "Right-click Attack or Talk for their options.", 8, -146, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------
@@ -922,6 +970,7 @@ local function Build()
     ui.checks, ui.keys = {}, {}
     BuildTop()
     BuildTarget()
+    BuildNameSecure()
     BuildRecent()
     BuildAttackPopup()
     BuildTalkPopup()
@@ -944,10 +993,26 @@ end
 -- Refresh
 ------------------------------------------------------------------------------
 
+-- Short, readable key names that fit on the button: "Shift-Wheel Down", "Mouse 4".
+local KEY_NAMES = { MOUSEWHEELUP = "Wheel Up", MOUSEWHEELDOWN = "Wheel Down", SPACE = "Space",
+                    ESCAPE = "Esc", BACKSPACE = "Backspace", ENTER = "Enter", TAB = "Tab" }
+local MOD_NAMES = { ALT = "Alt", CTRL = "Ctrl", SHIFT = "Shift", META = "Cmd" }
+
+function SC.KeyLabel(key)
+    local parts = {}
+    for part in key:gmatch("[^%-]+") do parts[#parts + 1] = part end
+    local base = parts[#parts] or key
+    local out = {}
+    for i = 1, #parts - 1 do out[#out + 1] = MOD_NAMES[parts[i]] or parts[i] end
+    local n = base:match("^BUTTON(%d+)$")
+    out[#out + 1] = n and ("Mouse " .. n) or KEY_NAMES[base] or base:gsub("^NUMPAD", "Num ")
+    return table.concat(out, "-")
+end
+
 local function RefreshKey()
     for _, b in ipairs(ui.keys) do
         if not (capturing and capturing.button == b) then
-            b:SetText(SC.char.key ~= "" and ("Bound: |cffffffff" .. SC.char.key .. "|r") or "Click to Bind Key")
+            b:SetText(SC.char.key ~= "" and ("|cffffffff" .. SC.KeyLabel(SC.char.key) .. "|r") or "Click to Bind Key")
         end
     end
     local m = SC.Active()
@@ -979,62 +1044,49 @@ local function RefreshTarget()
     SetPressed(ui.talk, m.mode == "interact")
 end
 
--- Returns the y below the last row.
-local function RefreshRecent(top)
-    local h = ui.recentHeader
-    h:ClearAllPoints()
-    h:SetPoint("TOPLEFT", F, "TOPLEFT", 8, top)
-    h:SetPoint("RIGHT", F, "RIGHT", -8, 0)
+local function RefreshRecent()
+    if not (RP and RP:IsShown()) then return end
     local list = {}
     for _, n in ipairs(SC.char.order) do
         local m = SC.char.mobs[n]
-        if m and n ~= SC.char.active and (m.hunting or SC.char.showDone) then list[#list + 1] = n end
+        if m and (m.hunting or SC.char.showDone or n == SC.char.active) then list[#list + 1] = n end
     end
-    local open = SC.char.recentOpen
-    h.text:SetText((open and "[-] " or "[+] ") .. "Recent targets (" .. #list .. ")")
     recentOffset = math.max(0, math.min(recentOffset, #list - RECENT_ROWS))
-    local y = top - 18
     for i, r in ipairs(ui.recent) do
-        local n = open and list[i + recentOffset]
+        local n = list[i + recentOffset]
         if n then
             local m = SC.char.mobs[n]
             local state, text, frac = SC.Status(n)
             local c = BAR[state] or BAR.none
-            r:ClearAllPoints()
-            r:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
-            r:SetPoint("RIGHT", F, "RIGHT", -6, 0)
             r.mobName = n
             r.bar:SetStatusBarColor(c[1], c[2], c[3], 0.45)
             r.bar:SetValue((state == "up" or state == "window" or state == "late") and 1 or (frac or 0))
             r.name:SetText(n .. (m.hunting and "" or " |cff40ff40(got)|r"))
             r.status:SetText(StatusColor(state) .. text .. "|r")
+            local current = n == SC.char.active
+            r.use:SetShown(not current)
+            r.current:SetShown(current)
             PlacePortrait(n, r.holder)
             r:Show()
-            y = y - RECENT_H
         else
             r:Hide()
         end
     end
-    ui.recentEmpty:ClearAllPoints()
-    ui.recentEmpty:SetPoint("TOPLEFT", F, "TOPLEFT", 10, top - 20)
-    ui.recentEmpty:SetShown(open and #list == 0)
-    if open and #list == 0 then y = y - 18 end
-    return y
+    ui.recentEmpty:SetShown(#list == 0)
+    ui.recentCount:SetText(#list > RECENT_ROWS and (#list .. " mobs, scroll for more") or "")
 end
-
 local function RefreshMobPanel()
     local mob = Sel()
     if not mob then return false end
     local lo, avg, hi, n = SC.Stats(mob.name)
     if n > 0 then
-        ui.stats:SetText(string.format("Respawn from %d kill%s: earliest %s, average %s, latest %s",
+        ui.stats:SetText(string.format("Respawn time (death until seen again), from %d kill%s:\nfastest |cffffffff%s|r   average |cffffd100%s|r   slowest |cffffffff%s|r",
             n, n == 1 and "" or "s", SC.Clock(lo), SC.Clock(avg), SC.Clock(hi)))
     elseif lo then
-        ui.stats:SetText("Respawn from your times: " .. SC.Clock(lo) .. (hi and (" to " .. SC.Clock(hi)) or ""))
+        ui.stats:SetText("Respawn time from your known time:\n" .. SC.Clock(lo) .. (hi and (" to " .. SC.Clock(hi)) or ""))
     else
-        ui.stats:SetText("|cffccccccNo respawn time yet: needs a death followed by a spawn.|r")
+        ui.stats:SetText("|cffccccccNo respawn time yet. It needs a death and then the\nmob seen alive again.|r")
     end
-    SetEditText(ui.lead, tostring(mob.lead or 0))
     SetEditText(ui.min, (mob.manualMin or 0) > 0 and tostring(mob.manualMin) or "")
     SetEditText(ui.max, (mob.manualMax or 0) > 0 and tostring(mob.manualMax) or "")
 
@@ -1091,6 +1143,7 @@ function SC.RefreshWindow()
     if not SC.char then return end
     if not SC.char.shown then
         if F then F:Hide(); HideSidePanels() end
+        if nameSecure and not InCombatLockdown() then nameSecure:Hide() end
         return
     end
     if not F then Build() end
@@ -1099,18 +1152,29 @@ function SC.RefreshWindow()
 
     RefreshKey()
     RefreshTarget()
-    local y = -150
-    if SC.Active() then
+    local m = SC.Active()
+    ui.logToggle:SetShown(m ~= nil)
+    if SC.char.logRight then
+        ui.logToggle:SetText(SC.char.logOpen and "Log <" or "Log >")
+    else
+        ui.logToggle:SetText(SC.char.logOpen and "> Log" or "< Log")
+    end
+    if m and SC.char.logOpen then
         ui.log:ClearAllPoints()
-        ui.log:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
-        ui.log:SetPoint("RIGHT", F, "RIGHT", -6, 0)
+        if SC.char.logRight then
+            ui.log:SetPoint("TOPLEFT", F, "TOPRIGHT", 2, 0)
+        else
+            ui.log:SetPoint("TOPRIGHT", F, "TOPLEFT", -2, 0)
+        end
+        ui.logTitle:SetText("Log: " .. m.name)
         ui.log:Show()
         RefreshMobPanel()
-        y = y - LOG_H - 4
     else
         ui.log:Hide()
     end
-    y = RefreshRecent(y)
+    SetEditText(ui.lead, tostring(SC.char.lead or 0))
+    RefreshRecent()
+    local y = -146
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
     RefreshPopups()
 
@@ -1129,6 +1193,7 @@ function SC.RefreshWindow()
     end
     if panel then height = height + PANEL_H[panel] + 6 end
     F:SetHeight(height)
+    pcall(PlaceNameSecure)
 end
 
 -- Focuses the name box (when the game hides a target's name).

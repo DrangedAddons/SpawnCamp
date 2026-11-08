@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.0
+
+- **Click the target's name** to target the mob in game (a secure click area over the name; it repositions out of combat).
+- The **log** is a drawer on the left of the window, opened and closed with the **Log** button in the header. A setting puts it on the right.
+- **Recent** is a pop-out next to Nearby listing every previous target, with **Use** and remove.
+- **Alert when a mob spawns** and **Respawn dings** (with the early-ding time) moved to the settings and apply to every mob.
+- The small text under the ETA says **Avg respawn 5:00**. The log spells it out as respawn time (death until seen again): fastest, average, slowest.
+- The key button shows just the key in a short form ("Shift-Wheel Down", "Mouse 4") so it fits.
+- The main window is shorter: it ends at the target.
+
 ## 0.9.1
 
 - Sword and bubble states are much clearer. Pressed: bright red, thick gold border, gold glow, shaded top and a gold icon nudged down. Not pressed: dark grey with a grey border and a clean grey icon, no red tint.

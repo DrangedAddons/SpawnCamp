@@ -74,7 +74,7 @@ function SC.Observe(name, kind, spawn, t, src, extra)
     if src == "you" then SC.Share(name, e) end
 
     if mob and mob.hunting then
-        if kind == "A" and mob.alertSpawn and events[#events] == e then
+        if kind == "A" and SC.char.alertSpawn and events[#events] == e then
             SC.Alert(name .. " is up!" .. (src ~= "you" and (" (seen by " .. src .. ")") or ""))
         end
         if kind == "D" and e.mine and mob.mode ~= "interact" then
@@ -178,7 +178,7 @@ function SC.ETA(name)
     local events = SC.History(name).events
     local last = events[#events]
     local _, avg = SC.Stats(name)
-    local avgText = avg and ("avg " .. SC.Clock(avg)) or "no respawn time yet"
+    local avgText = avg and ("Avg respawn " .. SC.Clock(avg)) or "Avg respawn: not known yet"
     if last and last.k == "A" then return "UP", avgText, "|cff40ff40" end
     if not (last and avg) then return "ETA --:--", avgText, "|cff999999" end
     local left = avg - (GetServerTime() - last.t)
@@ -222,7 +222,7 @@ local function CheckAlarms()
     local now = GetServerTime()
     for _, name in ipairs(SC.char.order) do
         local mob = SC.char.mobs[name]
-        if mob and mob.hunting and mob.alarm then
+        if mob and mob.hunting and SC.char.alarm then
             local events = SC.History(name).events
             local last = events[#events]
             if last and last.k == "D" then
@@ -231,7 +231,7 @@ local function CheckAlarms()
                     local f = fired[last]
                     if not f then f = {}; fired[last] = f end
                     local ago = now - last.t
-                    local lead = mob.lead or 0
+                    local lead = SC.char.lead or 0
                     -- Only alarm for deaths inside the expected window plus a margin, so
                     -- logging in to an old death doesn't go off.
                     if not f.pre and lead > 0 and ago >= lo - lead and ago < lo then

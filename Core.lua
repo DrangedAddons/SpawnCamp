@@ -65,11 +65,16 @@ SC.CHAR_DEFAULTS = {
         prefer = "",      -- chat options to pick first, one text match per line
         reward = 1,       -- reward choice when a quest offers several (0 = you pick)
     },
+    alertSpawn = true,    -- loud alert when a watched mob is seen alive
+    alarm = true,         -- soft dings: early warning, window open, average reached
+    lead = 60,            -- early warning, seconds before the earliest expected respawn
     shareParty = true,    -- send and receive sightings with your party
     shareRaid = true,     -- ... your raid
     shareGuild = true,    -- ... your guild
     shown = true,         -- the window is on screen
     showDone = true,      -- keep mobs you already got on the list
+    logOpen = true,       -- the log drawer beside the window is open
+    logRight = false,     -- log on the right of the window instead of the left
     locked = false,       -- window can't be dragged
     sound = true,         -- play a sound with alerts
     minimap = { hide = false },
@@ -78,9 +83,6 @@ SC.CHAR_DEFAULTS = {
 SC.MOB_DEFAULTS = {
     mode = "attack",      -- "attack" (sword) or "interact" (bubble); always one of the two
     hunting = true,       -- on the key; turned off once you get the kill
-    alertSpawn = true,    -- alert when it's seen alive
-    alarm = true,         -- alarm before the expected respawn
-    lead = 60,            -- seconds before the earliest expected respawn
     manualMin = 0,        -- minutes; >0 overrides the history's earliest respawn
     manualMax = 0,        -- minutes; >0 overrides the history's latest respawn
 }
