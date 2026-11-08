@@ -74,7 +74,8 @@ function SC.Observe(name, kind, spawn, t, src, extra)
     if src == "you" then SC.Share(name, e) end
 
     if mob and mob.hunting then
-        if kind == "A" and SC.char.alertSpawn and events[#events] == e then
+        -- Alerts only for your current targets; Recent mobs just log.
+        if kind == "A" and SC.char.alertSpawn and events[#events] == e and SC.IsActive(name) then
             SC.Alert(name .. " is up!" .. (src ~= "you" and (" (seen by " .. src .. ")") or ""))
         end
         if kind == "D" and e.mine and mob.mode ~= "interact" and mob.keep then
@@ -226,7 +227,7 @@ local function CheckAlarms()
     local now = GetServerTime()
     for _, name in ipairs(SC.char.order) do
         local mob = SC.char.mobs[name]
-        if mob and mob.hunting and SC.char.alarm then
+        if mob and mob.hunting and SC.char.alarm and SC.IsActive(name) then
             local events = SC.History(name).events
             local last = events[#events]
             if last and last.k == "D" then

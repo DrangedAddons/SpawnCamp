@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.1
+
+- Spawn alerts and respawn dings are only for your current targets. Mobs you cleared (still in Recent) no longer set them off; their sightings are still logged.
+
 ## 0.20.0
 
 - The add row is gone from the top. **+ Add another target** now opens a blank target box holding the ways to add one: type or paste a name, **My Target**, **Nearby**, **Quest** and **Auto Quest**, with **x** to close it. Adding a target (or turning on Auto Quest) closes it. With no targets and Auto Quest off, it's always open.
