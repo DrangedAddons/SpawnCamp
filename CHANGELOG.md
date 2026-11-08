@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.0
+
+- **Any number of targets, up to 8.** Every add (typed name, My Target, Use in Nearby or Recent) joins the list, and **+ Add another target** sits under the last box. Clear on a box removes just that target. The key goes for whichever is alive, untagged and found first, and doesn't swap off one it's on.
+- Clicking the log's title steps through the targets.
+- Your one or two targets from 0.15 carry over.
+
 ## 0.15.0
 
 - **Second target.** **+ Add a second target** under the first, then add a mob the usual way (typed name, My Target, or Use in Nearby / Recent). Each target has its own box with Attack/Talk, ETA, Keep and Clear, and clicking either name targets it.

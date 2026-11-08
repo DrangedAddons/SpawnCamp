@@ -591,9 +591,9 @@ local function BuildTop()
     end
     ui.addName:SetScript("OnEnterPressed", addTyped)
     ui.addName:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    Tip(Btn(F, "Add", 44, 166, -56, addTyped), "Add", "Makes the typed name your target. Use the exact name the game shows.")
+    Tip(Btn(F, "Add", 44, 166, -56, addTyped), "Add", "Adds the typed name to your targets. Use the exact name the game shows.")
     Tip(Btn(F, "My Target", 84, 212, -56, function() SC.AddTarget(); SC.Refresh() end),
-        "My Target", "Makes the mob you have targeted in game your SpawnCamp target: Attack if hostile, Talk if friendly.")
+        "My Target", "Adds the mob you have targeted in game to your targets: Attack if hostile, Talk if friendly.")
     Tip(Btn(F, "Nearby", 64, 298, -56, function() SC.ToggleNearby() end),
         "Nearby", "Lists mobs around you, with a button to use each one.")
     Tip(Btn(F, "Recent", 64, 364, -56, function() SC.ToggleRecent() end),
@@ -674,17 +674,14 @@ local function BuildTargetBox(slot)
 end
 
 local function BuildTarget()
-    ui.boxes = { BuildTargetBox(1), BuildTargetBox(2) }
-    -- Under the first target when there's no second: add one.
-    ui.addSecond = Btn(F, "+ Add a second target", 170, 0, 0, function()
-        SC.addSlot = 2
-        SC.Print("adding a second target: type a name, use My Target, or Use one from Nearby or Recent.")
+    ui.boxes = {}
+    for slot = 1, SC.MAX_TARGETS do ui.boxes[slot] = BuildTargetBox(slot) end
+    -- Under the last target: add another.
+    ui.addAnother = Btn(F, "+ Add another target", 160, 0, 0, function()
         if ui.addName then ui.addName:SetFocus() end
-        SC.Refresh()
+        SC.Print("add another target: type a name, use My Target, or Use one from Nearby or Recent.")
     end)
-    Tip(ui.addSecond, "Second target", "Your key goes for whichever of the two shows up first, alive and untagged, and the same Attack/Talk rules apply to each.")
-    ui.addSecondHint = Text(F, "|cffffd100Adding the second target:|r type a name, My Target, or Use in Nearby / Recent.", 0, 0)
-    ui.cancelSecond = Btn(F, "Cancel", 60, 0, 0, function() SC.addSlot = 1; SC.Refresh() end)
+    Tip(ui.addAnother, "Another target", "Your key goes for whichever target shows up first, alive and untagged; each keeps its own Attack/Talk. Up to " .. SC.MAX_TARGETS .. ".")
 end
 
 -- Clicking a target's name targets that mob in game. Targeting is protected,
@@ -694,7 +691,7 @@ end
 local nameSecure = {}
 
 local function BuildNameSecure()
-    for slot = 1, 2 do
+    for slot = 1, SC.MAX_TARGETS do
         local b = CreateFrame("Button", "SpawnCampTargetName" .. slot, UIParent, "SecureActionButtonTemplate")
         b:RegisterForClicks("LeftButtonUp", "LeftButtonDown")
         b:SetAttribute("type", "macro")
@@ -710,7 +707,7 @@ end
 
 local function PlaceNameSecure()
     if InCombatLockdown() then return end
-    for slot = 1, 2 do
+    for slot = 1, SC.MAX_TARGETS do
         local b, bx = nameSecure[slot], ui.boxes[slot]
         local m = SC.Active(slot)
         local fs = bx.name
@@ -771,8 +768,8 @@ local function BuildRecent()
         r.use:SetSize(44, 18)
         r.use:SetPoint("RIGHT", r.x, "LEFT", -4, 0)
         r.use:SetText("Use")
-        r.use:SetScript("OnClick", Safe(function() SC.SetActive(r.mobName, SC.addSlot) end))
-        Tip(r.use, "Use", "Makes it your target again.")
+        r.use:SetScript("OnClick", Safe(function() SC.SetActive(r.mobName) end))
+        Tip(r.use, "Use", "Adds it to your targets.")
         r.current = r:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         r.current:SetPoint("RIGHT", r.x, "LEFT", -6, 0)
         r.current:SetText("target")
@@ -813,8 +810,9 @@ local function BuildLog()
     ui.logTitle:SetJustifyH("LEFT")
     ui.logTitle:SetWordWrap(false)
     titleBtn:SetScript("OnClick", function()
-        if SC.Active(2) then
-            SC.char.logSlot = (SC.char.logSlot == 2) and 1 or 2
+        local count = #SC.Actives()
+        if count > 1 then
+            SC.char.logSlot = (SC.char.logSlot or 1) % count + 1
             histOffset = 0
             SC.Refresh()
         end
@@ -1001,7 +999,7 @@ local function BuildNearby()
         r.use:SetText("Use")
         r.use:SetScript("OnClick", Safe(function()
             if SC.char.mobs[r.mobName] then
-                SC.SetActive(r.mobName, SC.addSlot)
+                SC.SetActive(r.mobName)
             else
                 local m = SC.AddMob(r.mobName, r.hostile == false and "interact" or "attack")
                 if m and r.ctype then m.ctype = r.ctype; SC.Refresh() end
@@ -1127,40 +1125,30 @@ local function RefreshBox(bx, m, slot)
     SetPressed(bx.talk, m.mode == "interact")
 end
 
--- Lays out both boxes and the "add a second target" row; returns the y below.
+-- Lays out a box per target and the "add another" button; returns the y below.
 local function RefreshTarget()
     local y = -84
-    local m1, m2 = SC.Active(1), SC.Active(2)
-    local b1, b2 = ui.boxes[1], ui.boxes[2]
-    b1.frame:ClearAllPoints()
-    b1.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
-    b1.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
-    RefreshBox(b1, m1, 1)
-    y = y - BOX_H - 4
-    ui.addSecond:Hide(); ui.addSecondHint:Hide(); ui.cancelSecond:Hide()
-    if m2 then
-        b2.frame:ClearAllPoints()
-        b2.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
-        b2.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
-        b2.frame:Show()
-        RefreshBox(b2, m2, 2)
-        y = y - BOX_H - 4
-    else
-        b2.frame:Hide()
-        if m1 and SC.addSlot == 2 then
-            ui.addSecondHint:ClearAllPoints()
-            ui.addSecondHint:SetPoint("TOPLEFT", F, "TOPLEFT", 10, y - 5)
-            ui.addSecondHint:Show()
-            ui.cancelSecond:ClearAllPoints()
-            ui.cancelSecond:SetPoint("TOPRIGHT", F, "TOPRIGHT", -8, y)
-            ui.cancelSecond:Show()
-            y = y - 26
-        elseif m1 then
-            ui.addSecond:ClearAllPoints()
-            ui.addSecond:SetPoint("TOPLEFT", F, "TOPLEFT", 8, y)
-            ui.addSecond:Show()
-            y = y - 26
+    local n = #SC.Actives()
+    for slot = 1, SC.MAX_TARGETS do
+        local bx, m = ui.boxes[slot], SC.Active(slot)
+        if slot == 1 or m then
+            bx.frame:ClearAllPoints()
+            bx.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
+            bx.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
+            bx.frame:Show()
+            RefreshBox(bx, m, slot)
+            y = y - BOX_H - 4
+        else
+            bx.frame:Hide()
         end
+    end
+    ui.addAnother:ClearAllPoints()
+    if n > 0 and n < SC.MAX_TARGETS then
+        ui.addAnother:SetPoint("TOPLEFT", F, "TOPLEFT", 8, y)
+        ui.addAnother:Show()
+        y = y - 26
+    else
+        ui.addAnother:Hide()
     end
     return y
 end
@@ -1272,7 +1260,7 @@ function SC.RefreshWindow()
 
     RefreshKey()
     local y = RefreshTarget()
-    if not SC.Active(2) then SC.char.logSlot = 1 end
+    if not SC.Active(SC.char.logSlot or 1) then SC.char.logSlot = 1 end
     local m = SC.Active(SC.char.logSlot or 1) or SC.Active(1)
     ui.logToggle:SetShown(m ~= nil)
     if SC.char.logRight then
@@ -1287,7 +1275,7 @@ function SC.RefreshWindow()
         else
             ui.log:SetPoint("TOPRIGHT", F, "TOPLEFT", -2, 0)
         end
-        ui.logTitle:SetText("Log: " .. m.name .. (SC.Active(2) and "  |cff999999(click to switch)|r" or ""))
+        ui.logTitle:SetText("Log: " .. m.name .. (SC.Active(2) and "  |cff999999(click for the next target)|r" or ""))
         ui.log:Show()
         RefreshMobPanel()
     else
