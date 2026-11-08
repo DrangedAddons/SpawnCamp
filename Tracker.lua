@@ -427,10 +427,23 @@ local function TakeTarget()
     end
 end
 
+-- Raid marker over the mob, once the key has it (alive, free). Runs inside the
+-- key press, which the game may require for markers. Only sets it when the
+-- icon isn't already there, so spamming doesn't toggle it off.
+local function MarkTarget()
+    if not (SC.char.markTarget and SC.onMob and SetRaidTarget and GetRaidTargetIndex) then return end
+    local icon = SC.char.markIcon or 8
+    local ok, cur = pcall(GetRaidTargetIndex, "target")
+    if ok and SC.Plain(cur) == icon then return end
+    if IsInRaid and IsInRaid() and not (UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")) then return end
+    pcall(SetRaidTarget, "target", icon)
+end
+
 function SC.OnKeyPressed()
     if not SC.char then return end
     TakeTarget()
     SC.EvalTarget()
+    MarkTarget()
     C_Timer.After(0.15, function() pcall(TakeTarget); pcall(SC.EvalTarget) end)
 end
 

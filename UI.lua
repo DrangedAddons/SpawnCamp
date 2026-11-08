@@ -23,7 +23,7 @@ local recentOffset, histOffset = 0, 0
 local RECENT_ROWS, HIST_ROWS = 14, 14
 local RECENT_H = 22
 local W = 520
-local PANEL_H = { settings = 166 }
+local PANEL_H = { settings = 192 }
 local capturing     -- { settings = table with .key, button = key button } while setting a key
 
 -- The game's sword and chat cursors, tinted gold on the buttons.
@@ -873,7 +873,23 @@ local function BuildSettings(P)
     Text(P, "Early ding", 8, -124)
     ui.lead = Edit(P, 36, 66, -120, function(t) SC.char.lead = tonumber(t) or 0 end, true)
     Text(P, "seconds before the earliest respawn (0 = off)", 112, -124)
-    Text(P, "Right-click Attack or Talk for their options.", 8, -146, "GameFontDisableSmall")
+    Check(P, "Put a marker on the target", 4, -144,
+        function() return SC.char.markTarget end, function(v) SC.char.markTarget = v end,
+        "Places a raid marker over the mob as soon as your key has it. Works solo and in a party; in a raid you need lead or assist.")
+    local icon = CreateFrame("Button", nil, P)
+    icon:SetSize(22, 22)
+    icon:SetPoint("TOPLEFT", 200, -145)
+    icon.tex = icon:CreateTexture(nil, "ARTWORK")
+    icon.tex:SetAllPoints()
+    icon:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    icon:SetScript("OnClick", function()
+        SC.char.markIcon = (SC.char.markIcon or 8) % 8 + 1
+        SC.Refresh()
+    end)
+    Tip(icon, "Marker", "Click to pick another marker.")
+    ui.markIcon = icon
+    Text(P, "click to change", 228, -150, "GameFontDisableSmall")
+    Text(P, "Right-click Attack or Talk for their options.", 8, -172, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------
@@ -1209,6 +1225,7 @@ function SC.RefreshWindow()
         ui.log:Hide()
     end
     SetEditText(ui.lead, tostring(SC.char.lead or 0))
+    ui.markIcon.tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_" .. (SC.char.markIcon or 8))
     RefreshRecent()
     local y = -150
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end

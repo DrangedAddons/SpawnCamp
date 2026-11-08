@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0
+
+- **Marker on the target:** as soon as a key press puts you on the free, alive mob, it gets a raid marker (skull by default). It's only set when the mob doesn't already have that marker, so spamming doesn't toggle it off. Works solo and in a party; in a raid it needs lead or assist.
+- Settings: **Put a marker on the target** (on by default) and a marker picker (click to cycle).
+- If the game refuses addon markers, marking switches itself off and says so in chat.
+
 ## 0.13.0
 
 The key only goes for a mob nobody else has tagged.

@@ -65,6 +65,8 @@ SC.CHAR_DEFAULTS = {
         prefer = "",      -- chat options to pick first, one text match per line
         reward = 1,       -- reward choice when a quest offers several (0 = you pick)
     },
+    markTarget = true,    -- raid marker on the mob once the key has it
+    markIcon = 8,         -- 1 star ... 8 skull
     alertSpawn = true,    -- loud alert when a watched mob is seen alive
     alarm = true,         -- soft dings: early warning, window open, average reached
     lead = 60,            -- early warning, seconds before the earliest expected respawn
@@ -399,6 +401,11 @@ local function Blocked(kind)
     return function(addon, func)
         if addon ~= ADDON then return end
         local what = string.format("%s %s: %s", date("%m-%d %H:%M:%S"), kind, tostring(func))
+        if tostring(func):find("SetRaidTarget") and SC.char then
+            SC.char.markTarget = false
+            SC.Print("the game doesn't let addons place raid markers here, so marking is off (Settings).")
+            return
+        end
         SC.Print("|cffff4040the game blocked|r " .. tostring(func) .. ". Please tell Dranged.")
         if SpawnCampDB then
             SpawnCampDB.blocked = SpawnCampDB.blocked or {}
