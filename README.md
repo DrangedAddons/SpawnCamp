@@ -48,6 +48,7 @@ The game requires a real keypress for every target, cast and interact. SpawnCamp
   - **Reward choice**: for quests with several rewards.
   - Hold **Shift** while talking to do a window yourself.
 - **General**: share sightings with group/guild, sound, keep mobs you already got, lock the window.
+
 ## Respawn timer
 
 The timer starts when the mob dies and stops when it's seen alive again. That time is the respawn. The line shows `dead 2:05` while it's down (with `due in` once there's history), then `UP, respawned after 4:51`. SpawnCamp sees deaths and spawns on nameplates, your target, your mouseover, and whatever your key targets. The details show the earliest, average and latest respawn.
