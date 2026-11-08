@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+- **Attack** and **Talk** are a pressed/raised pair on each mob, in the game's red button style with gold icons and text. One is always pressed. Clicking it again does nothing; clicking the other swaps them.
+- New add row under the title: a box to type or paste a mob name, **Add**, **Current Target** and **Nearby**. The tiny + is gone.
+- Nearby has an **Add** button next to each mob (hostile starts on Attack, friendly on Talk).
+- Mobs you already got stay on their button but come off the key; **Still hunting** in the details puts them back.
+
 ## 0.5.0
 
 - **One key** for every mob, set once in the settings. The sword or bubble on each mob decides what it does: hostile targets get the attack lines, friendly ones get talked to. The separate Attack and Talk keys are gone, and so is the Talk "Reach" option (talking is always by name).

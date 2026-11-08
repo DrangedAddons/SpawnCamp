@@ -1,13 +1,14 @@
--- SpawnCamp window. Always on screen and small:
+-- SpawnCamp window. Always on screen:
 --
---   [icon] SpawnCamp                     [+] [Nearby] [gear] [x]
---   Attack: F (Moonfire)   Talk: G
---   Mob name     status / countdown       [sword] [bubble]
+--   [icon] SpawnCamp                                   [gear] [x]
+--   Key: F   attack: Moonfire
+--   [ mob name...      ] [Add] [Current Target] [Nearby]
+--   (portrait) Big Name                     [Attack] [Talk]
+--              dead 2:05, due in 2:55
 --
--- Sword = the Attack key goes for this mob. Bubble = the Talk key talks to it
--- (chat, quest hand-ins and accepts). Neither = timer only. Clicking a name
--- opens its details (respawn times, history, alarms) under the list; the gear
--- opens the settings for how the two keys work.
+-- Attack and Talk are a pressed/raised pair per mob: the pressed one says what
+-- the key does to it. Clicking a name opens its details (respawn times,
+-- history, alarms); the gear opens the settings.
 
 local ADDON, SC = ...
 
@@ -16,12 +17,13 @@ local ui = {}
 local rowOffset, histOffset = 0, 0
 local MAX_ROWS, HIST_ROWS = 10, 10
 local ROW_H = 40
-local W_COMPACT, W_PANEL = 340, 440
+local W_COMPACT, W_PANEL = 420, 440
 local PANEL_H = { mob = 330, settings = 470 }
 local capturing     -- the settings table whose key is being set, or nil
 
-local SWORD = "Interface\\Icons\\INV_Sword_04"
-local BUBBLE = "Interface\\GossipFrame\\GossipGossipIcon"
+-- The game's sword and chat cursors, tinted gold on the buttons.
+local SWORD = "Interface\\CURSOR\\Attack"
+local BUBBLE = "Interface\\CURSOR\\Speak"
 
 ------------------------------------------------------------------------------
 -- Widget helpers
@@ -253,36 +255,60 @@ local function OpenSettings()
     SC.Refresh()
 end
 
+-- Pressed/raised pair: clicking the pressed one does nothing.
 local function SetMode(mob, mode)
-    mob.mode = (mob.mode ~= mode) and mode or nil
-    if mob.mode == "attack" then mob.hunting = true end
+    if not mob or mob.mode == mode then return end
+    mob.mode = mode
+    mob.hunting = true
     SC.ApplyBindings()
     SC.Refresh()
 end
 
--- The sword and bubble: big red buttons with a gold icon, the main thing on
--- each line. Lit = bright red with a gold border; off = dark red, dim icon.
-local ICON_BTN = 30
+-- Attack / Talk buttons: the game's red panel button with gold trim, a gold
+-- icon and gold text. Pressed = the "down" art with the face nudged in.
+local MODE_W, MODE_H = 82, 26
+local PANEL_TC = { 0, 0.625, 0, 0.6875 }
 
-local function IconToggle(parent, texture, onClick, title, body)
-    local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
-    b:SetSize(ICON_BTN, ICON_BTN)
-    b:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 2,
-    })
-    b.tex = b:CreateTexture(nil, "ARTWORK")
-    b.tex:SetPoint("TOPLEFT", 5, -5)
-    b.tex:SetPoint("BOTTOMRIGHT", -5, 5)
-    b.tex:SetTexture(texture)
-    b.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    b.tex:SetDesaturated(true)
-    b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
-    b:GetHighlightTexture():SetVertexColor(1, 0.85, 0.3, 0.15)
+local function ModeButton(parent, icon, label, onClick, title, body)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(MODE_W, MODE_H)
+    local function art(path)
+        local t = b:CreateTexture(nil, "BACKGROUND")
+        t:SetAllPoints()
+        t:SetTexture(path)
+        t:SetTexCoord(unpack(PANEL_TC))
+        return t
+    end
+    b.up = art("Interface\\Buttons\\UI-Panel-Button-Up")
+    b.down = art("Interface\\Buttons\\UI-Panel-Button-Down")
+    b:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight", "ADD")
+    b:GetHighlightTexture():SetTexCoord(unpack(PANEL_TC))
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetSize(MODE_H - 8, MODE_H - 8)
+    b.icon:SetTexture(icon)
+    b.icon:SetDesaturated(true)
+    b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    b.text:SetText(label)
     b:SetScript("OnClick", Safe(onClick))
     Tip(b, title, body)
     return b
+end
+
+local function SetPressed(b, pressed)
+    b.up:SetShown(not pressed)
+    b.down:SetShown(pressed)
+    local o = pressed and 1 or 0
+    b.icon:ClearAllPoints()
+    b.icon:SetPoint("LEFT", 8 + o, -o)
+    b.text:ClearAllPoints()
+    b.text:SetPoint("LEFT", b.icon, "RIGHT", 3, 0)
+    if pressed then
+        b.icon:SetVertexColor(1, 0.82, 0)
+        b.text:SetTextColor(1, 0.82, 0)
+    else
+        b.icon:SetVertexColor(0.6, 0.5, 0.3)
+        b.text:SetTextColor(0.65, 0.55, 0.35)
+    end
 end
 
 ------------------------------------------------------------------------------
@@ -324,19 +350,6 @@ function SC.CapturePortrait(name, unit)
     if pcall(SetPortraitTexture, p.tex, unit) then p.at = now end
 end
 
-local function SetLit(b, on)
-    if on then
-        b:SetBackdropColor(0.75, 0.08, 0.05, 1)
-        b:SetBackdropBorderColor(1, 0.82, 0.1, 1)
-        b.tex:SetVertexColor(1, 0.85, 0.25)
-        b.tex:SetAlpha(1)
-    else
-        b:SetBackdropColor(0.25, 0.03, 0.02, 0.9)
-        b:SetBackdropBorderColor(0.45, 0.32, 0.08, 0.8)
-        b.tex:SetVertexColor(0.8, 0.65, 0.25)
-        b.tex:SetAlpha(0.45)
-    end
-end
 
 ------------------------------------------------------------------------------
 -- Build: header, key line, mob rows
@@ -345,16 +358,6 @@ end
 local function SavePos()
     local p, _, rp, x, y = F:GetPoint()
     SC.char.framePos = { p, rp, x, y }
-end
-
-local function HeaderButton(text, w, anchor, onClick, title, body)
-    local b = CreateFrame("Button", nil, F, "UIPanelButtonTemplate")
-    b:SetSize(w, 18)
-    b:SetPoint("RIGHT", anchor, "LEFT", -2, 0)
-    b:SetText(text)
-    b:SetScript("OnClick", Safe(onClick))
-    Tip(b, title, body)
-    return b
 end
 
 local function BuildHeader()
@@ -384,13 +387,6 @@ local function BuildHeader()
     end)
     Tip(gear, "Settings", "Your SpawnCamp key, the attack spell, and how talking works.")
 
-    local near = HeaderButton("Nearby", 54, gear, function() SC.ToggleNearby() end,
-        "Nearby mobs", "NPCs around you from nameplates, target and mouseover. Click one to add it.")
-    HeaderButton("+", 22, near, function()
-        SC.AddTarget()
-        SC.Refresh()
-    end, "Add a mob", "Adds your target. With no target (or a hidden name) it opens a box to type the name.")
-
     -- Key summary; clicking it opens the settings.
     local keys = CreateFrame("Button", nil, F)
     keys:SetPoint("TOPLEFT", 8, -24)
@@ -403,25 +399,36 @@ local function BuildHeader()
     keys:SetScript("OnClick", OpenSettings)
     Tip(keys, "Your key", "One key for every mob: the sword or bubble on each line says what it does. Click to change it.")
 
-    -- Name box, shown by + when the name can't be read.
+    -- Add row: type or paste a name, or take your target, or pick from Nearby.
     local add = CreateFrame("Frame", nil, F)
     add:SetPoint("TOPLEFT", 4, -40)
     add:SetPoint("RIGHT", F, "RIGHT", -4, 0)
     add:SetHeight(24)
-    ui.addRow = add
-    ui.addName = Edit(add, 170, 0, -2, function() end)
+    ui.addName = Edit(add, 150, 0, -2, function() end)
+    local hint = ui.addName:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    hint:SetPoint("LEFT", 2, 0)
+    hint:SetText("type or paste a mob name")
+    local function showHint()
+        hint:SetShown(not ui.addName:HasFocus() and (ui.addName:GetText() or "") == "")
+    end
+    ui.addName:HookScript("OnEditFocusGained", showHint)
+    ui.addName:HookScript("OnEditFocusLost", showHint)
+    ui.addName:HookScript("OnTextChanged", showHint)
     local function addTyped()
         local n = strtrim(ui.addName:GetText() or "")
         if n ~= "" then SC.AddMob(n) end
         ui.addName:SetText("")
         ui.addName:ClearFocus()
-        ui.addOpen = false
         SC.Refresh()
     end
     ui.addName:SetScript("OnEnterPressed", addTyped)
-    ui.addName:SetScript("OnEscapePressed", function(self) self:ClearFocus(); ui.addOpen = false; SC.Refresh() end)
-    Btn(add, "Add", 50, 184, -2, addTyped)
-    Text(add, "exact name", 240, -6)
+    ui.addName:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    local addBtn = Btn(add, "Add", 44, 162, -2, addTyped)
+    Tip(addBtn, "Add", "Adds the name in the box. Use the exact name the game shows.")
+    local cur = Btn(add, "Current Target", 104, 208, -2, function() SC.AddTarget(); SC.Refresh() end)
+    Tip(cur, "Current Target", "Adds the mob you have targeted: Attack if it's hostile, Talk if it's friendly.")
+    local near = Btn(add, "Nearby", 64, 314, -2, function() SC.ToggleNearby() end)
+    Tip(near, "Nearby", "Lists mobs around you, with a button to add each one.")
 end
 
 local function BuildRows()
@@ -438,7 +445,7 @@ local function BuildRows()
         r.portraitHolder:SetPoint("LEFT", 2, 0)
         r.bar = CreateFrame("StatusBar", nil, r)
         r.bar:SetPoint("BOTTOMLEFT", r.portraitHolder, "BOTTOMRIGHT", 4, 1)
-        r.bar:SetPoint("RIGHT", r, "RIGHT", -(ICON_BTN * 2 + 14), 0)
+        r.bar:SetPoint("RIGHT", r, "RIGHT", -(MODE_W * 2 + 14), 0)
         r.bar:SetHeight(14)
         r.bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
         r.bar:SetMinMaxValues(0, 1)
@@ -452,12 +459,12 @@ local function BuildRows()
         r.status:SetPoint("RIGHT", -3, 0)
         r.status:SetJustifyH("LEFT")
         r.status:SetWordWrap(false)
-        r.talk = IconToggle(r, BUBBLE, function() SetMode(SC.char.mobs[r.mobName], "interact") end,
-            "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests. Click again to turn off.")
+        r.talk = ModeButton(r, BUBBLE, "Talk", function() SetMode(SC.char.mobs[r.mobName], "interact") end,
+            "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests.")
         r.talk:SetPoint("RIGHT", -4, 0)
-        r.sword = IconToggle(r, SWORD, function() SetMode(SC.char.mobs[r.mobName], "attack") end,
-            "Attack", "Your key targets this mob and casts your attack spell. Click again to turn off.")
-        r.sword:SetPoint("RIGHT", r.talk, "LEFT", -6, 0)
+        r.sword = ModeButton(r, SWORD, "Attack", function() SetMode(SC.char.mobs[r.mobName], "attack") end,
+            "Attack", "Your key targets this mob and casts your attack spell.")
+        r.sword:SetPoint("RIGHT", r.talk, "LEFT", -4, 0)
         r:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
         r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
         r:RegisterForDrag("LeftButton")
@@ -481,7 +488,7 @@ local function BuildRows()
         end)
         ui.rows[i] = r
     end
-    ui.hint = Text(F, "Target a mob and press |cffffd100+|r, or pick one from |cffffd100Nearby|r.", 10, 0)
+    ui.hint = Text(F, "No mobs yet: type a name, use |cffffd100Current Target|r, or pick from |cffffd100Nearby|r.", 10, 0)
 end
 
 ------------------------------------------------------------------------------
@@ -659,8 +666,10 @@ local function RefreshNearby()
             if ago > 3 then bits[#bits + 1] = "|cff999999" .. SC.Clock(ago) .. " ago|r" end
             r.name:SetText(color .. item.name .. "|r")
             r.info:SetText(table.concat(bits, " "))
-            r.watching:SetShown(SC.char.mobs[item.name] ~= nil)
-            r.mobName = item.name
+            local have = SC.char.mobs[item.name] ~= nil
+            r.watching:SetShown(have)
+            r.add:SetShown(not have)
+            r.mobName, r.hostile = item.name, e.hostile
             r:Show()
         else
             r:Hide()
@@ -673,7 +682,7 @@ end
 
 local function BuildNearby()
     N = CreateFrame("Frame", nil, F, "BackdropTemplate")
-    N:SetSize(280, 92 + NEAR_ROWS * 18)
+    N:SetSize(320, 92 + NEAR_ROWS * 18)
     N:SetPoint("TOPLEFT", F, "TOPRIGHT", 2, 0)
     Backdrop(N, 0.9)
     N:EnableMouse(true)
@@ -688,12 +697,12 @@ local function BuildNearby()
     close:SetPoint("TOPRIGHT", -1, -1)
     N.count = Text(N, "", 8, -28 - NEAR_ROWS * 18 - 4)
     N.report = Text(N, "", 8, -28 - NEAR_ROWS * 18 - 20)
-    N.report:SetWidth(264)
+    N.report:SetWidth(304)
     N.empty = Text(N, EMPTY_TEXT, 8, -30)
     N.rows = {}
     for i = 1, NEAR_ROWS do
         local r = CreateFrame("Button", nil, N)
-        r:SetSize(264, 17)
+        r:SetSize(304, 17)
         r:SetPoint("TOPLEFT", 8, -28 - (i - 1) * 18)
         r:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
         r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
@@ -704,18 +713,24 @@ local function BuildNearby()
         r.name:SetWordWrap(false)
         r.info = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         r.info:SetPoint("LEFT", r.name, "RIGHT", 4, 0)
-        r.info:SetPoint("RIGHT", -16, 0)
+        r.info:SetPoint("RIGHT", -52, 0)
         r.info:SetJustifyH("LEFT")
         r.info:SetWordWrap(false)
-        r.watching = r:CreateTexture(nil, "OVERLAY")
-        r.watching:SetSize(12, 12)
-        r.watching:SetPoint("RIGHT", -2, 0)
-        r.watching:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
-        r:SetScript("OnClick", Safe(function(self)
-            if not SC.char.mobs[self.mobName] then SC.AddMob(self.mobName) end
+        r.add = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
+        r.add:SetSize(46, 17)
+        r.add:SetPoint("RIGHT", 0, 0)
+        r.add:SetText("Add")
+        r.add:SetScript("OnClick", Safe(function()
+            if not SC.char.mobs[r.mobName] then
+                SC.AddMob(r.mobName, r.hostile == false and "interact" or "attack")
+            end
             SC.Refresh()
+            RefreshNearby()
         end))
-        Tip(r, "Add this mob", "Then pick the sword or bubble on its line. Red = hostile, blue = friendly.")
+        Tip(r.add, "Add this mob", "Hostile ones start on Attack, friendly ones on Talk.")
+        r.watching = r:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        r.watching:SetPoint("RIGHT", -4, 0)
+        r.watching:SetText("added")
         r:EnableMouseWheel(true)
         r:SetScript("OnMouseWheel", function(_, d)
             N.offset = (N.offset or 0) - d
@@ -814,8 +829,8 @@ local function RefreshRows(top)
             p:SetAllPoints(r.portraitHolder)
             p:Show()
             r.status:SetText(StatusColor(state) .. text .. "|r")
-            SetLit(r.sword, m.mode == "attack")
-            SetLit(r.talk, m.mode == "interact")
+            SetPressed(r.sword, m.mode == "attack")
+            SetPressed(r.talk, m.mode == "interact")
             local sel = SC.char.panel == "mob" and n == SC.char.selected
             r.bg:SetColorTexture(1, 0.6, 0.2, sel and 0.3 or 0.06)
             r:Show()
@@ -914,14 +929,8 @@ function SC.RefreshWindow()
     F:SetWidth(panel and W_PANEL or W_COMPACT)
     RefreshKeyLine()
 
-    local top = -42
-    if ui.addOpen then
-        ui.addRow:Show()
-        top = top - 26
-    else
-        ui.addRow:Hide()
-    end
-    local rows = RefreshRows(top)
+    local rows = RefreshRows(-68)
+    local top = -68
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
 
     local height = -top + rows * ROW_H + 6
@@ -943,10 +952,8 @@ end
 -- Shows the name box (from + when the name can't be read).
 function SC.FocusAddName()
     SC.char.shown = true
-    if not F then SC.Refresh() end
-    ui.addOpen = true
     SC.Refresh()
-    ui.addName:SetFocus()
+    if ui.addName then ui.addName:SetFocus() end
 end
 
 function SC.ShowWindow()

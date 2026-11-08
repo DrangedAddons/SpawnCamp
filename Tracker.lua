@@ -79,10 +79,9 @@ function SC.Observe(name, kind, spawn, t, src, extra)
         end
         if kind == "D" and e.mine and mob.mode ~= "interact" then
             mob.hunting = false
-            mob.mode = nil
             SC.ApplyBindings()
             SC.Alert("You got " .. name .. "!")
-            SC.Print("took " .. name .. " off your key. Click its sword to hunt it again.")
+            SC.Print("took " .. name .. " off your key. Tick \"Still hunting\" in its details to hunt it again.")
         end
     end
     SC.Refresh()

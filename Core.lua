@@ -74,8 +74,8 @@ SC.CHAR_DEFAULTS = {
 }
 
 SC.MOB_DEFAULTS = {
-    -- mode: "attack", "interact" or nil (timer only). Not defaulted: nil is meaningful.
-    hunting = true,       -- still after this one; unticked once you get the kill
+    mode = "attack",      -- "attack" (sword) or "interact" (bubble); always one of the two
+    hunting = true,       -- on the key; turned off once you get the kill
     alertSpawn = true,    -- alert when it's seen alive
     alarm = true,         -- alarm before the expected respawn
     lead = 60,            -- seconds before the earliest expected respawn
@@ -83,12 +83,12 @@ SC.MOB_DEFAULTS = {
     manualMax = 0,        -- minutes; >0 overrides the history's latest respawn
 }
 
--- Mobs in a mode, in list order.
+-- Mobs on the key in a mode, in list order (ones you already got are off it).
 function SC.MobsIn(mode)
     local out = {}
     for _, n in ipairs(SC.char.order) do
         local m = SC.char.mobs[n]
-        if m and m.mode == mode then out[#out + 1] = m end
+        if m and m.mode == mode and m.hunting then out[#out + 1] = m end
     end
     return out
 end
@@ -129,7 +129,7 @@ function SC.AddMob(name, mode)
     if not mobs[name] then
         mobs[name] = { name = name }
         Fill(mobs[name], SC.MOB_DEFAULTS)
-        mobs[name].mode = mode
+        mobs[name].mode = mode or "attack"
         table.insert(SC.char.order, name)
     end
     SC.ApplyBindings()
@@ -338,7 +338,12 @@ SC.On("ADDON_LOADED", function(name)
         if m.key ~= nil then
             if SC.char.key == "" and m.key ~= "" then SC.char.key = m.key end
             if m.mode == "attack" and A.spell == "" and m.spell and m.spell ~= "" then A.spell = m.spell end
-            if m.armed == false then m.mode = nil end
+            if m.armed == false then m.hunting = false end
+        end
+        -- 0.4/0.5 allowed no mode (timer only); that's now "attack" off the key.
+        if m.mode == nil then
+            m.mode = "attack"
+            m.hunting = false
         end
         for _, old in ipairs({ "key", "spell", "macro", "interact", "armed", "autoQuest", "onlyOption", "gossip", "reward" }) do
             m[old] = nil
@@ -424,7 +429,8 @@ function SC.AddTarget()
         if SC.FocusAddName then SC.FocusAddName() end
         return
     end
-    SC.AddMob(name)
+    local friendly = SC.Bool(UnitCanAttack("player", "target")) == false
+    SC.AddMob(name, friendly and "interact" or "attack")
 end
 
 -- /spc probe: every read the addon relies on, for target, mouseover and the
