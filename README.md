@@ -1,89 +1,74 @@
 # SpawnCamp
 
-WoW Forever addon for camping a mob: one key to tag it or talk to it, automatic chat and quest steps, and a respawn timer built from the kills it has seen.
+WoW Forever addon for camping a mob: one key to tag it, one key to talk to it (chat, quest hand-ins and accepts), and a respawn timer built from the kills it has seen.
 
 ## The window
 
-A compact window stays on screen: one line per watched mob with its status, a countdown bar, and its key. Drag it by the header. `/spawncamp` (or `/spc`) shows or hides it.
-
-Three ways to add a mob:
-
-- **+**: watches your current target.
-- **Nearby**: lists NPCs around you (from nameplates, target and mouseover in the last 3 minutes), rares first. Click one to watch it. Red = hostile, blue = friendly. Turn nameplates on (V for enemies, Shift-V for friendly NPCs) so more of them show up.
-- **More → Add by name**: for objects, which can't be targeted or listed.
-
-**More** opens three tabs under the list. Clicking a mob's line does the same for that mob.
-
-- **Setup**:
-  1. **Action**: Attack, Interact or Custom macro
-  2. **What it does**: the spell, the interact method and quest options, or your macro text
-  3. **Key**: click the button, then press the key
-  4. **Alarms**
-- **History**: status, respawn stats, every sighting with its respawn time, manual "it died / it's up" buttons.
-- **Options**: sharing, sound, whether mobs you already got stay on the list, lock position.
-
-## Attack mode: getting the tag
-
-Pick an instant spell (drag it from your spellbook onto the Spell box) and set a key. The key runs:
+A small window stays on screen:
 
 ```
-/cleartarget
-/targetexact <mob>
-/cast [@target,harm,nodead] <spell>
-/startattack [@target,harm,nodead]
+[icon] SpawnCamp                  [+] [Nearby] [gear] [x]
+Attack: F (Moonfire)    Talk: G
+Mob name     status / countdown        [sword] [bubble]
 ```
 
-Spam the key while you wait. When the mob isn't there you end up with no target, so it never casts on anything else. When it spawns, the first press that lands targets it and casts.
+1. **Add a mob.** Target it and press **+**, or pick it from **Nearby**. If the game hides the name (it does in dungeons), **+** opens a box: type the name exactly as your target frame shows it.
+2. **Pick sword or bubble** on its line.
+   - **Sword**: your **Attack** key goes for this mob.
+   - **Bubble**: your **Talk** key talks to it. Chat is clicked through, finished quests are handed in, and new and follow-up quests are accepted.
+   - Neither: timer only. Click a lit icon again to turn it off.
+3. **Set your two keys once**, in the gear settings. The first time you light a sword or bubble without a key, the settings open.
 
-The game requires a real keypress for every target and cast. SpawnCamp doesn't press anything for you and never will.
+Click a mob's name for its details: status, respawn times, full history, alarms, and the manual **It died now** / **It's up now** buttons. Drag the window by its header.
 
-When the mob dies with your tag, SpawnCamp alerts you, unticks **Still hunting** and frees the key.
+The game requires a real keypress for every target, cast and interact. SpawnCamp doesn't press anything for you and never will.
 
-## Custom macro
+## Settings (gear)
 
-Write your own macro text for the key. `{mob}` is replaced with the mob's name. **Start from the Attack macro** fills in the attack macro so you can edit it.
+**Attack**
+- **Key**: one key for every sword mob. It runs:
+  ```
+  /cleartarget
+  /targetexact First Mob
+  /targetexact [noexists] Second Mob
+  /cast [@target,harm,nodead] <spell>
+  /startattack [@target,harm,nodead]
+  ```
+  When no mob is there you end up with no target, so it never casts on anything else.
+- **Spell**: drag an instant spell from your spellbook. Empty = auto attack only.
+- **Custom macro** (optional): replaces the spell part. `{target}` becomes the targeting lines.
 
-## Interact mode: NPCs, quests and chat
+**Talk**
+- **Key**: one key for every bubble mob.
+- **Reach**:
+  - **Target by name** (default)
+  - **Mouseover**: the NPC under your mouse
+  - **Nearest**: the game's Interact key. With soft interact on (there's a button for it) it also reaches chests and quest items.
+- **Hand in and accept quests** and **Click through chat**: both on by default. With several chat options it picks one matching your **Prefer** list, or asks you.
+- **Reward choice**: for quests with several rewards. Empty = you pick.
+- Hold **Shift** while talking to do a window yourself.
 
-- **Target by name**: targets the NPC, then interacts with it.
-- **Mouseover**: interacts with the NPC under your mouse.
-- **Nearest**: the key becomes the game's Interact key. With soft-target interact on (there's a button for it) this also works on objects you can't target, such as chests and quest items.
+**General**: share sightings with group/guild, sound, keep mobs you already got on the list, lock the window.
 
-Once a watched NPC's window opens, SpawnCamp hands in finished quests, takes available ones, accepts follow-ups, and picks chat options that match your list (one text fragment per line, in order). With **Pick the chat option when there's only one** ticked it also clicks through single-option pages. Hold **Shift** while interacting to handle a window yourself.
-
-## Forever hides NPC names
-
-WoW Forever doesn't let addons read NPC names or GUIDs, even out of combat. It does show whether a unit exists, is dead, is hostile, and its level. So on Forever:
-
-- Add mobs by typing the name exactly as your target frame shows it. **+** opens the name box.
-- **Nearby** can't name mobs and stays empty.
-- Your key tells SpawnCamp which mob is which. The attack and "target by name" macros clear your target, then target the mob. So a target right after the press is the mob: it's logged as up, and SpawnCamp follows it (as your target and on its nameplate) until it dies or leaves range.
-- A chat or quest window that opens within 8 seconds of pressing an Interact key belongs to that mob. Each automated step extends the 8 seconds, so follow-up quests keep going. Closing the window ends it.
+Each key only takes over while at least one mob uses it. Untick all swords and your Attack key goes back to its normal binding.
 
 ## Respawn timer
 
-SpawnCamp logs a **death** when it sees a watched mob dead and a **spawn** when it sees a new one alive. It checks nameplates, your target and your mouseover several times a second. Each death followed by a spawn gives a respawn time. The window shows the earliest, average and latest. The timer list counts down to the earliest and says when the window is open or overdue.
+SpawnCamp logs a **death** when it sees a watched mob dead and a **spawn** when it sees one alive. It reads nameplates, your target and your mouseover, plus what your keys target. Each death followed by a spawn gives a respawn time. The details show the earliest, average and latest, and the line's bar counts down to the earliest.
 
-- **Respawn alarm** goes off a set number of seconds before the earliest respawn, and again when the window opens.
-- **Alert when it spawns** goes off when it's seen alive (by you, or by another SpawnCamp user if sharing is on).
-- **It died now** / **It's up now** log a sighting by hand. Use them when you saw something the addon missed.
-- **Respawn time (min) ... to ...** sets a known respawn time and overrides the history.
-- Delete a bad entry with the red **x** in the history.
+- **Respawn alarm** goes off a set time before the earliest respawn, and again when the window opens.
+- **Alert when it spawns** goes off when it's seen alive (by you, or by another SpawnCamp user with sharing on).
+- **Known respawn** (minutes) overrides the history.
+- When you get the kill yourself, the mob comes off the Attack key and is marked "got".
 
-Limits:
+### Hidden names (dungeons)
 
-- The addon only knows what it or other SpawnCamp users saw. A mob found already dead is logged with a **+** ("died at least this long ago"), and its respawn time counts as a lower bound.
-- Nameplates only show nearby mobs, so camp within nameplate range.
-- History is per realm and shared across your characters. Keys, spells and settings are per character.
-
-## Sharing
-
-With **Share sightings with group/guild** on, deaths and spawns you see go to party/raid and guild members running SpawnCamp. Theirs get logged for mobs you watch.
+In dungeons Forever hides NPC names from addons. SpawnCamp then knows a mob by your key: a target right after an Attack or Talk press is that key's mob. If the key covers several mobs, it can only tell which one when the name is readable. A chat or quest window within 8 seconds of a Talk press gets handled.
 
 ## Commands
 
-- `/spawncamp`: show or hide the window
-- `/spawncamp more`: open or close setup and history
+- `/spawncamp` (or `/spc`): show or hide the window
+- `/spawncamp settings`: open the settings
 - `/spawncamp add [name]`: watch your target, or a mob by name
 - `/spawncamp died [name]` / `up [name]`: log a sighting now
-- `/spawncamp debug`: print what the addon can read from your target (for bug reports)
+- `/spawncamp probe`: print and save what the addon can read (for bug reports)

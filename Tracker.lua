@@ -79,10 +79,10 @@ function SC.Observe(name, kind, spawn, t, src, extra)
         end
         if kind == "D" and e.mine and mob.mode ~= "interact" then
             mob.hunting = false
-            mob.armed = false
+            mob.mode = nil
             SC.ApplyBindings()
             SC.Alert("You got " .. name .. "!")
-            SC.Print("stopped hunting " .. name .. " and freed its key. Tick \"Still hunting\" to start again.")
+            SC.Print("took " .. name .. " off the Attack key. Click its sword to hunt it again.")
         end
     end
     SC.Refresh()
@@ -326,14 +326,23 @@ local function Died(name, unit)
     follow[name] = nil
 end
 
--- Right after a key press: a target now is the mob (the macro cleared the old one).
-local function TakeTarget(name)
-    local mob = SC.char.mobs[name]
-    if not mob then return end
+-- Right after a key press: a target now is one of that key's mobs (the macro
+-- cleared the old one). A readable name says which; with the name hidden it's
+-- only known when the key covers a single mob.
+local function TakeTarget(kind)
+    local mobs = SC.MobsIn(kind)
+    if #mobs == 0 then return end
     if not SC.MaybeExists("target") or SC.True(UnitIsPlayer("target")) then return end
-    -- When the name is readable it has to match; hidden names are trusted.
     local n = SC.UnitNameSafe("target")
-    if n and n:lower() ~= name:lower() then return end
+    local name
+    if n then
+        for _, m in ipairs(mobs) do
+            if m.name:lower() == n:lower() then name = m.name; break end
+        end
+    elseif #mobs == 1 then
+        name = mobs[1].name
+    end
+    if not name then return end
     local f = follow[name]
     if not f then f = {}; follow[name] = f end
     f.viaTarget = true
@@ -351,13 +360,12 @@ local function TakeTarget(name)
     end
 end
 
-function SC.OnKeyPressed(name)
-    local mob = SC.char and SC.char.mobs[name]
-    if not mob then return end
-    -- Modes that don't target by name can't tell which unit is the mob.
-    if mob.mode == "interact" and mob.interact ~= "target" then return end
-    TakeTarget(name)
-    C_Timer.After(0.15, function() pcall(TakeTarget, name) end)
+function SC.OnKeyPressed(kind)
+    if not SC.char then return end
+    -- Talk modes that don't target by name can't tell which unit is the mob.
+    if kind == "interact" and SC.char.interact.how ~= "target" then return end
+    TakeTarget(kind)
+    C_Timer.After(0.15, function() pcall(TakeTarget, kind) end)
 end
 
 local function CheckFollowed()
@@ -384,7 +392,9 @@ end
 SC.On("PLAYER_TARGET_CHANGED", function()
     local now = GetTime()
     for name, f in pairs(follow) do
-        if f.viaTarget and now - (SC.lastPress[name] or 0) > 0.6 then
+        local mob = SC.char.mobs[name]
+        local pressed = mob and mob.mode and SC.lastPress[mob.mode] or 0
+        if f.viaTarget and now - pressed > 0.6 then
             f.viaTarget = nil
             if not f.plate then follow[name] = nil end
         end

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+Simpler window.
+
+- Each mob line has a **sword** and a **chat bubble**. Sword = the Attack key goes for it; bubble = the Talk key talks to it (chat, quest hand-ins, accepts, follow-ups). That's the only choice per mob.
+- One **Attack** key and one **Talk** key for the whole list, set once in the gear settings with the attack spell, an optional custom macro, and how talking works. The keys show under the title.
+- The Attack key covers every sword mob: `/targetexact` for the first, `/targetexact [noexists]` for the rest.
+- Clicking a mob's name opens its details: status, respawn times, history, alarms.
+- **+** asks for a typed name only when the game hides it (dungeons).
+- Removed the per-mob key, spell, mode and quest options, and the Custom macro mode (now a setting). Existing mobs keep their sword/bubble, and the first key and spell found move into the settings.
+
 ## 0.3.0
 
 Forever hides NPC names and GUIDs from addons (confirmed with `/spc probe`), so the addon now tells mobs apart by your key presses.

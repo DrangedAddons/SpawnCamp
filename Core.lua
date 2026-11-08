@@ -47,38 +47,53 @@ end
 -- Defaults
 ------------------------------------------------------------------------------
 
+-- Per character. Each mob only says sword (attack), bubble (talk) or neither;
+-- how attacking and talking work is set once, in the gear settings.
 SC.CHAR_DEFAULTS = {
-    mobs = {},            -- name -> mob settings (MOB_DEFAULTS)
+    mobs = {},            -- name -> mob (MOB_DEFAULTS)
     order = {},           -- names in list order
-    selected = nil,
+    selected = nil,       -- mob shown in the details panel
+    panel = nil,          -- nil, "mob" (details) or "settings"
+    attack = {
+        key = "",         -- the Attack key
+        spell = "",       -- instant spell; empty = auto attack only
+        macro = "",       -- optional custom macro; {target} = the targeting lines
+    },
+    interact = {
+        key = "",         -- the Talk key
+        how = "target",   -- "target" (by name), "mouseover", "nearest" (game Interact key)
+        autoQuest = true, -- hand in finished quests, accept new and follow-up ones
+        gossip = true,    -- click through chat options
+        prefer = "",      -- chat options to pick first, one text match per line
+        reward = 0,       -- reward choice when a quest offers several (0 = you pick)
+    },
     share = true,         -- send and receive sightings with party/raid and guild
     shown = true,         -- the window is on screen
-    expanded = false,     -- setup/history panel open under the mob list
-    tab = "setup",
-    showDone = true,      -- keep mobs you already got on the compact list
+    showDone = true,      -- keep mobs you already got on the list
     locked = false,       -- window can't be dragged
     sound = true,         -- play a sound with alerts
     minimap = { hide = false },
 }
 
 SC.MOB_DEFAULTS = {
-    mode = "attack",      -- "attack", "interact" or "macro"
-    spell = "",           -- attack: instant spell to cast; empty = auto attack only
-    macro = "",           -- macro: the player's own macro text, {mob} = the name
-    interact = "target",  -- interact: "target" (by name), "mouseover", "nearest" (game Interact key)
-    key = "",             -- binding, e.g. "SHIFT-F"
-    armed = true,         -- the key is active
+    -- mode: "attack", "interact" or nil (timer only). Not defaulted: nil is meaningful.
     hunting = true,       -- still after this one; unticked once you get the kill
     alertSpawn = true,    -- alert when it's seen alive
     alarm = true,         -- alarm before the expected respawn
     lead = 60,            -- seconds before the earliest expected respawn
     manualMin = 0,        -- minutes; >0 overrides the history's earliest respawn
     manualMax = 0,        -- minutes; >0 overrides the history's latest respawn
-    autoQuest = true,     -- interact: accept and hand in its quests
-    onlyOption = true,    -- interact: pick the chat option when there's only one
-    gossip = "",          -- interact: chat options to pick, one text match per line
-    reward = 0,           -- interact: quest reward choice when there are several (0 = ask)
 }
+
+-- Mobs in a mode, in list order.
+function SC.MobsIn(mode)
+    local out = {}
+    for _, n in ipairs(SC.char.order) do
+        local m = SC.char.mobs[n]
+        if m and m.mode == mode then out[#out + 1] = m end
+    end
+    return out
+end
 
 local function Fill(t, defaults)
     for k, v in pairs(defaults) do
@@ -116,10 +131,9 @@ function SC.AddMob(name, mode)
     if not mobs[name] then
         mobs[name] = { name = name }
         Fill(mobs[name], SC.MOB_DEFAULTS)
-        if mode then mobs[name].mode = mode end
+        mobs[name].mode = mode
         table.insert(SC.char.order, name)
     end
-    SC.char.selected = name
     SC.ApplyBindings()
     SC.Refresh()
     return mobs[name]
@@ -132,7 +146,10 @@ function SC.RemoveMob(name)
     for i, n in ipairs(SC.char.order) do
         if n == name then table.remove(SC.char.order, i); break end
     end
-    if SC.char.selected == name then SC.char.selected = SC.char.order[1] end
+    if SC.char.selected == name then
+        SC.char.selected = nil
+        if SC.char.panel == "mob" then SC.char.panel = nil end
+    end
     SC.ApplyBindings()
     SC.Refresh()
 end
@@ -310,12 +327,28 @@ SC.On("ADDON_LOADED", function(name)
     for _, n in ipairs(SC.char.order) do
         if SC.char.mobs[n] and not seen[n] then seen[n] = true; order[#order + 1] = n end
     end
+    -- 0.3 kept key/spell/quest options per mob; they now live in attack/interact.
+    local A, I = SC.char.attack, SC.char.interact
     for n, m in pairs(SC.char.mobs) do
         m.name = n
+        if m.mode == "macro" then m.mode = "attack" end
+        if m.key ~= nil then
+            if m.mode == "attack" and A.key == "" and m.key ~= "" then A.key = m.key end
+            if m.mode == "attack" and A.spell == "" and m.spell and m.spell ~= "" then A.spell = m.spell end
+            if m.mode == "interact" and I.key == "" and m.key ~= "" then
+                I.key = m.key
+                I.how = m.interact or I.how
+            end
+            if m.armed == false then m.mode = nil end
+        end
+        for _, old in ipairs({ "key", "spell", "macro", "interact", "armed", "autoQuest", "onlyOption", "gossip", "reward" }) do
+            m[old] = nil
+        end
         Fill(m, SC.MOB_DEFAULTS)
         if not seen[n] then order[#order + 1] = n end
     end
     SC.char.order = order
+    SC.char.expanded, SC.char.tab, SC.char.showTimers = nil, nil, nil
 end)
 
 SC.On("PLAYER_LOGIN", function()
@@ -330,7 +363,7 @@ end)
 local function Help()
     SC.Print("commands:")
     print("  /spawncamp - show or hide the window")
-    print("  /spawncamp more - open or close setup and history")
+    print("  /spawncamp settings - open the settings (keys, spell, talk options)")
     print("  /spawncamp add [name] - watch your target, or a mob by name")
     print("  /spawncamp died [name] - log a death now (selected mob if no name)")
     print("  /spawncamp up [name] - log a spawn now")
@@ -357,16 +390,16 @@ SlashCmdList.SPAWNCAMP = function(msg)
         else
             SC.AddTarget()
         end
-        SC.char.shown, SC.char.expanded, SC.char.tab = true, true, "setup"
+        SC.char.shown = true
         SC.Refresh()
     elseif cmd == "died" or cmd == "up" then
         local n = MobArg(rest)
         if not n then SC.Print("no such mob being watched"); return end
         SC.Observe(n, cmd == "died" and "D" or "A", nil, nil, "you", { manual = true })
         SC.Refresh()
-    elseif cmd == "more" then
+    elseif cmd == "settings" or cmd == "config" or cmd == "more" then
         SC.char.shown = true
-        SC.char.expanded = not SC.char.expanded
+        SC.char.panel = SC.char.panel ~= "settings" and "settings" or nil
         SC.Refresh()
     elseif cmd == "debug" or cmd == "probe" then
         SC.Debug()
@@ -388,13 +421,11 @@ function SC.AddTarget()
     local name = SC.UnitNameSafe("target")
     if not name then
         -- Forever hides NPC names from addons: ask for it typed, mode from what is readable.
-        local friendly = SC.Bool(UnitCanAttack("player", "target")) == false
-        SC.Print("Forever hides NPC names from addons. Type the name exactly as your target frame shows it and press Enter.")
-        if SC.FocusAddName then SC.FocusAddName(friendly and "interact" or "attack") end
+        SC.Print("the game hides this NPC's name from addons here (dungeons do). Type it exactly as your target frame shows it and press Enter.")
+        if SC.FocusAddName then SC.FocusAddName() end
         return
     end
-    local friendly = SC.Bool(UnitCanAttack("player", "target")) == false
-    SC.AddMob(name, friendly and "interact" or "attack")
+    SC.AddMob(name)
 end
 
 -- /spc probe: every read the addon relies on, for target, mouseover and the

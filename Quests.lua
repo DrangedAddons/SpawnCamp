@@ -1,10 +1,10 @@
--- SpawnCamp chat and quests: when a watched interact-mode NPC opens a chat or
--- quest window, step through it. Only for watched NPCs; hold Shift while
--- interacting to handle a window yourself.
+-- SpawnCamp chat and quests: when the Talk key opens a chat or quest window,
+-- step through it with the Talk settings. Hold Shift while interacting to
+-- handle a window yourself.
 --
 -- Order on a chat window: hand in finished quests, take available ones, then
--- pick a chat option (the mob's text matches in order, else the only option
--- when "pick the only option" is on). Follow-up quests open as a new quest
+-- pick a chat option (the preferred text matches in order, else the only
+-- option; with several and no match it asks you). Follow-up quests open as a new quest
 -- window from the same NPC and are accepted the same way.
 
 local ADDON, SC = ...
@@ -24,31 +24,26 @@ local function Step()
     return true
 end
 
--- How long after an interact key press (or the last window step) a chat or
--- quest window counts as that mob's.
+-- How long after a Talk key press (or the last window step) a chat or quest
+-- window counts as one to handle.
 local PRESS_WINDOW = 8
 
--- The watched interact mob behind the open window, or nil. Forever hides NPC
--- names, so the main signal is a recent press of an interact-mode key; a
--- readable name is used when there is one.
+-- The Talk settings when the open window should be handled, else nil. The
+-- main signal is a recent Talk key press (names can be hidden); a readable
+-- name of a bubble mob also counts.
 local function WindowMob()
     if IsShiftKeyDown() then return nil end
-    local now, best, bestT = GetTime(), nil, nil
-    for name, t in pairs(SC.lastPress) do
-        local m = SC.char.mobs[name]
-        if m and m.mode == "interact" and now - t < PRESS_WINDOW and (not bestT or t > bestT) then
-            best, bestT = m, t
-        end
-    end
-    if best then
-        -- Each step keeps the chain going (gossip -> quest -> follow-up quest).
-        SC.lastPress[best.name] = now
-        return best
+    local S = SC.char.interact
+    local t = SC.lastPress.interact
+    if t and GetTime() - t < PRESS_WINDOW then
+        -- Each step keeps the chain going (chat -> quest -> follow-up quest).
+        SC.lastPress.interact = GetTime()
+        return S
     end
     for _, unit in ipairs({ "npc", "questnpc" }) do
         local name = SC.UnitNameSafe(unit)
         local mob = name and SC.char.mobs[name]
-        if mob and mob.mode == "interact" then return mob end
+        if mob and mob.mode == "interact" then return S end
     end
     return nil
 end
@@ -57,13 +52,11 @@ end
 SC.On("GOSSIP_CLOSED", function()
     C_Timer.After(0.5, function()
         if not ((GossipFrame and GossipFrame:IsShown()) or (QuestFrame and QuestFrame:IsShown())) then
-            for name, t in pairs(SC.lastPress) do
-                if GetTime() - t > 0.4 then SC.lastPress[name] = 0 end
-            end
+            local t = SC.lastPress.interact
+            if t and GetTime() - t > 0.4 then SC.lastPress.interact = 0 end
         end
     end)
 end)
-
 local function Later(fn)
     C_Timer.After(0.05, function()
         local ok, err = pcall(fn)
@@ -71,9 +64,9 @@ local function Later(fn)
     end)
 end
 
-local function PickGossipOption(mob, options, onlyQuestsLeft)
+local function PickGossipOption(S, options, onlyQuestsLeft)
     local lines = {}
-    for line in (mob.gossip or ""):gmatch("[^\r\n]+") do
+    for line in (S.prefer or ""):gmatch("[^\r\n]+") do
         line = strtrim(line)
         if line ~= "" then lines[#lines + 1] = line:lower() end
     end
@@ -83,7 +76,7 @@ local function PickGossipOption(mob, options, onlyQuestsLeft)
             if text and text:lower():find(want, 1, true) then return opt end
         end
     end
-    if mob.onlyOption and #options == 1 and onlyQuestsLeft then return options[1] end
+    if #options == 1 and onlyQuestsLeft then return options[1] end
     return nil
 end
 
@@ -104,8 +97,13 @@ SC.On("GOSSIP_SHOW", function()
         end
         local options = G.GetOptions and G.GetOptions() or {}
         local noQuestsWaiting = #avail == 0
+        if not mob.gossip then return end
         local opt = PickGossipOption(mob, options, noQuestsWaiting)
-        if opt and opt.gossipOptionID then G.SelectOption(opt.gossipOptionID) end
+        if opt and opt.gossipOptionID then
+            G.SelectOption(opt.gossipOptionID)
+        elseif #options > 1 and noQuestsWaiting then
+            SC.Print("several chat options: pick one. (Talk settings can list text to pick automatically.)")
+        end
     end)
 end)
 
@@ -155,7 +153,7 @@ SC.On("QUEST_COMPLETE", function()
         elseif mob.reward and mob.reward >= 1 and mob.reward <= n then
             GetQuestReward(mob.reward)
         else
-            SC.Print("pick a reward (set \"Reward choice\" for " .. mob.name .. " to pick one automatically)")
+            SC.Print("pick a reward (Talk settings > Reward choice picks one automatically)")
         end
     end)
 end)
