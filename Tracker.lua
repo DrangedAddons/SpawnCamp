@@ -284,6 +284,11 @@ local function NoteNearby(unit)
         e.class = SC.Plain(UnitClassification(unit))
         e.ctype = SC.Plain(UnitCreatureType(unit))
         e.dead = SC.Bool(UnitIsDead(unit))
+        -- Quest link from the tooltip, for the Quest pop-out. Throttled per mob.
+        if SC.UnitQuest and (not e.qt or e.t - e.qt > 3) then
+            e.qt = e.t
+            e.quest, e.questObjective = SC.UnitQuest(unit)
+        end
         SC.nearby[n] = e
         return "ok"
     end)

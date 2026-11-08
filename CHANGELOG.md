@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.0
+
+- **Quest** pop-out next to Recent: mobs your current quests want, with **Use**. It lists kill objectives from your quest log (with progress, e.g. 3/10), plus mobs you've seen nearby whose tooltip names one of your quests, which covers mobs that drop quest items. Unfinished ones first, then ones nearby; finished ones are greyed.
+
 ## 0.16.0
 
 - **Any number of targets, up to 8.** Every add (typed name, My Target, Use in Nearby or Recent) joins the list, and **+ Add another target** sits under the last box. Clear on a box removes just that target. The key goes for whichever is alive, untagged and found first, and doesn't swap off one it's on.

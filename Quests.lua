@@ -157,3 +157,157 @@ SC.On("QUEST_COMPLETE", function()
         end
     end)
 end)
+
+------------------------------------------------------------------------------
+-- Quest mobs: the Quest pop-out lists mobs your current quests want.
+--   1. Kill objectives in your quest log ("Young Panther slain: 3/10").
+--   2. Mobs you've seen nearby whose tooltip names one of your quests (this
+--      catches item drops, where the log doesn't name the mob).
+------------------------------------------------------------------------------
+
+local QL = C_QuestLog
+local logCache, logDirty = {}, true
+
+local function ParseCount(text)
+    local have, need = text:match("(%d+)%s*/%s*(%d+)")
+    return tonumber(have), tonumber(need)
+end
+
+-- The mob's name from a kill objective, in either word order.
+local function MobFromObjective(text)
+    text = strtrim(text)
+    local name = text:match("^(.-)%s+[Ss]lain:%s*%d+%s*/%s*%d+")
+        or text:match("^(.-)%s+[Kk]illed:%s*%d+%s*/%s*%d+")
+        or text:match("^%d+%s*/%s*%d+%s+(.-)%s+[Ss]lain$")
+        or text:match("^%d+%s*/%s*%d+%s+(.-)%s+[Kk]illed$")
+        or text:match("^(.-):%s*%d+%s*/%s*%d+$")
+        or text:match("^%d+%s*/%s*%d+%s+(.+)$")
+    if name then name = strtrim(name) end
+    if name == "" then return nil end
+    return name
+end
+
+local function AddObjective(q, text, otype, finished, have, need)
+    text = SC.Plain(text)
+    if type(text) ~= "string" or text == "" then return end
+    if not have then have, need = ParseCount(text) end
+    q.objectives[#q.objectives + 1] = { text = text, type = SC.Plain(otype), finished = SC.True(finished), have = have, need = need }
+end
+
+-- Your quest log: { { title, questID, objectives = { {text, type, finished, have, need} } } }.
+function SC.QuestLog()
+    if not logDirty then return logCache end
+    logDirty = false
+    local out = {}
+    pcall(function()
+        if QL and QL.GetNumQuestLogEntries and QL.GetInfo then
+            for i = 1, (QL.GetNumQuestLogEntries() or 0) do
+                local info = QL.GetInfo(i)
+                if info and not info.isHeader and not info.isHidden and info.questID then
+                    local q = { title = SC.Plain(info.title) or "?", questID = info.questID, objectives = {} }
+                    for _, o in ipairs(QL.GetQuestObjectives and QL.GetQuestObjectives(info.questID) or {}) do
+                        AddObjective(q, o.text, o.type, o.finished, SC.Plain(o.numFulfilled), SC.Plain(o.numRequired))
+                    end
+                    out[#out + 1] = q
+                end
+            end
+        elseif GetNumQuestLogEntries and GetQuestLogTitle then
+            for i = 1, (GetNumQuestLogEntries() or 0) do
+                local title, _, _, isHeader, _, _, _, questID = GetQuestLogTitle(i)
+                if title and not isHeader then
+                    local q = { title = SC.Plain(title) or "?", questID = questID, objectives = {} }
+                    for j = 1, (GetNumQuestLeaderBoards and GetNumQuestLeaderBoards(i) or 0) do
+                        local text, otype, finished = GetQuestLogLeaderBoard(j, i)
+                        AddObjective(q, text, otype, finished)
+                    end
+                    out[#out + 1] = q
+                end
+            end
+        end
+    end)
+    logCache = out
+    return out
+end
+
+for _, ev in ipairs({ "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_REMOVED", "QUEST_TURNED_IN", "UNIT_QUEST_LOG_CHANGED" }) do
+    SC.On(ev, function()
+        logDirty = true
+        if SC.RefreshQuests then SC.RefreshQuests() end
+    end)
+end
+
+-- Which of your quests this unit belongs to, from its tooltip: the quest's
+-- title (or true when the game only says "related"), and the objective line
+-- under it. nil when it isn't a quest mob or nothing can be read.
+local LINE = Enum and Enum.TooltipDataLineType
+function SC.UnitQuest(unit)
+    local found, objective
+    pcall(function()
+        local titles = {}
+        for _, q in ipairs(SC.QuestLog()) do titles[q.title] = true end
+        if C_TooltipInfo and C_TooltipInfo.GetUnit then
+            local data = C_TooltipInfo.GetUnit(unit)
+            for _, line in ipairs(data and data.lines or {}) do
+                local text = SC.Plain(line.leftText)
+                local lt = SC.Plain(line.type)
+                if type(text) == "string" and text ~= "" then
+                    text = strtrim((text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")))
+                    if titles[text] or (LINE and LINE.QuestTitle and lt == LINE.QuestTitle) then
+                        found = text
+                    elseif found and not objective and (text:find("^%-") or (LINE and LINE.QuestObjective and lt == LINE.QuestObjective)) then
+                        objective = strtrim((text:gsub("^%-%s*", "")))
+                    end
+                end
+            end
+        end
+        if not found and QL and QL.UnitIsRelatedToActiveQuest and SC.True(QL.UnitIsRelatedToActiveQuest(unit)) then
+            found = true
+        end
+    end)
+    return found, objective
+end
+
+-- Mobs for the Quest pop-out: { name, quest, have, need, finished, objective, nearby (SC.nearby entry or nil) }.
+-- Unfinished first, then ones seen nearby, then by name.
+function SC.QuestMobs()
+    local byName, out = {}, {}
+    local function add(name, quest)
+        local r = byName[name]
+        if not r then
+            r = { name = name, quest = quest }
+            byName[name] = r
+            out[#out + 1] = r
+        end
+        return r
+    end
+    for _, q in ipairs(SC.QuestLog()) do
+        for _, o in ipairs(q.objectives) do
+            if o.type == "monster" or (o.type == nil and o.text:find("[Ss]lain")) then
+                local name = MobFromObjective(o.text)
+                if name then
+                    local r = add(name, q.title)
+                    r.have, r.need, r.finished = o.have, o.need, o.finished
+                end
+            end
+        end
+    end
+    for name, e in pairs(SC.nearby or {}) do
+        if e.quest then
+            local r = add(name, type(e.quest) == "string" and e.quest or nil)
+            r.objective = r.objective or e.questObjective
+            if r.finished == nil and r.objective then
+                local have, need = ParseCount(r.objective)
+                if have and need then r.have, r.need, r.finished = have, need, have >= need end
+            end
+        end
+    end
+    for _, r in ipairs(out) do r.nearby = SC.nearby and SC.nearby[r.name] end
+    table.sort(out, function(a, b)
+        if (a.finished and true or false) ~= (b.finished and true or false) then return not a.finished end
+        if (a.nearby and true or false) ~= (b.nearby and true or false) then return a.nearby ~= nil end
+        return a.name < b.name
+    end)
+    return out
+end
+
+SC._MobFromObjective = MobFromObjective

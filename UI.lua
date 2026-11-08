@@ -2,7 +2,7 @@
 --
 --   [icon] SpawnCamp                                         [gear] [x]
 --   Key [ F ] [Clear]                       works on your target below
---   [ type or paste a mob name ] [Add] [My Target] [Nearby]
+--   [ type or paste a mob name ] [Add] [My Target] [Nearby] [Recent] [Quest]
 --   TARGET
 --   (portrait) Mechanized Sentry            [Attack] [Talk] [Clear]
 --              dead 2:05, due in 2:55
@@ -426,10 +426,10 @@ end
 -- Attack and Talk options (right-click popups)
 ------------------------------------------------------------------------------
 
-local AP, TP, N, RP
+local AP, TP, N, RP, Q
 
 local function HideSidePanels(except)
-    for _, p in ipairs({ AP, TP, N, RP }) do
+    for _, p in ipairs({ AP, TP, N, RP, Q }) do
         if p and p ~= except then p:Hide() end
     end
 end
@@ -598,6 +598,8 @@ local function BuildTop()
         "Nearby", "Lists mobs around you, with a button to use each one.")
     Tip(Btn(F, "Recent", 64, 364, -56, function() SC.ToggleRecent() end),
         "Recent", "Every mob you've targeted before. Pick one again or remove it.")
+    Tip(Btn(F, "Quest", 56, 430, -56, function() SC.ToggleQuests() end),
+        "Quest", "Mobs your current quests want: kill objectives from your quest log, plus mobs nearby that your quests need (item drops too).")
 end
 
 -- Target boxes, one per slot, left to right:
@@ -679,7 +681,7 @@ local function BuildTarget()
     -- Under the last target: add another.
     ui.addAnother = Btn(F, "+ Add another target", 160, 0, 0, function()
         if ui.addName then ui.addName:SetFocus() end
-        SC.Print("add another target: type a name, use My Target, or Use one from Nearby or Recent.")
+        SC.Print("add another target: type a name, use My Target, or Use one from Nearby, Recent or Quest.")
     end)
     Tip(ui.addAnother, "Another target", "Your key goes for whichever target shows up first, alive and untagged; each keeps its own Attack/Talk. Up to " .. SC.MAX_TARGETS .. ".")
 end
@@ -1030,6 +1032,109 @@ function SC.ToggleNearby()
 end
 
 ------------------------------------------------------------------------------
+-- Quest picker
+------------------------------------------------------------------------------
+
+local QUEST_ROWS = 16
+local QUEST_EMPTY = "No quest mobs found.\n\nKill objectives from your quest log show up\nhere. For quests where a mob drops an item,\nthe mob shows once you've seen it nearby\n(nameplates on, or mouse over it)."
+
+function SC.RefreshQuests()
+    if not (Q and Q:IsShown()) then return end
+    local list = SC.QuestMobs()
+    Q.offset = math.max(0, math.min(Q.offset or 0, #list - QUEST_ROWS))
+    for i, r in ipairs(Q.rows) do
+        local item = list[i + Q.offset]
+        if item then
+            local e = item.nearby
+            local color = item.finished and "|cff999999" or (e and e.hostile == false and "|cff60c0ff" or "|cffff8080")
+            local bits = {}
+            if item.have and item.need then
+                bits[#bits + 1] = (item.finished and "|cff40ff40" or "|cffffd100") .. item.have .. "/" .. item.need .. "|r"
+            end
+            if item.quest then bits[#bits + 1] = "|cffc0c0c0" .. item.quest .. "|r" end
+            if e then bits[#bits + 1] = "|cff80ff80nearby|r" end
+            r.name:SetText(color .. item.name .. "|r")
+            r.info:SetText(table.concat(bits, "  "))
+            local current = SC.IsActive(item.name)
+            r.use:SetShown(not current)
+            r.current:SetShown(current)
+            r.mobName, r.hostile, r.ctype = item.name, e and e.hostile, e and e.ctype
+            r.tipQuest, r.tipObjective = item.quest, item.objective
+            r:Show()
+        else
+            r:Hide()
+        end
+    end
+    Q.empty:SetShown(#list == 0)
+    Q.count:SetText(#list > QUEST_ROWS and (#list .. " mobs, scroll for more") or "")
+end
+
+local function BuildQuests()
+    Q = Popup("SpawnCampQuests", 400, 60 + QUEST_ROWS * 18, "Quest mobs")
+    Q.count = Text(Q, "", 8, -30 - QUEST_ROWS * 18 - 4)
+    Q.empty = Text(Q, QUEST_EMPTY, 8, -32)
+    Q.rows = {}
+    for i = 1, QUEST_ROWS do
+        local r = CreateFrame("Frame", nil, Q)
+        r:SetSize(384, 17)
+        r:SetPoint("TOPLEFT", 8, -30 - (i - 1) * 18)
+        r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        r.name:SetPoint("LEFT", 2, 0)
+        r.name:SetWidth(140)
+        r.name:SetJustifyH("LEFT")
+        r.name:SetWordWrap(false)
+        r.info = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        r.info:SetPoint("LEFT", r.name, "RIGHT", 4, 0)
+        r.info:SetPoint("RIGHT", -52, 0)
+        r.info:SetJustifyH("LEFT")
+        r.info:SetWordWrap(false)
+        r:EnableMouse(true)
+        r:SetScript("OnEnter", function(self)
+            if not self.tipQuest and not self.tipObjective then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(self.mobName or "")
+            if self.tipQuest then GameTooltip:AddLine(self.tipQuest, 1, 0.82, 0) end
+            if self.tipObjective then GameTooltip:AddLine(self.tipObjective, 1, 1, 1, true) end
+            GameTooltip:Show()
+        end)
+        r:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        r.use = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
+        r.use:SetSize(46, 17)
+        r.use:SetPoint("RIGHT", 0, 0)
+        r.use:SetText("Use")
+        r.use:SetScript("OnClick", Safe(function()
+            if SC.char.mobs[r.mobName] then
+                SC.SetActive(r.mobName)
+            else
+                local m = SC.AddMob(r.mobName, r.hostile == false and "interact" or "attack")
+                if m and r.ctype then m.ctype = r.ctype; SC.Refresh() end
+            end
+            SC.RefreshQuests()
+        end))
+        Tip(r.use, "Use this mob", "Adds it to your targets. Starts on Attack unless it's been seen as friendly.")
+        r.current = r:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        r.current:SetPoint("RIGHT", -4, 0)
+        r.current:SetText("target")
+        r:EnableMouseWheel(true)
+        r:SetScript("OnMouseWheel", function(_, d)
+            Q.offset = (Q.offset or 0) - d
+            SC.RefreshQuests()
+        end)
+        Q.rows[i] = r
+    end
+    Q:SetScript("OnShow", function()
+        SC.ScanNearby()
+        SC.RefreshQuests()
+    end)
+end
+
+function SC.ToggleQuests()
+    if not F then return end
+    ShowBeside(Q)
+    SC.RefreshQuests()
+end
+
+------------------------------------------------------------------------------
 -- Build
 ------------------------------------------------------------------------------
 
@@ -1058,6 +1163,7 @@ local function Build()
     BuildAttackPopup()
     BuildTalkPopup()
     BuildNearby()
+    BuildQuests()
     BuildLog()
     ui.panels = {}
     for id, build in pairs({ settings = BuildSettings }) do
@@ -1326,6 +1432,7 @@ C_Timer.NewTicker(1, function()
     if F and F:IsShown() and not capturing then
         pcall(SC.RefreshWindow)
         pcall(RefreshNearby)
+        pcall(SC.RefreshQuests)
     end
 end)
 

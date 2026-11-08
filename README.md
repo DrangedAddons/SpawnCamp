@@ -7,7 +7,7 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
 ```
               SpawnCamp                      [> Log] [gear] [x]
  Log drawer   [ Shift-Wheel Down ] [Unassign]   Attacks Mechanized Sentry.
- (left, or    [ type or paste a mob name ] [Add] [My Target] [Nearby] [Recent]
+ (left, or    [ type or paste a mob name ] [Add] [My Target] [Nearby] [Recent] [Quest]
   right)      +----------------------------------------------------------------+
               | (portrait) Mechanized Sentry   ETA 2:55  [SWORD] [BUBBLE] [Clear] |
               |            dead 2:05, earliest in 1:10  Avg respawn 5:00           |
@@ -22,6 +22,7 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
 - **Log** (header button): a drawer on the left of the window (or the right, in the settings). It shows the target's respawn times (fastest, average, slowest), a known respawn time you can enter, the manual "it died / it's up" buttons, and every sighting with its time.
 - **Recent**: a pop-out listing every mob you've targeted, with **Use** to pick one again and **x** to remove it.
 - **Nearby**: a pop-out of mobs around you, with **Use**.
+- **Quest**: a pop-out of mobs your current quests want: kill objectives from your quest log, and mobs seen nearby that your quests need (item drops too), with **Use**.
 - **Portrait**: the mob's real portrait once it has been seen (targeted, on a nameplate, moused over). Before that, an icon for its creature type, or a sword or scroll if that isn't known yet.
 - **Gear**:
   - Sharing with **Party**, **Raid** and **Guild**.
