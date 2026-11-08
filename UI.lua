@@ -452,7 +452,22 @@ local function ShowBeside(p, opener)
     SC.Refresh()
 end
 
+-- Clicks that shouldn't close the options: in the spellbook (to drag a spell
+-- onto the Spell box), on the action bars, or while holding something.
+local KEEP_OPEN = { "SpellBookFrame", "PlayerSpellsFrame", "ProfessionsBookFrame", "MainMenuBar",
+                    "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarRight", "MultiBarLeft" }
+
+local function ClickKeepsOpen()
+    if GetCursorInfo and GetCursorInfo() then return true end
+    for _, name in ipairs(KEEP_OPEN) do
+        local frame = _G[name]
+        if frame and frame.IsShown and frame:IsShown() and frame:IsMouseOver() then return true end
+    end
+    return false
+end
+
 SC.On("GLOBAL_MOUSE_DOWN", function()
+    if ClickKeepsOpen() then return end
     for _, p in ipairs({ AP, TP }) do
         if p and p:IsShown() and not p:IsMouseOver() and not (p.opener and p.opener:IsMouseOver()) then
             p:Hide()

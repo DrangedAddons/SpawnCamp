@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.2
+
+- The Attack and Talk options stay open when you click in the spellbook or on the action bars, or while holding a spell on the cursor, so a spell can be dragged onto the Spell box.
+
 ## 0.12.1
 
 - Fixed: in "Locked on its nameplate" mode the key didn't target at all. It relied only on `/target nameplateN`, which this client apparently doesn't honour. That mode now falls back to the name search, drops a corpse, and casts at the target.
