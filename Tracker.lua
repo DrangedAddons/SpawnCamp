@@ -265,6 +265,7 @@ function SC.ScanNearby()
     if tally.other > 0 then parts[#parts + 1] = tally.other .. " pets/other skipped" end
     if tally.hidden > 0 then parts[#parts + 1] = "|cffff8040" .. tally.hidden .. " with hidden names|r" end
     if tally.error > 0 then parts[#parts + 1] = "|cffff4040" .. tally.error .. " errors: " .. tostring(SC.nearbyError) .. "|r" end
+    if tally.ok > 0 then SC.namesHidden = false elseif tally.hidden > 0 then SC.namesHidden = true end
     local seen = 42 - tally.none
     if seen == 0 then parts[#parts + 1] = "no nameplates, target or mouseover" end
     return table.concat(parts, ", "), tally
@@ -306,8 +307,107 @@ local function Check(unit)
     end
 end
 
+------------------------------------------------------------------------------
+-- Following the mob your key targeted (works with hidden names)
+------------------------------------------------------------------------------
+
+-- name -> { viaTarget = still your target, plate = its nameplate token,
+--           sawAlive = seen alive while followed }
+local follow = {}
+SC.follow = follow
+
+local function Died(name, unit)
+    local f = follow[name] or {}
+    local mob = SC.char.mobs[name]
+    local tap = nil
+    if UnitIsTapDenied then tap = SC.Bool(UnitIsTapDenied(unit)) end
+    local mine = tap == false and f.sawAlive and mob and mob.mode ~= "interact"
+    SC.Observe(name, "D", nil, nil, "you", { approx = not f.sawAlive, mine = mine })
+    follow[name] = nil
+end
+
+-- Right after a key press: a target now is the mob (the macro cleared the old one).
+local function TakeTarget(name)
+    local mob = SC.char.mobs[name]
+    if not mob then return end
+    if not SC.MaybeExists("target") or SC.True(UnitIsPlayer("target")) then return end
+    -- When the name is readable it has to match; hidden names are trusted.
+    local n = SC.UnitNameSafe("target")
+    if n and n:lower() ~= name:lower() then return end
+    local f = follow[name]
+    if not f then f = {}; follow[name] = f end
+    f.viaTarget = true
+    f.plate = nil
+    for i = 1, 40 do
+        local p = "nameplate" .. i
+        if SC.MaybeExists(p) and SC.True(UnitIsUnit("target", p)) then f.plate = p; break end
+    end
+    local dead = SC.Bool(UnitIsDead("target"))
+    if dead == true then
+        Died(name, "target")
+    elseif dead == false then
+        f.sawAlive = true
+        SC.Observe(name, "A", nil, nil, "you")
+    end
+end
+
+function SC.OnKeyPressed(name)
+    local mob = SC.char and SC.char.mobs[name]
+    if not mob then return end
+    -- Modes that don't target by name can't tell which unit is the mob.
+    if mob.mode == "interact" and mob.interact ~= "target" then return end
+    TakeTarget(name)
+    C_Timer.After(0.15, function() pcall(TakeTarget, name) end)
+end
+
+local function CheckFollowed()
+    for name, f in pairs(follow) do
+        local units = {}
+        if f.viaTarget then units[#units + 1] = "target" end
+        if f.plate then units[#units + 1] = f.plate end
+        for _, u in ipairs(units) do
+            if SC.MaybeExists(u) then
+                local dead = SC.Bool(UnitIsDead(u))
+                if dead == true then
+                    Died(name, u)
+                    break
+                elseif dead == false then
+                    f.sawAlive = true
+                    SC.Observe(name, "A", nil, nil, "you")   -- updates "last seen"
+                end
+            end
+        end
+    end
+end
+
+-- Your own target change (not the key's) ends following through the target.
+SC.On("PLAYER_TARGET_CHANGED", function()
+    local now = GetTime()
+    for name, f in pairs(follow) do
+        if f.viaTarget and now - (SC.lastPress[name] or 0) > 0.6 then
+            f.viaTarget = nil
+            if not f.plate then follow[name] = nil end
+        end
+    end
+end)
+
+-- A followed nameplate going away: dead means it died, alive means out of range.
+SC.On("NAME_PLATE_UNIT_REMOVED", function(unit)
+    for name, f in pairs(follow) do
+        if f.plate == unit then
+            if SC.Bool(UnitIsDead(unit)) == true then
+                Died(name, unit)
+            else
+                f.plate = nil
+                if not f.viaTarget then follow[name] = nil end
+            end
+        end
+    end
+end)
+
 local function Scan()
     if not SC.char then return end
+    CheckFollowed()
     for _, unit in ipairs(SCAN_UNITS) do
         if SC.MaybeExists(unit) then Check(unit) end
     end
@@ -315,6 +415,8 @@ local function Scan()
         if not unit:find("^nameplate%d+$") then Check(unit) end
     end
 end
+
+SC.Scan = Scan
 
 SC.On("NAME_PLATE_UNIT_ADDED", function(unit)
     plates[unit] = true

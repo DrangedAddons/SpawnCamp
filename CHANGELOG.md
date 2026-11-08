@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+Forever hides NPC names and GUIDs from addons (confirmed with `/spc probe`), so the addon now tells mobs apart by your key presses.
+
+- A target right after pressing a mob's key is that mob: it's logged as up, then followed as your target and on its nameplate. Its death is logged when it dies, as your kill when it wasn't someone else's tag.
+- Quest and chat automation applies to windows that open within 8 seconds of pressing an Interact key. Each step extends it, and closing the window ends it.
+- **+** opens the name box when it can't read your target's name, with Attack or Interact picked from whether the target is hostile.
+- Nearby explains that names are hidden when that's why it's empty.
+- Fixed: your own kills never counted as yours (a not-tapped-by-someone-else reading was lost).
+
 ## 0.2.2
 
 - Unit names come from the first source that gives a readable name: UnitName, GetUnitName, UnitNameUnmodified, the unit's tooltip data, then the game tooltip (mouseover). Forever can hide UnitName.

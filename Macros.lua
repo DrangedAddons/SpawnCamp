@@ -74,13 +74,34 @@ function SC.MacroText(mob)
     return nil
 end
 
+-- Key presses. Forever hides NPC names and GUIDs from addons, so a press of a
+-- mob's key is how the addon knows which mob it's looking at: the attack and
+-- "target by name" macros clear the target and /targetexact the mob, so a target
+-- right after the press is that mob. SC.lastPress also tells the quest code which
+-- NPC a chat window belongs to.
+SC.lastPress = {}
+
+local function Pressed(name)
+    if not name then return end
+    local now = GetTime()
+    if SC.lastPress[name] and now - SC.lastPress[name] < 0.1 then return end
+    SC.lastPress[name] = now
+    if SC.OnKeyPressed then
+        local ok, err = pcall(SC.OnKeyPressed, name)
+        if not ok then SC.Print("|cffff4040error|r " .. tostring(err)) end
+    end
+end
+
 local function SetupButton(mob)
     local b = buttons[mob.name]
     if not b then
         nextId = nextId + 1
         b = NewSecure("SpawnCampMob" .. nextId)
         buttons[mob.name] = b
+        -- Runs after the secure action, so the macro's /targetexact has happened.
+        b:HookScript("OnClick", function(self) Pressed(self.mobName) end)
     end
+    b.mobName = mob.name
     b:RegisterForClicks(ClickEdge())
     if mob.mode == "interact" and mob.interact == "mouseover" then
         b:SetAttribute("type", "interact")
@@ -111,12 +132,35 @@ function SC.KeyClashes()
     return clashes
 end
 
+-- "Nearest" mode binds the key to the game's Interact key, so no button of ours
+-- is clicked. A keyboard frame that passes every key on (propagate) sees the press.
+-- It's only switched on while such a key is set.
+local watcher = CreateFrame("Frame", nil, UIParent)
+local watchKeys = {}     -- binding string -> mob name
+
+watcher:SetScript("OnKeyDown", function(_, key)
+    local full = (IsAltKeyDown() and "ALT-" or "") .. (IsControlKeyDown() and "CTRL-" or "")
+        .. (IsShiftKeyDown() and "SHIFT-" or "") .. key
+    if watchKeys[full] then Pressed(watchKeys[full]) end
+end)
+
+local function SetWatcher(on)
+    if on then
+        local ok = pcall(watcher.SetPropagateKeyboardInput, watcher, true)
+        -- Never take the keyboard without passing keys on.
+        if ok then pcall(watcher.EnableKeyboard, watcher, true) end
+    else
+        pcall(watcher.EnableKeyboard, watcher, false)
+    end
+end
+
 function SC.ApplyBindings()
     if not SC.char then return end
     if InCombatLockdown() then
         SC.AfterCombat(SC.ApplyBindings)
         return
     end
+    wipe(watchKeys)
     ClearOverrideBindings(owner)
     for name, b in pairs(buttons) do
         if not SC.char.mobs[name] then
@@ -132,12 +176,14 @@ function SC.ApplyBindings()
             if mob.armed and mob.key ~= "" then
                 if mob.mode == "interact" and mob.interact == "nearest" then
                     SetOverrideBinding(owner, true, mob.key, "INTERACTTARGET")
+                    watchKeys[mob.key] = n
                 else
                     SetOverrideBindingClick(owner, true, mob.key, b:GetName(), "LeftButton")
                 end
             end
         end
     end
+    SetWatcher(next(watchKeys) ~= nil)
 end
 
 SC.On("CVAR_UPDATE", function(name)

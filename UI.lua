@@ -289,7 +289,7 @@ local function BuildRows()
         end)
         ui.rows[i] = r
     end
-    ui.hint = Text(F, "Target a mob and press |cffffd100+|r to watch it.", 10, -30)
+    ui.hint = Text(F, "Press |cffffd100+|r and type a mob's name to watch it.", 10, -30)
 end
 
 local function BuildHeader()
@@ -335,7 +335,7 @@ local function BuildHeader()
         if SC.char.selected then SC.char.expanded = true; SC.char.tab = "setup" end
         SC.Refresh()
     end)
-    Tip(add, "Watch my target", "Adds your current target and opens its setup. To add something you can't target, use the name box under More.")
+    Tip(add, "Watch a mob", "Adds your current target when the game lets addons read its name. On Forever it doesn't, so this opens the name box: type the name as your target frame shows it.")
 end
 
 ------------------------------------------------------------------------------
@@ -560,7 +560,14 @@ local function BuildPanel()
     ui.addName = Edit(P, 160, 0, -2, function() end)
     local function addTyped()
         local n = strtrim(ui.addName:GetText() or "")
-        if n ~= "" then SC.AddMob(n); ui.addName:SetText(""); ui.addName:ClearFocus(); SC.char.tab = "setup"; SC.Refresh() end
+        if n ~= "" then
+            SC.AddMob(n, ui.addMode)
+            ui.addMode = nil
+            ui.addName:SetText("")
+            ui.addName:ClearFocus()
+            SC.char.tab = "setup"
+            SC.Refresh()
+        end
     end
     ui.addName:SetScript("OnEnterPressed", addTyped)
     Btn(P, "Add by name", 90, 172, -2, addTyped)
@@ -603,6 +610,9 @@ local N   -- the picker frame
 local CLASS_TAG = { worldboss = "|cffff4040boss|r", rareelite = "|cffd0d0ffrare elite|r",
                     rare = "|cffd0d0ffrare|r", elite = "|cffffd100elite|r" }
 
+local EMPTY_TEXT = "Nothing yet. The list fills from what your game\nalready shows: nameplates, your target and\nyour mouseover. It doesn't ask the server.\n\nTurn on nameplates (V = enemies, Shift-V =\nfriendly NPCs), or mouse over a mob, then\npress Scan now.\n\nObjects (chests, quest items) have no nameplate:\nadd them by name under More."
+local HIDDEN_TEXT = "|cffff8040Forever hides NPC names from addons,|r\nso nearby mobs can't be listed by name.\n\nAdd a mob by typing its name exactly as\nyour target frame shows it (More > Add by\nname). After that, pressing its key tells\nSpawnCamp which mob is which: a target\nright after the press is that mob, and its\ndeath and respawn are logged from there."
+
 local function RefreshNearby()
     if not (N and N:IsShown()) then return end
     local list = SC.NearbyList()
@@ -629,6 +639,7 @@ local function RefreshNearby()
         end
     end
     N.empty:SetShown(#list == 0)
+    N.empty:SetText(SC.namesHidden and HIDDEN_TEXT or EMPTY_TEXT)
     N.count:SetText(#list > NEAR_ROWS and (#list .. " mobs, scroll for more") or "")
 end
 
@@ -651,7 +662,7 @@ local function BuildNearby()
     N.count = Text(N, "", 8, -28 - NEAR_ROWS * 18 - 4)
     N.report = Text(N, "", 8, -28 - NEAR_ROWS * 18 - 20)
     N.report:SetWidth(264)
-    N.empty = Text(N, "Nothing yet. The list fills from what your game\nalready shows: nameplates, your target and\nyour mouseover. It doesn't ask the server.\n\nTurn on nameplates (V = enemies, Shift-V =\nfriendly NPCs), or mouse over a mob, then\npress Scan now.\n\nObjects (chests, quest items) have no nameplate:\nadd them by name under More.", 8, -30)
+    N.empty = Text(N, EMPTY_TEXT, 8, -30)
     N.rows = {}
     for i = 1, NEAR_ROWS do
         local r = CreateFrame("Button", nil, N)
@@ -908,6 +919,16 @@ function SC.RefreshWindow()
         ui.panel:Hide()
     end
     F:SetHeight(height)
+end
+
+-- Opens the panel with the name box focused; mode is the action the new mob starts with.
+function SC.FocusAddName(mode)
+    SC.char.shown, SC.char.expanded = true, true
+    SC.Refresh()
+    if ui.addName then
+        ui.addMode = mode
+        ui.addName:SetFocus()
+    end
 end
 
 function SC.ShowWindow()

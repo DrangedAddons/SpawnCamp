@@ -51,6 +51,15 @@ Write your own macro text for the key. `{mob}` is replaced with the mob's name. 
 
 Once a watched NPC's window opens, SpawnCamp hands in finished quests, takes available ones, accepts follow-ups, and picks chat options that match your list (one text fragment per line, in order). With **Pick the chat option when there's only one** ticked it also clicks through single-option pages. Hold **Shift** while interacting to handle a window yourself.
 
+## Forever hides NPC names
+
+WoW Forever doesn't let addons read NPC names or GUIDs, even out of combat. It does show whether a unit exists, is dead, is hostile, and its level. So on Forever:
+
+- Add mobs by typing the name exactly as your target frame shows it. **+** opens the name box.
+- **Nearby** can't name mobs and stays empty.
+- Your key tells SpawnCamp which mob is which. The attack and "target by name" macros clear your target, then target the mob. So a target right after the press is the mob: it's logged as up, and SpawnCamp follows it (as your target and on its nameplate) until it dies or leaves range.
+- A chat or quest window that opens within 8 seconds of pressing an Interact key belongs to that mob. Each automated step extends the 8 seconds, so follow-up quests keep going. Closing the window ends it.
+
 ## Respawn timer
 
 SpawnCamp logs a **death** when it sees a watched mob dead and a **spawn** when it sees a new one alive. It checks nameplates, your target and your mouseover several times a second. Each death followed by a spawn gives a respawn time. The window shows the earliest, average and latest. The timer list counts down to the earliest and says when the window is open or overdue.

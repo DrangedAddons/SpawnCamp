@@ -272,7 +272,8 @@ function SC.ReadUnit(unit)
         if not m then return end
         local _, s = SC.ParseGUID(UnitGUID(unit))
         local d = SC.Bool(UnitIsDead(unit))
-        local t = UnitIsTapDenied and SC.Bool(UnitIsTapDenied(unit)) or nil
+        local t = nil
+        if UnitIsTapDenied then t = SC.Bool(UnitIsTapDenied(unit)) end
         return n, m, d, s, t
     end)
     if not ok then return nil end
@@ -376,16 +377,20 @@ end
 
 function SC.AddTarget()
     if not SC.MaybeExists("target") then
-        SC.Print("no target. Target a mob, or type its name under More.")
+        SC.Print("no target: type the mob's name and press Enter.")
+        if SC.FocusAddName then SC.FocusAddName() end
         return
     end
     if SC.True(UnitIsPlayer("target")) then
         SC.Print("that's a player. Target a mob.")
         return
     end
-    local name, why = SC.UnitNameSafe("target")
+    local name = SC.UnitNameSafe("target")
     if not name then
-        SC.Print("can't read your target's name (" .. why .. "). Type it under More > Add by name, and please send me the output of /spc probe.")
+        -- Forever hides NPC names from addons: ask for it typed, mode from what is readable.
+        local friendly = SC.Bool(UnitCanAttack("player", "target")) == false
+        SC.Print("Forever hides NPC names from addons. Type the name exactly as your target frame shows it and press Enter.")
+        if SC.FocusAddName then SC.FocusAddName(friendly and "interact" or "attack") end
         return
     end
     local friendly = SC.Bool(UnitCanAttack("player", "target")) == false

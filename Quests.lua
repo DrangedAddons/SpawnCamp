@@ -24,17 +24,45 @@ local function Step()
     return true
 end
 
--- The watched interact mob behind the open window, or nil.
+-- How long after an interact key press (or the last window step) a chat or
+-- quest window counts as that mob's.
+local PRESS_WINDOW = 8
+
+-- The watched interact mob behind the open window, or nil. Forever hides NPC
+-- names, so the main signal is a recent press of an interact-mode key; a
+-- readable name is used when there is one.
 local function WindowMob()
     if IsShiftKeyDown() then return nil end
+    local now, best, bestT = GetTime(), nil, nil
+    for name, t in pairs(SC.lastPress) do
+        local m = SC.char.mobs[name]
+        if m and m.mode == "interact" and now - t < PRESS_WINDOW and (not bestT or t > bestT) then
+            best, bestT = m, t
+        end
+    end
+    if best then
+        -- Each step keeps the chain going (gossip -> quest -> follow-up quest).
+        SC.lastPress[best.name] = now
+        return best
+    end
     for _, unit in ipairs({ "npc", "questnpc" }) do
-        local ok, name = pcall(UnitName, unit)
-        name = ok and SC.Plain(name)
+        local name = SC.UnitNameSafe(unit)
         local mob = name and SC.char.mobs[name]
         if mob and mob.mode == "interact" then return mob end
     end
     return nil
 end
+
+-- Closing the window yourself ends the chain, so the next NPC you talk to isn't handled.
+SC.On("GOSSIP_CLOSED", function()
+    C_Timer.After(0.5, function()
+        if not ((GossipFrame and GossipFrame:IsShown()) or (QuestFrame and QuestFrame:IsShown())) then
+            for name, t in pairs(SC.lastPress) do
+                if GetTime() - t > 0.4 then SC.lastPress[name] = 0 end
+            end
+        end
+    end)
+end)
 
 local function Later(fn)
     C_Timer.After(0.05, function()
