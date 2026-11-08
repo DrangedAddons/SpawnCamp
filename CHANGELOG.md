@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+- Unit names come from the first source that gives a readable name: UnitName, GetUnitName, UnitNameUnmodified, the unit's tooltip data, then the game tooltip (mouseover). Forever can hide UnitName.
+- A unit whose existence the game hides is still checked by name.
+- **+** (watch my target) now says why it failed: no target, a player, or a name it can't read.
+- `/spawncamp probe` prints every read for target, mouseover and the first nameplate, and saves it to SpawnCampDB.probe.
+- Button errors are printed in chat.
+
 ## 0.2.1
 
 - Nearby: a **Scan now** button reads all nameplates, your target and your mouseover immediately. A line at the bottom says how many NPCs it read and how many it skipped or couldn't read (players, pets, names the game hides, errors). Opening the list scans too.

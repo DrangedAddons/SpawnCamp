@@ -38,7 +38,10 @@ local function Btn(parent, text, w, x, y, onClick)
     b:SetSize(w, 22)
     b:SetPoint("TOPLEFT", x, y)
     b:SetText(text)
-    b:SetScript("OnClick", onClick)
+    b:SetScript("OnClick", function(...)
+        local ok, err = pcall(onClick, ...)
+        if not ok then SC.Print("|cffff4040error|r " .. tostring(err)) end
+    end)
     return b
 end
 
@@ -327,7 +330,8 @@ local function BuildHeader()
     add:SetPoint("RIGHT", near, "LEFT", -2, 0)
     add:SetText("+")
     add:SetScript("OnClick", function()
-        SC.AddTarget()
+        local ok, err = pcall(SC.AddTarget)
+        if not ok then SC.Print("|cffff4040error|r " .. tostring(err)) end
         if SC.char.selected then SC.char.expanded = true; SC.char.tab = "setup" end
         SC.Refresh()
     end)

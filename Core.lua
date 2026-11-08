@@ -11,7 +11,14 @@ _G.SpawnCamp = SC
 
 SC.ICON = "Interface\\Icons\\Ability_Hunter_MarkedForDeath"
 
-local issecret = issecretvalue or function() return false end
+local issecret
+if issecretvalue then
+    issecret = issecretvalue
+elseif canaccessvalue then
+    issecret = function(v) return not canaccessvalue(v) end
+else
+    issecret = function() return false end
+end
 SC.issecret = issecret
 
 -- The value, or nil when it's missing or secret.
@@ -198,13 +205,68 @@ function SC.ParseGUID(guid)
     return tonumber(npcID), spawn
 end
 
+-- A unit's name as a plain string, trying every source in turn, since Forever
+-- can hide UnitName. Returns name, source ("UnitName", "tooltip", ...), or nil
+-- and the reason the last source gave.
+local function TooltipName(unit)
+    if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
+    local ok, data = pcall(C_TooltipInfo.GetUnit, unit)
+    if not ok or type(data) ~= "table" or issecret(data) then return nil end
+    local lines = data.lines
+    if type(lines) ~= "table" or issecret(lines) or not lines[1] then return nil end
+    local line = lines[1]
+    if type(TooltipUtil) == "table" and TooltipUtil.SurfaceArgs then pcall(TooltipUtil.SurfaceArgs, line) end
+    return SC.Plain(line.leftText)
+end
+
+local function GameTooltipName(unit)
+    if unit ~= "mouseover" or not GameTooltip or not GameTooltip:IsShown() then return nil end
+    local ok, _, tipUnit = pcall(GameTooltip.GetUnit, GameTooltip)
+    if not ok or not tipUnit then return nil end
+    local fs = _G.GameTooltipTextLeft1
+    return fs and SC.Plain(fs:GetText()) or nil
+end
+
+local NAME_SOURCES = {
+    { "UnitName", function(u) return UnitName(u) end },
+    { "GetUnitName", function(u) return GetUnitName and GetUnitName(u, false) end },
+    { "UnitNameUnmodified", function(u) return UnitNameUnmodified and UnitNameUnmodified(u) end },
+    { "tooltip data", TooltipName },
+    { "game tooltip", GameTooltipName },
+}
+SC.NAME_SOURCES = NAME_SOURCES
+
+-- true when the unit exists or the game hides whether it does (then the name
+-- reads decide).
+function SC.MaybeExists(unit)
+    local v = UnitExists(unit)
+    if v == nil then return false end
+    if issecret(v) then return true end
+    return SC.True(v)
+end
+
+function SC.UnitNameSafe(unit)
+    local why = "no name"
+    for _, src in ipairs(NAME_SOURCES) do
+        local ok, v = pcall(src[2], unit)
+        if ok and v ~= nil then
+            if issecret(v) then
+                why = "hidden"
+            elseif type(v) == "string" and v ~= "" and v ~= UNKNOWNOBJECT then
+                return v, src[1]
+            end
+        end
+    end
+    return nil, why
+end
+
 -- Reads a unit if it's a watched mob. Returns name, mob, dead, spawn, tapDenied
 -- (tapDenied: true = someone else's tag, false = yours or nobody's, nil = unknown).
 function SC.ReadUnit(unit)
     local ok, name, mob, dead, spawn, tap = pcall(function()
-        if not SC.True(UnitExists(unit)) then return end
+        if not SC.MaybeExists(unit) then return end
         if SC.True(UnitIsPlayer(unit)) then return end
-        local n = SC.Plain(UnitName(unit))
+        local n = SC.UnitNameSafe(unit)
         if not n then return end
         local m = SC.char.mobs[n]
         if not m then return end
@@ -271,7 +333,7 @@ local function Help()
     print("  /spawncamp add [name] - watch your target, or a mob by name")
     print("  /spawncamp died [name] - log a death now (selected mob if no name)")
     print("  /spawncamp up [name] - log a spawn now")
-    print("  /spawncamp debug - print what the addon can read from your target")
+    print("  /spawncamp probe - print and save what the addon can read (target, mouseover, a nameplate)")
 end
 
 local function MobArg(rest)
@@ -305,7 +367,7 @@ SlashCmdList.SPAWNCAMP = function(msg)
         SC.char.shown = true
         SC.char.expanded = not SC.char.expanded
         SC.Refresh()
-    elseif cmd == "debug" then
+    elseif cmd == "debug" or cmd == "probe" then
         SC.Debug()
     else
         Help()
@@ -313,30 +375,56 @@ SlashCmdList.SPAWNCAMP = function(msg)
 end
 
 function SC.AddTarget()
-    local name = SC.Plain(UnitName("target"))
-    if not name or SC.True(UnitIsPlayer("target")) then
-        SC.Print("target a mob first (or type its name)")
+    if not SC.MaybeExists("target") then
+        SC.Print("no target. Target a mob, or type its name under More.")
+        return
+    end
+    if SC.True(UnitIsPlayer("target")) then
+        SC.Print("that's a player. Target a mob.")
+        return
+    end
+    local name, why = SC.UnitNameSafe("target")
+    if not name then
+        SC.Print("can't read your target's name (" .. why .. "). Type it under More > Add by name, and please send me the output of /spc probe.")
         return
     end
     local friendly = SC.Bool(UnitCanAttack("player", "target")) == false
     SC.AddMob(name, friendly and "interact" or "attack")
 end
 
+-- /spc probe: every read the addon relies on, for target, mouseover and the
+-- first nameplate. Printed and saved to SpawnCampDB.probe (read after /reload).
 function SC.Debug()
-    local function show(v)
+    local out = {}
+    local function line(s) out[#out + 1] = s; print("  " .. s) end
+    local function show(f, ...)
+        local ok, v = pcall(f, ...)
+        if not ok then return "ERROR " .. tostring(v) end
         if v == nil then return "nil" end
         if issecret(v) then return "SECRET" end
-        return tostring(v)
+        return type(v) == "string" and ('"' .. v .. '"') or tostring(v)
     end
-    SC.Print("target reads:")
-    print("  exists " .. show(UnitExists("target")) .. ", name " .. show(UnitName("target")))
-    print("  guid " .. show(UnitGUID("target")))
-    print("  dead " .. show(UnitIsDead("target")) .. ", tapDenied " .. show(UnitIsTapDenied and UnitIsTapDenied("target")))
-    print("  canAttack " .. show(UnitCanAttack("player", "target")) .. ", in combat " .. tostring(InCombatLockdown()))
-    print("  server time " .. tostring(GetServerTime()))
-    print("  nameplate1: exists " .. show(UnitExists("nameplate1")) .. ", name " .. show(UnitName("nameplate1"))
-        .. ", guid " .. show(UnitGUID("nameplate1")))
-    if SC.ScanNearby then print("  nearby scan: " .. SC.ScanNearby()) end
+    SC.Print("probe (also saved; /reload to write it to disk):")
+    line("in combat " .. tostring(InCombatLockdown()) .. ", issecretvalue " .. tostring(issecretvalue ~= nil)
+        .. ", canaccessvalue " .. tostring(canaccessvalue ~= nil) .. ", C_TooltipInfo " .. tostring(C_TooltipInfo ~= nil))
+    local plate = "nameplate1"
+    for i = 1, 40 do
+        local ok, v = pcall(UnitExists, "nameplate" .. i)
+        if ok and v ~= nil and (issecret(v) or v) then plate = "nameplate" .. i; break end
+    end
+    for _, unit in ipairs({ "target", "mouseover", plate }) do
+        line("[" .. unit .. "] exists " .. show(UnitExists, unit) .. ", player " .. show(UnitIsPlayer, unit)
+            .. ", dead " .. show(UnitIsDead, unit) .. ", canAttack " .. show(UnitCanAttack, "player", unit))
+        line("  guid " .. show(UnitGUID, unit) .. ", level " .. show(UnitLevel, unit)
+            .. ", class " .. show(UnitClassification, unit))
+        local names = {}
+        for _, src in ipairs(NAME_SOURCES) do names[#names + 1] = src[1] .. " " .. show(src[2], unit) end
+        line("  " .. table.concat(names, ", "))
+        local n, why = SC.UnitNameSafe(unit)
+        line("  -> name used: " .. (n and ('"' .. n .. '"') or ("none (" .. why .. ")")))
+    end
+    if SC.ScanNearby then line("nearby scan: " .. SC.ScanNearby()) end
+    SpawnCampDB.probe = { time = date("%Y-%m-%d %H:%M:%S"), lines = out }
 end
 
 function SpawnCamp_OnCompartmentClick()

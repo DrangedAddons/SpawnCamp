@@ -225,9 +225,9 @@ local function NoteNearby(unit)
     -- Returns what happened, for Scan now's report:
     -- "ok", "none" (no unit), "player", "hidden" (name secret), "other" (pet etc.), "error".
     local ok, res = pcall(function()
-        if not SC.True(UnitExists(unit)) then return "none" end
+        if not SC.MaybeExists(unit) then return "none" end
         if SC.True(UnitIsPlayer(unit)) then return "player" end
-        local n = SC.Plain(UnitName(unit))
+        local n = SC.UnitNameSafe(unit)
         if not n then return "hidden" end
         local guid = SC.Plain(UnitGUID(unit))
         -- Skips pets and other non-creatures when the GUID is readable.
@@ -309,7 +309,7 @@ end
 local function Scan()
     if not SC.char then return end
     for _, unit in ipairs(SCAN_UNITS) do
-        if SC.True(UnitExists(unit)) then Check(unit) end
+        if SC.MaybeExists(unit) then Check(unit) end
     end
     for unit in pairs(plates) do
         if not unit:find("^nameplate%d+$") then Check(unit) end
