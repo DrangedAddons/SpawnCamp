@@ -1354,7 +1354,7 @@ local function RefreshTarget()
         qb.frame:Hide()
     end
     ui.addAnother:ClearAllPoints()
-    if n > 0 and n < SC.MAX_TARGETS then
+    if n < SC.MAX_TARGETS then
         ui.addAnother:SetPoint("TOPLEFT", F, "TOPLEFT", 8, y)
         ui.addAnother:Show()
         y = y - 26

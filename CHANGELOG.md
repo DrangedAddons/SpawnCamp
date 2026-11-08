@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.19.1
+
+- **+ Add another target** is always shown (until you have 8), also with no targets or with only Auto Quest on.
+
 ## 0.19.0
 
 - **Auto Quest button** on the front, replacing the tick box in the Quest pop-out. It lights green when on.
