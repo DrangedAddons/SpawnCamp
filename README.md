@@ -49,11 +49,10 @@ If the mob isn't there you end up with no target, so nothing lands on anything e
 
 The timer starts when the mob dies and stops when it's seen alive again. That time is the respawn. The line shows `dead 2:05` while it's down (with `due in` once there's history), then `UP, respawned after 4:51`. The log shows the earliest, average and latest respawn.
 
-**Where deaths and spawns come from.** You don't need to be in combat with the mob:
+**Where deaths and spawns come from.** You don't need to be in combat with the mob. (Forever doesn't let addons read the combat log, so there's no zone-wide death feed.)
 
 - **Nameplates, your target, your mouseover**, read a few times a second. A watched mob seen dead is a death and seen alive is a spawn. Nameplates only cover mobs near you, so camp within nameplate range and turn enemy nameplates on (V).
 - **Your key**: a target right after pressing it is your mob, and SpawnCamp follows it until it dies or leaves range.
-- **The combat log**, if Forever lets addons read it. That gives the exact death of any unit within about 50 yards, whoever killed it. `/spc probe` shows whether it's working.
 - **Other SpawnCamp users** in your party, raid or guild (if sharing is on).
 - **Manual**: "It died now" / "It's up now" in the log.
 

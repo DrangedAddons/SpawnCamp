@@ -447,30 +447,10 @@ end
 
 SC.Scan = Scan
 
--- The combat log, when the game lets addons read it: UNIT_DIED gives the death
--- of any unit near you (about 50 yards), whoever killed it, in or out of
--- combat. Forever may block or hide it (retail Midnight rules); then deaths come
--- only from nameplates, target, mouseover and the key. /spc probe reports which.
-SC.combatLog = { registered = false, seen = 0, hidden = 0 }
-
-local function OnCombatLog()
-    if not CombatLogGetCurrentEventInfo then return end
-    local ok, _, sub, _, _, _, _, _, destGUID, destName = pcall(CombatLogGetCurrentEventInfo)
-    if not ok then return end
-    SC.combatLog.seen = SC.combatLog.seen + 1
-    if sub ~= "UNIT_DIED" and sub ~= "PARTY_KILL" then return end
-    local name = SC.Plain(destName)
-    if not name then SC.combatLog.hidden = SC.combatLog.hidden + 1; return end
-    if not SC.char.mobs[name] then return end
-    -- The combat log has the real time of death, so it's exact even if the
-    -- mob was never seen alive.
-    local _, spawn = SC.ParseGUID(destGUID)
-    SC.Observe(name, "D", spawn, nil, "you", { approx = false })
-end
-
-if SC.EventValid("COMBAT_LOG_EVENT_UNFILTERED") then
-    SC.combatLog.registered = SC.On("COMBAT_LOG_EVENT_UNFILTERED", OnCombatLog)
-end
+-- No combat log: Forever forbids addons from registering
+-- COMBAT_LOG_EVENT_UNFILTERED (0.8.0 tried and got the "blocked from an action
+-- only available to the Blizzard UI" popup). Deaths come from nameplates,
+-- target, mouseover, the key, sharing and the manual buttons.
 
 SC.On("NAME_PLATE_UNIT_ADDED", function(unit)
     plates[unit] = true

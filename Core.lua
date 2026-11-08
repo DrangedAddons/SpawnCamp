@@ -390,6 +390,23 @@ SC.On("PLAYER_LOGIN", function()
     SC.Refresh()
 end)
 
+-- When the game blocks one of SpawnCamp's calls, say which and keep the last
+-- few in SpawnCampDB.blocked, so it can be fixed without guessing.
+local function Blocked(kind)
+    return function(addon, func)
+        if addon ~= ADDON then return end
+        local what = string.format("%s %s: %s", date("%m-%d %H:%M:%S"), kind, tostring(func))
+        SC.Print("|cffff4040the game blocked|r " .. tostring(func) .. ". Please tell Dranged.")
+        if SpawnCampDB then
+            SpawnCampDB.blocked = SpawnCampDB.blocked or {}
+            table.insert(SpawnCampDB.blocked, what)
+            while #SpawnCampDB.blocked > 10 do table.remove(SpawnCampDB.blocked, 1) end
+        end
+    end
+end
+SC.On("ADDON_ACTION_FORBIDDEN", Blocked("forbidden"))
+SC.On("ADDON_ACTION_BLOCKED", Blocked("blocked"))
+
 ------------------------------------------------------------------------------
 -- Slash commands
 ------------------------------------------------------------------------------
@@ -496,11 +513,8 @@ function SC.Debug()
         line("  -> name used: " .. (n and ('"' .. n .. '"') or ("none (" .. why .. ")")))
     end
     if SC.ScanNearby then line("nearby scan: " .. SC.ScanNearby()) end
-    local cl = SC.combatLog
-    if cl then
-        line(string.format("combat log: registered %s, events seen %d, death names hidden %d",
-            tostring(cl.registered), cl.seen, cl.hidden))
-    end
+    local b = SpawnCampDB.blocked
+    if b and b[1] then line("last blocked action: " .. b[#b]) end
     SpawnCampDB.probe = { time = date("%Y-%m-%d %H:%M:%S"), lines = out }
 end
 

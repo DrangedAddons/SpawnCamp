@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1
+
+- Removed the combat log. Forever forbids addons from reading it, and registering for it brought up the "blocked from an action only available to the Blizzard UI" popup.
+- If the game blocks a SpawnCamp call again, chat names the function and `/spc probe` shows the last one (kept in SpawnCampDB.blocked).
+
 ## 0.8.0
 
 - **One selected target.** The key works on that mob only; with no target it does nothing and goes back to its normal binding. **Clear** unsets it.
