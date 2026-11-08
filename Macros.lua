@@ -49,6 +49,13 @@ local interactBtn = NewSecure("SpawnCampInteract")
 interactBtn:SetAttribute("type", "interact")
 interactBtn:SetAttribute("unit", "target")
 
+-- Raid marker on the target through the secure "raidtarget" action (the macro
+-- /clicks it). Addon code can't call SetRaidTarget here (it's blocked).
+local markBtn = NewSecure("SpawnCampMark")
+markBtn:SetAttribute("type", "raidtarget")
+markBtn:SetAttribute("unit", "target")
+markBtn:SetAttribute("action", 8)
+
 -- Runs after the secure action, so the macro's /targetexact has happened.
 -- Why a press didn't cast: the game's red error text (facing, range, line of
 -- sight...) right after a key press is echoed to chat, once per message every
@@ -66,8 +73,9 @@ keyBtn:HookScript("OnClick", function()
     local now = GetTime()
     if SC.lastPress.key and now - SC.lastPress.key < 0.1 then return end
     SC.lastPress.key = now
+    SC.ranMacro = keyBtn:GetAttribute("macrotext") or ""
     -- The marker line has run: take it out before combat freezes the macro.
-    if not SC.markDone and (keyBtn:GetAttribute("macrotext") or ""):find("\n/tm ") then
+    if not SC.markDone and SC.ranMacro:find("/click SpawnCampMark", 1, true) then
         SC.markDone = true
         SC.UpdateKeyMacro()
     end
@@ -88,8 +96,13 @@ function SC.LogPress()
         return tostring(v)
     end
     local target = SC.MaybeExists("target") and (show(UnitName("target")) .. (SC.Bool(UnitIsDead("target")) and " (dead)" or "")) or "none"
-    local entry = string.format("%s %s | target after: %s | %s", date("%H:%M:%S"), state,
-        target, (keyBtn:GetAttribute("macrotext") or ""):gsub("\n", " ; "))
+    local mark = "none"
+    if GetRaidTargetIndex then
+        local ok, i = pcall(GetRaidTargetIndex, "target")
+        if ok then mark = show(i) end
+    end
+    local entry = string.format("%s %s | target after: %s | marker: %s | ran: %s", date("%H:%M:%S"), state,
+        target, mark, ((SC.ranMacro or ""):gsub("\n", " ; ")))
     SpawnCampDB.keyLog = SpawnCampDB.keyLog or {}
     table.insert(SpawnCampDB.keyLog, entry)
     while #SpawnCampDB.keyLog > 20 do table.remove(SpawnCampDB.keyLog, 1) end
@@ -110,9 +123,10 @@ SC.fastUnit = nil
 SC.onMob = false
 
 -- Raid marker over the mob. Addons can't call SetRaidTarget on this client
--- (it raised "blocked" errors), but a /tm line in the key's macro can. It goes
--- in only until one press has run it (SC.markDone), and not when the target
--- already has that marker, because /tm on a marked mob takes the marker off.
+-- (it raised "blocked" errors); the key's macro /clicks a secure raidtarget
+-- button instead. The line goes in only until one press has run it
+-- (SC.markDone), and not when the target already has that marker, in case the
+-- action toggles a marker that's already there.
 SC.markDone = false
 
 local function MarkLine(lines, unitKnown)
@@ -122,7 +136,7 @@ local function MarkLine(lines, unitKnown)
         local ok, cur = pcall(GetRaidTargetIndex, "target")
         if ok and SC.Plain(cur) == icon then return end
     end
-    lines[#lines + 1] = "/tm " .. icon
+    lines[#lines + 1] = "/click SpawnCampMark"
 end
 
 local function TalkAndAttack(lines, attack, talk, at)
@@ -225,6 +239,8 @@ function SC.ApplyBindings()
     ClearOverrideBindings(owner)
     keyBtn:RegisterForClicks(ClickEdge())
     interactBtn:RegisterForClicks(ClickEdge())
+    markBtn:RegisterForClicks(ClickEdge())
+    markBtn:SetAttribute("action", SC.char.markIcon or 8)
     local text = SC.KeyMacro()
     keyBtn:SetAttribute("type", "macro")
     keyBtn:SetAttribute("macrotext", text)

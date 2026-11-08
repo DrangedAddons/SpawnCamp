@@ -875,7 +875,7 @@ local function BuildSettings(P)
     Text(P, "seconds before the earliest respawn (0 = off)", 112, -124)
     Check(P, "Put a marker on the target", 4, -144,
         function() return SC.char.markTarget end, function(v) SC.char.markTarget = v end,
-        "Places a raid marker over the mob as soon as your key has it. Works solo and in a party; in a raid you need lead or assist.")
+        "Places a raid marker over the mob as soon as your key has it. Classic-era rules may only allow markers while you're in a party; in a raid you need lead or assist.")
     local icon = CreateFrame("Button", nil, P)
     icon:SetSize(22, 22)
     icon:SetPoint("TOPLEFT", 200, -145)
@@ -884,6 +884,7 @@ local function BuildSettings(P)
     icon:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     icon:SetScript("OnClick", function()
         SC.char.markIcon = (SC.char.markIcon or 8) % 8 + 1
+        SC.ApplyBindings()
         SC.Refresh()
     end)
     Tip(icon, "Marker", "Click to pick another marker.")

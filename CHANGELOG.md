@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.2
+
+- The marker goes on through a hidden secure "raidtarget" button the key's macro clicks, instead of `/tm`, which didn't mark in testing.
+- The press log (`/spc key`) records the macro that actually ran and the marker the target has after the press.
+
 ## 0.14.1
 
 - Fixed the "blocked from an action only available to the Blizzard UI" popups. The marker was placed by calling SetRaidTarget from the addon, which this client forbids, and it retried on every press. It now goes on with a `/tm` line in the key's macro. The line is there only for the press that casts, is taken out straight after (before combat freezes the macro, so the marker can't be toggled off), and is skipped if the mob already has that marker.
