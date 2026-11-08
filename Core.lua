@@ -103,7 +103,7 @@ end
 -- Makes a mob the selected target and moves it to the top of the recent list.
 function SC.SetActive(name)
     if name and not SC.char.mobs[name] then return end
-    if SC.char.active ~= name then SC.fastUnit = nil end
+    if SC.char.active ~= name then SC.fastUnit, SC.onMob = nil, false end
     SC.char.active = name
     if name then
         local m = SC.char.mobs[name]

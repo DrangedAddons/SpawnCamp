@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0
+
+The key never swaps off the mob once it has it, and only ever goes for the alive mob.
+
+- **On the mob:** when your target is the alive mob, the key only casts. It doesn't clear or retarget, so spamming can't move you off it. This holds through combat.
+- **Locked:** when the mob's alive nameplate is known, the key targets exactly that unit and casts at it. No clearing and no name search, so no other mob or corpse can be picked.
+- **Searching:** otherwise it clears, searches by name, drops a corpse, then casts.
+- The line next to the key shows which of these it's in ("On target: won't swap", "Locked on its nameplate", "Waiting: no live nameplate yet", "In combat: searching by name").
+
 ## 0.11.1
 
 - With the fast path, the spell and auto attack go straight at the mob's nameplate unit (`/cast [@nameplate5,harm,nodead][@target,harm,nodead]`) in the same press, not waiting on the target swap.

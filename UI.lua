@@ -1041,10 +1041,10 @@ local function RefreshKey()
         ui.keyNote:SetText("|cffff6060No key assigned.|r")
     elseif not m then
         ui.keyNote:SetText("|cff999999Does nothing: no target.|r")
-    elseif InCombatLockdown() then
-        ui.keyNote:SetText("|cff999999Changes apply after combat.|r")
     else
-        ui.keyNote:SetText("|cff40ff40" .. (m.mode == "attack" and "Attacks " or "Talks to ") .. m.name .. ".|r")
+        local state, text = SC.KeyState()
+        local color = (state == "on" or state == "lock") and "|cff40ff40" or "|cffffd100"
+        ui.keyNote:SetText(color .. (m.mode == "attack" and "Attack" or "Talk") .. ": " .. text .. "|r")
     end
 end
 

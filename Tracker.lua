@@ -429,7 +429,8 @@ end
 function SC.OnKeyPressed()
     if not SC.char then return end
     TakeTarget()
-    C_Timer.After(0.15, function() pcall(TakeTarget) end)
+    SC.EvalTarget()
+    C_Timer.After(0.15, function() pcall(TakeTarget); pcall(SC.EvalTarget) end)
 end
 
 local function CheckFollowed()
@@ -452,6 +453,28 @@ local function CheckFollowed()
     end
 end
 
+-- Is your current target the selected mob, alive? Then the key stops touching
+-- the target (no swapping while you spam). By name when readable; with hidden
+-- names, when the key itself put it there.
+function SC.EvalTarget()
+    if not SC.char then return end
+    local m = SC.Active()
+    local on = false
+    if m and SC.MaybeExists("target") and not SC.True(UnitIsPlayer("target"))
+        and SC.Bool(UnitIsDead("target")) == false then
+        local n = SC.UnitNameSafe("target")
+        if n then
+            on = n:lower() == m.name:lower()
+        else
+            local f = follow[m.name]
+            on = f and f.viaTarget or false
+        end
+    end
+    SC.SetOnMob(on)
+end
+
+SC.On("PLAYER_REGEN_ENABLED", function() SC.EvalTarget() end)
+
 -- Your own target change (not the key's) ends following through the target.
 SC.On("PLAYER_TARGET_CHANGED", function()
     local now = GetTime()
@@ -461,6 +484,7 @@ SC.On("PLAYER_TARGET_CHANGED", function()
             if not f.plate then follow[name] = nil end
         end
     end
+    SC.EvalTarget()
 end)
 
 -- A followed nameplate going away: dead means it died, alive means out of range.
@@ -480,6 +504,7 @@ end)
 local function Scan()
     if not SC.char then return end
     CheckFollowed()
+    SC.EvalTarget()
     for _, unit in ipairs(SCAN_UNITS) do
         if SC.MaybeExists(unit) then Check(unit) end
     end

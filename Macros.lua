@@ -72,38 +72,25 @@ keyBtn:HookScript("OnClick", function()
     end
 end)
 
--- Fast path: while out of combat, the nameplate of the target mob, alive, as
--- soon as it shows. Targeting that unit token is instant and can't pick up the
--- old corpse (corpses have no nameplate), which /targetexact (nearest by name,
--- dead or alive) can. Set by the tracker; cleared when combat starts, since the
--- token could be reused for another mob while the macro can't be changed.
+-- How the key gets the mob, best first. The macro is rewritten (out of combat
+-- only) as the situation changes:
+--   1. Your target already is the alive mob (SC.onMob): never touch the target,
+--      just cast at it. Spamming can't swap you off it. The name search only runs
+--      if the target is gone ([noexists]).
+--   2. The mob's alive nameplate is known (SC.fastUnit): target exactly that unit
+--      and cast at it. No clearing, no name search, so no other mob or corpse.
+--   3. Neither: clear, search by name, drop a corpse, cast at the target.
+-- Combat freezes the macro; PLAYER_REGEN_DISABLED drops the nameplate token
+-- (it could be reused for another mob) and leaves 1 or 3.
 SC.fastUnit = nil
+SC.onMob = false
 
-function SC.KeyMacro()
-    local attack, talk = SC.MobsIn("attack"), SC.MobsIn("interact")
-    if #attack + #talk == 0 then return "" end
-    local lines = { "/cleartarget" }
-    local first = true
-    if SC.fastUnit then
-        lines[#lines + 1] = "/target " .. SC.fastUnit
-        first = false
-    end
-    for _, list in ipairs({ attack, talk }) do
-        for _, m in ipairs(list) do
-            lines[#lines + 1] = (first and "/targetexact " or "/targetexact [noexists] ") .. m.name
-            first = false
-        end
-    end
-    -- The name search can land on a corpse; drop it so nothing is cast at it.
-    lines[#lines + 1] = "/cleartarget [dead]"
+local function TalkAndAttack(lines, attack, talk, at)
     if #attack > 0 then
         local A = SC.char.attack
         if A.macro and strtrim(A.macro) ~= "" then
             lines[#lines + 1] = strtrim(A.macro)
         else
-            -- With the fast path the cast goes straight at the nameplate unit, in the
-            -- same press, without depending on the target swap; else at the target.
-            local at = SC.fastUnit and ("[@" .. SC.fastUnit .. ",harm,nodead][@target,harm,nodead]") or "[@target,harm,nodead]"
             if A.spell and A.spell ~= "" then
                 lines[#lines + 1] = "/cast " .. at .. " " .. A.spell
             end
@@ -113,9 +100,35 @@ function SC.KeyMacro()
     if #talk > 0 then
         lines[#lines + 1] = "/click [help,nodead] SpawnCampInteract"
     end
+end
+
+function SC.KeyMacro()
+    local attack, talk = SC.MobsIn("attack"), SC.MobsIn("interact")
+    if #attack + #talk == 0 then return "" end
+    local m = attack[1] or talk[1]
+    local lines = {}
+    if SC.onMob then
+        lines[#lines + 1] = "/targetexact [noexists] " .. m.name
+        TalkAndAttack(lines, attack, talk, "[@target,harm,nodead]")
+    elseif SC.fastUnit then
+        lines[#lines + 1] = "/target " .. SC.fastUnit
+        TalkAndAttack(lines, attack, talk, "[@" .. SC.fastUnit .. ",harm,nodead]")
+    else
+        lines[#lines + 1] = "/cleartarget"
+        lines[#lines + 1] = "/targetexact " .. m.name
+        lines[#lines + 1] = "/cleartarget [dead]"
+        TalkAndAttack(lines, attack, talk, "[@target,harm,nodead]")
+    end
     return table.concat(lines, "\n")
 end
 
+-- Which state the key is in, for the line next to it.
+function SC.KeyState()
+    if SC.onMob then return "on", "On target: won't swap" end
+    if SC.fastUnit then return "lock", "Locked on its nameplate" end
+    if InCombatLockdown() then return "off", "In combat: searching by name" end
+    return "off", "Waiting: no live nameplate yet"
+end
 -- Rewrites only the macro text (for the fast path). Out of combat only.
 function SC.UpdateKeyMacro()
     if InCombatLockdown() then return end
@@ -125,6 +138,13 @@ end
 function SC.SetFastUnit(unit)
     if unit == SC.fastUnit or InCombatLockdown() then return end
     SC.fastUnit = unit
+    SC.UpdateKeyMacro()
+end
+
+function SC.SetOnMob(v)
+    v = v and true or false
+    if v == SC.onMob or InCombatLockdown() then return end
+    SC.onMob = v
     SC.UpdateKeyMacro()
 end
 

@@ -33,18 +33,13 @@ Hostile mobs start on the sword and friendly ones on the bubble.
 The game requires a real keypress for every target, cast and interact. SpawnCamp doesn't press anything for you and never will.
 ### What the key runs
 
-```
-/cleartarget
-/targetexact Mechanized Sentry
-/cast [@target,harm,nodead] <spell>        (sword)
-/startattack [@target,harm,nodead]         (sword)
-/click [help,nodead] SpawnCampInteract     (bubble)
-```
+The key picks the best of three, and the line next to it says which one it's in:
 
-If the mob isn't there you end up with no target, so nothing lands on anything else. A corpse found by name is dropped (`/cleartarget [dead]`) before the cast.
+1. **On target: won't swap.** Your target is the alive mob, so the key only casts at it (and re-finds it by name only if your target is gone). Spamming can't move you off it, including during combat.
+2. **Locked on its nameplate.** The mob's alive nameplate is showing, so the key targets exactly that unit and casts at it. No other mob, no corpse.
+3. **Waiting / searching by name.** `/cleartarget`, `/targetexact <name>`, drop a corpse (`/cleartarget [dead]`), then cast. Used before the mob's nameplate shows, and in combat when the key can't be changed.
 
-**Fast path:** out of combat, as soon as the mob's alive nameplate shows, the key targets that exact unit first (`/target nameplate5`). That's instant and skips the old corpse, which a name search can pick if it's nearer. Turn enemy nameplates on (V) for this. In combat the key can't be changed, so it uses the name search only.
-
+The game requires a real keypress for every target and cast. Keep enemy nameplates on (V) so the lock can work.
 ### Bubble options (right-click the bubble)
 
 - **Hand in and accept quests** and **Click through chat**: both on by default. With several chat options it picks one matching your **Prefer** list, otherwise the first.
