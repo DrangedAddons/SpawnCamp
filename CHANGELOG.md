@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+- Nearby: a **Scan now** button reads all nameplates, your target and your mouseover immediately. A line at the bottom says how many NPCs it read and how many it skipped or couldn't read (players, pets, names the game hides, errors). Opening the list scans too.
+- Nameplates 1-40 are read directly every tick, so the list and the spawn tracker no longer depend on nameplate events.
+- Unit checks accept the 1/nil style of return as well as true/false. Before, a client returning 1 made every unit look like it didn't exist.
+- `/spawncamp debug` also prints the first nameplate's reads and a nearby scan report.
+
 ## 0.2.0
 
 - One compact window replaces the big window and the timer list. It stays on screen with a line per mob (status, countdown bar, key). **More** opens Setup, History and Options tabs under it.

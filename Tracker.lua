@@ -222,21 +222,52 @@ SC.nearby = {}
 local NEARBY_KEEP = 180
 
 local function NoteNearby(unit)
-    pcall(function()
-        if not SC.True(UnitExists(unit)) or SC.True(UnitIsPlayer(unit)) then return end
+    -- Returns what happened, for Scan now's report:
+    -- "ok", "none" (no unit), "player", "hidden" (name secret), "other" (pet etc.), "error".
+    local ok, res = pcall(function()
+        if not SC.True(UnitExists(unit)) then return "none" end
+        if SC.True(UnitIsPlayer(unit)) then return "player" end
         local n = SC.Plain(UnitName(unit))
-        if not n then return end
+        if not n then return "hidden" end
         local guid = SC.Plain(UnitGUID(unit))
-        -- Skips pets, totems' owners' pets and other non-creatures when the GUID is readable.
-        if guid and not (guid:find("^Creature") or guid:find("^Vehicle")) then return end
+        -- Skips pets and other non-creatures when the GUID is readable.
+        if type(guid) == "string" and not (guid:find("^Creature") or guid:find("^Vehicle")) then return "other" end
         local e = SC.nearby[n] or {}
         e.t = GetTime()
-        e.hostile = SC.Plain(UnitCanAttack("player", unit))
+        e.hostile = SC.Bool(UnitCanAttack("player", unit))
         e.level = SC.Plain(UnitLevel(unit))
         e.class = SC.Plain(UnitClassification(unit))
-        e.dead = SC.Plain(UnitIsDead(unit))
+        e.dead = SC.Bool(UnitIsDead(unit))
         SC.nearby[n] = e
+        return "ok"
     end)
+    if not ok then
+        SC.nearbyError = tostring(res)
+        return "error"
+    end
+    return res
+end
+
+-- Every unit token worth reading: nameplate1-40 (read directly, so nothing
+-- depends on the nameplate events), plus target and mouseover.
+local SCAN_UNITS = { "target", "mouseover" }
+for i = 1, 40 do SCAN_UNITS[#SCAN_UNITS + 1] = "nameplate" .. i end
+
+-- One full read now; returns a one-line report of what it found and what was blocked.
+function SC.ScanNearby()
+    local tally = { ok = 0, none = 0, player = 0, hidden = 0, other = 0, error = 0 }
+    for _, unit in ipairs(SCAN_UNITS) do
+        local r = NoteNearby(unit)
+        tally[r] = (tally[r] or 0) + 1
+    end
+    local parts = { string.format("%d NPC%s read", tally.ok, tally.ok == 1 and "" or "s") }
+    if tally.player > 0 then parts[#parts + 1] = tally.player .. " players skipped" end
+    if tally.other > 0 then parts[#parts + 1] = tally.other .. " pets/other skipped" end
+    if tally.hidden > 0 then parts[#parts + 1] = "|cffff8040" .. tally.hidden .. " with hidden names|r" end
+    if tally.error > 0 then parts[#parts + 1] = "|cffff4040" .. tally.error .. " errors: " .. tostring(SC.nearbyError) .. "|r" end
+    local seen = 42 - tally.none
+    if seen == 0 then parts[#parts + 1] = "no nameplates, target or mouseover" end
+    return table.concat(parts, ", "), tally
 end
 
 local RANK = { worldboss = 1, rareelite = 2, rare = 3, elite = 4 }
@@ -277,9 +308,12 @@ end
 
 local function Scan()
     if not SC.char then return end
-    for unit in pairs(plates) do Check(unit) end
-    Check("target")
-    Check("mouseover")
+    for _, unit in ipairs(SCAN_UNITS) do
+        if SC.True(UnitExists(unit)) then Check(unit) end
+    end
+    for unit in pairs(plates) do
+        if not unit:find("^nameplate%d+$") then Check(unit) end
+    end
 end
 
 SC.On("NAME_PLATE_UNIT_ADDED", function(unit)

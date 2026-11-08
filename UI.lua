@@ -630,16 +630,24 @@ end
 
 local function BuildNearby()
     N = CreateFrame("Frame", nil, F, "BackdropTemplate")
-    N:SetSize(250, 52 + NEAR_ROWS * 18)
+    N:SetSize(280, 92 + NEAR_ROWS * 18)
     N:SetPoint("TOPLEFT", F, "TOPRIGHT", 2, 0)
     Backdrop(N, 0.9)
     N:EnableMouse(true)
     Text(N, "Nearby mobs", 8, -8, "GameFontNormal")
-    N.count = Text(N, "", 110, -10)
+    local scan = Btn(N, "Scan now", 74, 104, -4, function()
+        local report = SC.ScanNearby()
+        N.report:SetText(report)
+        RefreshNearby()
+    end)
+    Tip(scan, "Scan now", "Reads every nameplate, your target and your mouseover right now. The list also fills by itself a few times a second. The line at the bottom says what was read and what the game hid.")
     local close = CreateFrame("Button", nil, N, "UIPanelCloseButton")
     close:SetSize(22, 22)
     close:SetPoint("TOPRIGHT", -1, -1)
-    N.empty = Text(N, "None yet. Turn on nameplates (V for enemies,\nShift-V for friendly NPCs) or mouse over mobs.\nObjects can't be listed: add them by name.", 8, -30)
+    N.count = Text(N, "", 8, -28 - NEAR_ROWS * 18 - 4)
+    N.report = Text(N, "", 8, -28 - NEAR_ROWS * 18 - 20)
+    N.report:SetWidth(264)
+    N.empty = Text(N, "Nothing yet. The list fills from what your game\nalready shows: nameplates, your target and\nyour mouseover. It doesn't ask the server.\n\nTurn on nameplates (V = enemies, Shift-V =\nfriendly NPCs), or mouse over a mob, then\npress Scan now.\n\nObjects (chests, quest items) have no nameplate:\nadd them by name under More.", 8, -30)
     N.rows = {}
     for i = 1, NEAR_ROWS do
         local r = CreateFrame("Button", nil, N)
@@ -677,7 +685,10 @@ local function BuildNearby()
         end)
         N.rows[i] = r
     end
-    N:SetScript("OnShow", RefreshNearby)
+    N:SetScript("OnShow", function()
+        N.report:SetText((SC.ScanNearby()))
+        RefreshNearby()
+    end)
     N:Hide()
 end
 

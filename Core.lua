@@ -20,9 +20,16 @@ function SC.Plain(v)
     return v
 end
 
--- true only for a plain true; secret booleans count as false.
+-- Older-style APIs return 1/nil instead of true/false, so any plain truthy
+-- value counts. Secret values count as false here.
 function SC.True(v)
-    return v ~= nil and not issecret(v) and v == true
+    return v ~= nil and not issecret(v) and v ~= false and v ~= 0
+end
+
+-- true/false from a boolean-ish API result, or nil when it's secret.
+function SC.Bool(v)
+    if v ~= nil and issecret(v) then return nil end
+    return (v ~= nil and v ~= false and v ~= 0) and true or false
 end
 
 function SC.Print(msg)
@@ -202,8 +209,8 @@ function SC.ReadUnit(unit)
         local m = SC.char.mobs[n]
         if not m then return end
         local _, s = SC.ParseGUID(UnitGUID(unit))
-        local d = SC.Plain(UnitIsDead(unit))
-        local t = SC.Plain(UnitIsTapDenied and UnitIsTapDenied(unit))
+        local d = SC.Bool(UnitIsDead(unit))
+        local t = UnitIsTapDenied and SC.Bool(UnitIsTapDenied(unit)) or nil
         return n, m, d, s, t
     end)
     if not ok then return nil end
@@ -311,7 +318,7 @@ function SC.AddTarget()
         SC.Print("target a mob first (or type its name)")
         return
     end
-    local friendly = SC.Plain(UnitCanAttack("player", "target")) == false
+    local friendly = SC.Bool(UnitCanAttack("player", "target")) == false
     SC.AddMob(name, friendly and "interact" or "attack")
 end
 
@@ -327,6 +334,9 @@ function SC.Debug()
     print("  dead " .. show(UnitIsDead("target")) .. ", tapDenied " .. show(UnitIsTapDenied and UnitIsTapDenied("target")))
     print("  canAttack " .. show(UnitCanAttack("player", "target")) .. ", in combat " .. tostring(InCombatLockdown()))
     print("  server time " .. tostring(GetServerTime()))
+    print("  nameplate1: exists " .. show(UnitExists("nameplate1")) .. ", name " .. show(UnitName("nameplate1"))
+        .. ", guid " .. show(UnitGUID("nameplate1")))
+    if SC.ScanNearby then print("  nearby scan: " .. SC.ScanNearby()) end
 end
 
 function SpawnCamp_OnCompartmentClick()
