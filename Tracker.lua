@@ -73,9 +73,10 @@ function SC.Observe(name, kind, spawn, t, src, extra)
 
     if src == "you" then SC.Share(name, e) end
 
-    if mob and mob.hunting then
-        -- Alerts only for your current targets; Recent mobs just log.
-        if kind == "A" and SC.char.alertSpawn and events[#events] == e and SC.IsActive(name) then
+    -- Alerts only for the targets in the main window. Recent, Nearby and Auto
+    -- Quest mobs just log.
+    if mob and mob.hunting and SC.IsActive(name) then
+        if kind == "A" and SC.char.alertSpawn and events[#events] == e then
             SC.Alert(name .. " is up!" .. (src ~= "you" and (" (seen by " .. src .. ")") or ""))
         end
         if kind == "D" and e.mine and mob.mode ~= "interact" and mob.keep then

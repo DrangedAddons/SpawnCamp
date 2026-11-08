@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.2
+
+- No alerts of any kind for mobs that aren't targets in the main window. Killing a Recent mob (or one Auto Quest picked) no longer shows "You got X!". Sightings are still logged.
+
 ## 0.20.1
 
 - Spawn alerts and respawn dings are only for your current targets. Mobs you cleared (still in Recent) no longer set them off; their sightings are still logged.
