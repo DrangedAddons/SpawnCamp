@@ -5,9 +5,9 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
 ## The window
 
 ```
-              SpawnCamp                      [> Log] [gear] [x]
+              SpawnCamp             Recent  [> Log] [gear] [x]
  Log drawer   [ Shift-Wheel Down ] [Unassign]   Attacks Mechanized Sentry.
- (left, or    [ type or paste a mob name ] [Add] [My Target] [Nearby] [Recent] [Quest]
+ (left, or    [ type or paste a mob name ] [Add] [My Target] [Nearby] [Quest] [Auto Quest]
   right)      +----------------------------------------------------------------+
               | (portrait) Mechanized Sentry   ETA 2:55  [SWORD] [BUBBLE] [Clear] |
               |            dead 2:05, earliest in 1:10  Avg respawn 5:00           |
@@ -20,9 +20,10 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
 - **ETA / Avg respawn**: *Avg respawn* is how long this mob usually takes to come back after it dies (from the log). *ETA* counts down to that from its last death. It shows **DUE** once the average has passed without a sighting, and **UP** once the mob is seen.
 - **Sword / bubble**: big square buttons, one always pressed. The sword means your key targets the mob and casts your attack spell. The bubble means it targets the NPC and talks to it: chat, quest hand-ins, new and follow-up quests. Clicking the pressed one does nothing; clicking the other swaps them. **Right-click the sword** for the spell or your own macro lines, **right-click the bubble** for the chat and quest options. Clicking anywhere outside an options box closes it.
 - **Log** (header button): a drawer on the left of the window (or the right, in the settings). It shows the target's respawn times (fastest, average, slowest), a known respawn time you can enter, the manual "it died / it's up" buttons, and every sighting with its time.
-- **Recent**: a pop-out listing every mob you've targeted, with **Use** to pick one again and **x** to remove it.
+- **Recent** (small link in the header): a pop-out listing every mob you've targeted, with **Use** to pick one again and **x** to remove it.
 - **Nearby**: a pop-out of mobs around you, with **Use**.
-- **Quest**: a pop-out of mobs your current quests want: kill objectives from your quest log, and mobs seen nearby that your quests need (item drops too), with **Use**. Tick **Target any quest mob** there and the key goes for any of them your quests still need, without adding each one.
+- **Quest**: a pop-out of mobs your current quests want: kill objectives from your quest log, and mobs seen nearby that your quests need (item drops too), with **Use**.
+- **Auto Quest**: your key goes for any mob your quests still need, after your own targets, without adding each one. It gets its own box like a target's: the mob it's on (or the only one left), the quest and your progress (3/10), or "Any quest mob" with the count. **Clear** on that box turns Auto Quest off.
 - **Portrait**: the mob's real portrait once it has been seen (targeted, on a nameplate, moused over). Before that, an icon for its creature type, or a sword or scroll if that isn't known yet.
 - **Gear**:
   - Sharing with **Party**, **Raid** and **Guild**.

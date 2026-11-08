@@ -290,9 +290,15 @@ local TYPE_ICON = {
     Aberration = "Spell_Shadow_UnholyFrenzy",
 }
 
+local QUEST_ICON = "Interface\\GossipFrame\\AvailableQuestIcon"
+
+local QUEST_KEY = "|quest|"   -- portrait cache key for "Any quest mob"
+
 local function DefaultIcon(name)
+    if name == nil or name == QUEST_KEY then return QUEST_ICON end
     local m = SC.char.mobs[name]
-    local icon = m and m.ctype and TYPE_ICON[m.ctype]
+    local near = SC.nearby and SC.nearby[name]
+    local icon = (m and m.ctype and TYPE_ICON[m.ctype]) or (near and near.ctype and TYPE_ICON[near.ctype])
     if not icon then icon = (m and m.mode == "interact") and "INV_Scroll_03" or "INV_Sword_04" end
     return "Interface\\Icons\\" .. icon
 end
@@ -316,10 +322,10 @@ end
 
 function SC.CapturePortrait(name, unit)
     local m = SC.char.mobs[name]
-    if not m then return end
+    if not m and not (SC.char.anyQuest and SC.IsQuestWanted(name)) then return end
     local ok, ctype = pcall(UnitCreatureType, unit)
     ctype = ok and SC.Plain(ctype)
-    if ctype then m.ctype = ctype end
+    if ctype and m then m.ctype = ctype end
     if not F then return end
     local p = Portrait(name)
     local now = GetTime()
@@ -560,6 +566,16 @@ local function BuildTop()
     end)
     Tip(ui.logToggle, "Log", "Opens or closes the target's log: respawn times and every sighting.")
 
+    -- Recent: a quiet text link in the header.
+    local recent = CreateFrame("Button", nil, F)
+    recent:SetSize(46, 16)
+    recent:SetPoint("RIGHT", ui.logToggle, "LEFT", -8, 0)
+    recent:SetNormalFontObject("GameFontDisableSmall")
+    recent:SetHighlightFontObject("GameFontHighlightSmall")
+    recent:SetText("Recent")
+    recent:SetScript("OnClick", function() SC.ToggleRecent() end)
+    Tip(recent, "Recent", "Every mob you've targeted before. Pick one again or remove it.")
+
     -- Key row
     KeyButton(F, 8, -29, SC.char)
     local clearKey = Btn(F, "Unassign", 70, 162, -29, function()
@@ -596,10 +612,10 @@ local function BuildTop()
         "My Target", "Adds the mob you have targeted in game to your targets: Attack if hostile, Talk if friendly.")
     Tip(Btn(F, "Nearby", 64, 298, -56, function() SC.ToggleNearby() end),
         "Nearby", "Lists mobs around you, with a button to use each one.")
-    Tip(Btn(F, "Recent", 64, 364, -56, function() SC.ToggleRecent() end),
-        "Recent", "Every mob you've targeted before. Pick one again or remove it.")
-    Tip(Btn(F, "Quest", 56, 430, -56, function() SC.ToggleQuests() end),
+    Tip(Btn(F, "Quest", 56, 364, -56, function() SC.ToggleQuests() end),
         "Quest", "Mobs your current quests want: kill objectives from your quest log, plus mobs nearby that your quests need (item drops too).")
+    ui.autoQuest = Btn(F, "Auto Quest", 92, 422, -56, function() SC.SetAnyQuest(not SC.char.anyQuest) end)
+    Tip(ui.autoQuest, "Auto Quest", "On, your key goes for any mob your quests still need, alive and not tagged by someone else, after your own targets. Finished objectives drop off by themselves.")
 end
 
 -- Target boxes, one per slot, left to right:
@@ -607,8 +623,9 @@ end
 --              dead 0:05, ...     Avg respawn 0:20                  Keep [x]
 local BOX_H = 64
 
-local function BuildTargetBox(slot)
-    local bx = {}
+-- quest = the Auto Quest box: same look, but the key picks the mob.
+local function BuildTargetBox(slot, quest)
+    local bx = { quest = quest }
     local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
     T:SetHeight(BOX_H)
     Backdrop(T, 0.6)
@@ -620,11 +637,17 @@ local function BuildTargetBox(slot)
     bx.portrait:SetPoint("LEFT", 6, 0)
 
     -- Right column: Clear, with Keep under it.
-    bx.clear = Btn(T, "Clear", 58, 0, 0, function() SC.SetActive(nil, slot) end)
+    bx.clear = Btn(T, "Clear", 58, 0, 0, function()
+        if quest then SC.SetAnyQuest(false) else SC.SetActive(nil, slot) end
+    end)
     bx.clear:ClearAllPoints()
     bx.clear:SetPoint("TOPRIGHT", -6, -8)
     bx.clear:SetHeight(20)
-    Tip(bx.clear, "Clear target", "Takes this mob off your key. It stays in Recent.")
+    if quest then
+        Tip(bx.clear, "Clear", "Turns Auto Quest off.")
+    else
+        Tip(bx.clear, "Clear target", "Takes this mob off your key. It stays in Recent.")
+    end
     bx.keep = Check(T, "Keep", 0, 0,
         function() local m = SC.Active(slot); return m and m.keep end,
         function(v) local m = SC.Active(slot); if m then m.keep = v end end,
@@ -639,8 +662,9 @@ local function BuildTargetBox(slot)
     bx.talk = ModeButton(T, BUBBLE, function() HideSidePanels(); SetMode("interact", slot) end, function(self) ShowBeside(TP, self) end,
         "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests.\n|cffffd100Right-click|r for the chat and quest options.")
     bx.talk:SetPoint("RIGHT", T, "RIGHT", -74, 0)
-    bx.attack = ModeButton(T, SWORD, function() HideSidePanels(); SetMode("attack", slot) end, function(self) ShowBeside(AP, self) end,
-        "Attack", "Your key targets this mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro.")
+    bx.attack = ModeButton(T, SWORD, function() HideSidePanels(); if not quest then SetMode("attack", slot) end end, function(self) ShowBeside(AP, self) end,
+        "Attack", quest and "Your key targets the quest mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro."
+            or "Your key targets this mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro.")
     bx.attack:SetPoint("RIGHT", bx.talk, "LEFT", -6, 0)
 
     -- ETA column.
@@ -652,7 +676,11 @@ local function BuildTargetBox(slot)
     bx.avg = eta:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     bx.avg:SetPoint("BOTTOM", 0, 8)
     eta:EnableMouse(true)
+    if quest then
+        Tip(eta, "Quest progress", "Kills (or items) done out of how many the quest needs. With several quest mobs, how many kinds are still needed.")
+    else
     Tip(eta, "Respawn ETA", "Avg respawn: how long this mob usually takes to come back after it dies (from the log). ETA counts down to that from its last death. At zero you get a soft ding, whether or not it has shown.")
+    end
     bx.etaBox = eta
 
     -- Name and status, taking the rest.
@@ -671,13 +699,24 @@ local function BuildTargetBox(slot)
     bx.status:SetWordWrap(false)
     bx.nameArea = nameArea
 
-    bx.empty = Text(T, "No target. Your key does nothing until you add one\nor pick one from Recent.", 10, -14, "GameFontHighlight")
+    bx.empty = Text(T, "No target. Your key does nothing until you add one,\npick one from Recent or Quest, or turn on Auto Quest.", 10, -14, "GameFontHighlight")
+
+    if quest then
+        bx.talk:Hide()
+        bx.keep:Hide()
+        -- Gold "!" on the portrait: this box's mob is picked by the key.
+        bx.badge = T:CreateTexture(nil, "OVERLAY", nil, 7)
+        bx.badge:SetSize(20, 20)
+        bx.badge:SetPoint("BOTTOMRIGHT", bx.portrait, "BOTTOMRIGHT", 4, -4)
+        bx.badge:SetTexture(QUEST_ICON)
+    end
     return bx
 end
 
 local function BuildTarget()
     ui.boxes = {}
     for slot = 1, SC.MAX_TARGETS do ui.boxes[slot] = BuildTargetBox(slot) end
+    ui.questBox = BuildTargetBox(SC.MAX_TARGETS + 1, true)
     -- Under the last target: add another.
     ui.addAnother = Btn(F, "+ Add another target", 160, 0, 0, function()
         if ui.addName then ui.addName:SetFocus() end
@@ -693,7 +732,7 @@ end
 local nameSecure = {}
 
 local function BuildNameSecure()
-    for slot = 1, SC.MAX_TARGETS do
+    for slot = 1, SC.MAX_TARGETS + 1 do
         local b = CreateFrame("Button", "SpawnCampTargetName" .. slot, UIParent, "SecureActionButtonTemplate")
         b:RegisterForClicks("LeftButtonUp", "LeftButtonDown")
         b:SetAttribute("type", "macro")
@@ -709,9 +748,13 @@ end
 
 local function PlaceNameSecure()
     if InCombatLockdown() then return end
-    for slot = 1, SC.MAX_TARGETS do
-        local b, bx = nameSecure[slot], ui.boxes[slot]
+    for slot = 1, SC.MAX_TARGETS + 1 do
+        local b, bx = nameSecure[slot], ui.boxes[slot] or ui.questBox
         local m = SC.Active(slot)
+        if bx.quest then
+            local name = SC.QuestShown()
+            m = name and { name = name } or nil
+        end
         local fs = bx.name
         local l, bottom = fs:GetLeft(), fs:GetBottom()
         if not (b and m and F:IsShown() and bx.frame:IsShown() and fs:IsVisible() and l and bottom) then
@@ -1075,10 +1118,6 @@ end
 
 local function BuildQuests()
     Q = Popup("SpawnCampQuests", 400, 60 + QUEST_ROWS * 18, "Quest mobs")
-    Q.any = Check(Q, "Target any quest mob", 120, -5,
-        function() return SC.char.anyQuest end,
-        function(v) SC.char.anyQuest = v; SC.QuestWantedReset(); SC.fastUnit = nil end,
-        "Ticked, your key goes for any mob on this list that your quests still need, alive and not tagged by someone else, after your own targets. Finished objectives drop off. You can still Use one to make it a target of its own.")
     Q.count = Text(Q, "", 8, -30 - QUEST_ROWS * 18 - 4)
     Q.empty = Text(Q, QUEST_EMPTY, 8, -32)
     Q.rows = {}
@@ -1206,7 +1245,20 @@ function SC.KeyLabel(key)
     return table.concat(out, "-")
 end
 
+local function RefreshAutoQuest()
+    local b = ui.autoQuest
+    if not b then return end
+    if SC.char.anyQuest then
+        b:SetText("|cff40ff40Auto Quest|r")
+        b:LockHighlight()
+    else
+        b:SetText("Auto Quest")
+        b:UnlockHighlight()
+    end
+end
+
 local function RefreshKey()
+    RefreshAutoQuest()
     for _, b in ipairs(ui.keys) do
         if not (capturing and capturing.button == b) then
             b:SetText(SC.char.key ~= "" and ("|cffffffff" .. SC.KeyLabel(SC.char.key) .. "|r") or "Click to Bind Key")
@@ -1222,23 +1274,45 @@ local function RefreshKey()
     else
         local state, text = SC.KeyState()
         local color = (state == "on" or state == "lock") and "|cff40ff40" or "|cffffd100"
-        local what = m and (m.mode == "attack" and "Attack" or "Talk") or "Quest mobs"
+        local what = m and (m.mode == "attack" and "Attack" or "Talk") or "Attack"
         ui.keyNote:SetText(color .. what .. ": " .. text .. "|r")
     end
+end
+
+-- The Auto Quest box: one mob when there's one to show (the only one left, or
+-- the one the key last went for), else "Any quest mob" with the count.
+local function RefreshQuestBox(bx)
+    for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.clear }) do w:Show() end
+    bx.empty:Hide()
+    local wanted = SC.QuestWanted()
+    local name = SC.QuestShown()
+    local info = name and SC.QuestInfo(name)
+    -- No name = the generic quest icon, cached under its own key.
+    PlacePortrait(name or QUEST_KEY, bx.portrait)
+    local tag = "|cffffd100Auto Quest|r"
+    if name then
+        bx.name:SetText(name)
+        local more = #wanted - 1
+        bx.status:SetText(tag .. (info and info.quest and ("  |cffc0c0c0" .. info.quest .. "|r") or "")
+            .. (more > 0 and ("  |cff999999+" .. more .. " more|r") or ""))
+    else
+        bx.name:SetText(#wanted > 0 and "Any quest mob" or "No quest mobs needed")
+        local names = table.concat(wanted, ", ")
+        bx.status:SetText(tag .. "  |cffc0c0c0" .. (names ~= "" and names or "turn in your quests or pick up new ones") .. "|r")
+    end
+    if info and info.have and info.need then
+        bx.eta:SetText((info.finished and "|cff40ff40" or "|cffffd100") .. info.have .. "/" .. info.need .. "|r")
+        bx.avg:SetText("Quest progress")
+    else
+        bx.eta:SetText("|cffffd100" .. #wanted .. "|r")
+        bx.avg:SetText(#wanted == 1 and "mob needed" or "mobs needed")
+    end
+    SetPressed(bx.attack, true)
 end
 
 local function RefreshBox(bx, m, slot)
     for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear, bx.keep }) do w:SetShown(m ~= nil) end
     bx.empty:SetShown(m == nil and slot == 1)
-    if m == nil and slot == 1 then
-        if SC.char.anyQuest then
-            local n = #SC.QuestWanted()
-            bx.empty:SetText("|cff40ff40Any quest mob is on.|r Your key goes for any of the\n" .. n
-                .. " mob" .. (n == 1 and "" or "s") .. " your quests still need (Quest button).")
-        else
-            bx.empty:SetText("No target. Your key does nothing until you add one\nor pick one from Recent or Quest.")
-        end
-    end
     if not m then return end
     PlacePortrait(m.name, bx.portrait)
     bx.name:SetText(m.name)
@@ -1257,7 +1331,7 @@ local function RefreshTarget()
     local n = #SC.Actives()
     for slot = 1, SC.MAX_TARGETS do
         local bx, m = ui.boxes[slot], SC.Active(slot)
-        if slot == 1 or m then
+        if m or (slot == 1 and not SC.char.anyQuest) then
             bx.frame:ClearAllPoints()
             bx.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
             bx.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
@@ -1267,6 +1341,17 @@ local function RefreshTarget()
         else
             bx.frame:Hide()
         end
+    end
+    local qb = ui.questBox
+    if SC.char.anyQuest then
+        qb.frame:ClearAllPoints()
+        qb.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
+        qb.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
+        qb.frame:Show()
+        RefreshQuestBox(qb)
+        y = y - BOX_H - 4
+    else
+        qb.frame:Hide()
     end
     ui.addAnother:ClearAllPoints()
     if n > 0 and n < SC.MAX_TARGETS then

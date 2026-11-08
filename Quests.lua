@@ -355,3 +355,33 @@ C_Timer.NewTicker(1, function()
         if SC.Refresh then SC.Refresh() end
     end
 end)
+
+function SC.SetAnyQuest(on)
+    SC.char.anyQuest = on and true or false
+    SC.QuestWantedReset()
+    if SC.fastUnit and not SC.onMob then SC.fastUnit = nil end
+    SC.ApplyBindings()
+    if SC.Refresh then SC.Refresh() end
+end
+
+-- The quest list row for a name, or nil.
+function SC.QuestInfo(name)
+    for _, r in ipairs(SC.QuestMobs()) do
+        if r.name == name then return r end
+    end
+end
+
+-- The mob the Auto Quest box shows: the only one left, else the one the key
+-- last went for (while it's still needed), else nil ("Any quest mob").
+SC.lastQuestMob = nil
+function SC.QuestShown()
+    local wanted = SC.QuestWanted()
+    if #wanted == 1 then return wanted[1] end
+    local last = SC.lastQuestMob
+    if last then
+        for _, n in ipairs(wanted) do
+            if n == last then return last end
+        end
+    end
+    return nil
+end

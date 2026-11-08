@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.19.0
+
+- **Auto Quest button** on the front, replacing the tick box in the Quest pop-out. It lights green when on.
+- Auto Quest gets its own box that looks like a target's: portrait, name, Attack button (right-click for the spell) and Clear (turns it off). It shows the only quest mob left, or the one your key last went for, with its quest and progress (3/10). With several and none picked yet it shows "Any quest mob" and how many are needed. A gold "!" on the portrait marks it as the key's pick. Clicking the name targets that mob.
+- **Recent** is now a small link in the header.
+
 ## 0.18.0
 
 - **Target any quest mob** (tick box in the Quest pop-out). Your key then goes for any mob your quests still need, alive and not tagged by someone else, after your own targets. You don't need to add them; finished objectives drop off by themselves. A quest mob's nameplate locks the key the same way a target's does, and the key won't hop to another quest mob while you're on one. You can still Use a quest mob to make it a target of its own.

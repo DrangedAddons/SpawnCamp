@@ -354,6 +354,7 @@ local function CheckQuestPlate(unit)
     local tap = UnitIsTapDenied and SC.Bool(UnitIsTapDenied(unit)) or nil
     local ok = wanted and dead == false and tap ~= true
     if ok and not SC.fastUnit then
+        SC.lastQuestMob = n
         SC.SetFastUnit(unit)
     elseif not ok and SC.fastUnit == unit then
         SC.SetFastUnit(nil)
@@ -434,6 +435,9 @@ local function TakeTarget()
         name = mobs[1].name
     end
     if not name then return end
+    for _, m in ipairs(mobs) do
+        if m.quest and m.name == name then SC.lastQuestMob = name end
+    end
     if SC.CapturePortrait then SC.CapturePortrait(name, "target") end
     local f = follow[name]
     if not f then f = {}; follow[name] = f end
