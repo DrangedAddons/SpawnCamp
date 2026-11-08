@@ -38,14 +38,19 @@ SC.CHAR_DEFAULTS = {
     order = {},           -- names in list order
     selected = nil,
     share = true,         -- send and receive sightings with party/raid and guild
-    showTimers = true,    -- the small timer list
+    shown = true,         -- the window is on screen
+    expanded = false,     -- setup/history panel open under the mob list
+    tab = "setup",
+    showDone = true,      -- keep mobs you already got on the compact list
+    locked = false,       -- window can't be dragged
     sound = true,         -- play a sound with alerts
     minimap = { hide = false },
 }
 
 SC.MOB_DEFAULTS = {
-    mode = "attack",      -- "attack" or "interact"
+    mode = "attack",      -- "attack", "interact" or "macro"
     spell = "",           -- attack: instant spell to cast; empty = auto attack only
+    macro = "",           -- macro: the player's own macro text, {mob} = the name
     interact = "target",  -- interact: "target" (by name), "mouseover", "nearest" (game Interact key)
     key = "",             -- binding, e.g. "SHIFT-F"
     armed = true,         -- the key is active
@@ -118,10 +123,9 @@ function SC.RemoveMob(name)
     SC.Refresh()
 end
 
--- Called after anything changes; UI files replace these.
+-- Called after anything changes.
 function SC.Refresh()
     if SC.RefreshWindow then SC.RefreshWindow() end
-    if SC.RefreshTimers then SC.RefreshTimers() end
 end
 
 ------------------------------------------------------------------------------
@@ -255,11 +259,11 @@ end)
 
 local function Help()
     SC.Print("commands:")
-    print("  /spawncamp - open the window")
+    print("  /spawncamp - show or hide the window")
+    print("  /spawncamp more - open or close setup and history")
     print("  /spawncamp add [name] - watch your target, or a mob by name")
     print("  /spawncamp died [name] - log a death now (selected mob if no name)")
     print("  /spawncamp up [name] - log a spawn now")
-    print("  /spawncamp timers - show or hide the timer list")
     print("  /spawncamp debug - print what the addon can read from your target")
 end
 
@@ -283,14 +287,16 @@ SlashCmdList.SPAWNCAMP = function(msg)
         else
             SC.AddTarget()
         end
-        SC.ShowWindow()
+        SC.char.shown, SC.char.expanded, SC.char.tab = true, true, "setup"
+        SC.Refresh()
     elseif cmd == "died" or cmd == "up" then
         local n = MobArg(rest)
         if not n then SC.Print("no such mob being watched"); return end
         SC.Observe(n, cmd == "died" and "D" or "A", nil, nil, "you", { manual = true })
         SC.Refresh()
-    elseif cmd == "timers" then
-        SC.char.showTimers = not SC.char.showTimers
+    elseif cmd == "more" then
+        SC.char.shown = true
+        SC.char.expanded = not SC.char.expanded
         SC.Refresh()
     elseif cmd == "debug" then
         SC.Debug()

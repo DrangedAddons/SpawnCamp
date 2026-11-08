@@ -50,15 +50,22 @@ local function InteractTargetButton()
     return interactTarget
 end
 
+function SC.AttackMacro(name, spell)
+    local lines = { "/cleartarget", "/targetexact " .. name }
+    if spell and spell ~= "" then
+        lines[#lines + 1] = "/cast [@target,harm,nodead] " .. spell
+    end
+    lines[#lines + 1] = "/startattack [@target,harm,nodead]"
+    return table.concat(lines, "\n")
+end
+
 function SC.MacroText(mob)
     local n = mob.name
-    if mob.mode == "attack" then
-        local lines = { "/cleartarget", "/targetexact " .. n }
-        if mob.spell and mob.spell ~= "" then
-            lines[#lines + 1] = "/cast [@target,harm,nodead] " .. mob.spell
-        end
-        lines[#lines + 1] = "/startattack [@target,harm,nodead]"
-        return table.concat(lines, "\n")
+    if mob.mode == "attack" then return SC.AttackMacro(n, mob.spell) end
+    if mob.mode == "macro" then
+        -- {mob} -> the name; the replacement goes through a function so a "%" in it stays literal.
+        local text = (mob.macro or ""):gsub("{mob}", function() return n end)
+        return text
     end
     if mob.interact == "target" then
         InteractTargetButton()

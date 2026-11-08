@@ -2,7 +2,25 @@
 
 WoW Forever addon for camping a mob: one key to tag it or talk to it, automatic chat and quest steps, and a respawn timer built from the kills it has seen.
 
-`/spawncamp` (or `/spc`) opens the window. Target the mob and press **Add my target**, or type its exact name.
+## The window
+
+A compact window stays on screen: one line per watched mob with its status, a countdown bar, and its key. Drag it by the header. `/spawncamp` (or `/spc`) shows or hides it.
+
+Three ways to add a mob:
+
+- **+**: watches your current target.
+- **Nearby**: lists NPCs around you (from nameplates, target and mouseover in the last 3 minutes), rares first. Click one to watch it. Red = hostile, blue = friendly. Turn nameplates on (V for enemies, Shift-V for friendly NPCs) so more of them show up.
+- **More → Add by name**: for objects, which can't be targeted or listed.
+
+**More** opens three tabs under the list. Clicking a mob's line does the same for that mob.
+
+- **Setup**:
+  1. **Action**: Attack, Interact or Custom macro
+  2. **What it does**: the spell, the interact method and quest options, or your macro text
+  3. **Key**: click the button, then press the key
+  4. **Alarms**
+- **History**: status, respawn stats, every sighting with its respawn time, manual "it died / it's up" buttons.
+- **Options**: sharing, sound, whether mobs you already got stay on the list, lock position.
 
 ## Attack mode: getting the tag
 
@@ -20,6 +38,10 @@ Spam the key while you wait. When the mob isn't there you end up with no target,
 The game requires a real keypress for every target and cast. SpawnCamp doesn't press anything for you and never will.
 
 When the mob dies with your tag, SpawnCamp alerts you, unticks **Still hunting** and frees the key.
+
+## Custom macro
+
+Write your own macro text for the key. `{mob}` is replaced with the mob's name. **Start from the Attack macro** fills in the attack macro so you can edit it.
 
 ## Interact mode: NPCs, quests and chat
 
@@ -51,8 +73,8 @@ With **Share sightings with group/guild** on, deaths and spawns you see go to pa
 
 ## Commands
 
-- `/spawncamp`: open the window
+- `/spawncamp`: show or hide the window
+- `/spawncamp more`: open or close setup and history
 - `/spawncamp add [name]`: watch your target, or a mob by name
 - `/spawncamp died [name]` / `up [name]`: log a sighting now
-- `/spawncamp timers`: show or hide the timer list
 - `/spawncamp debug`: print what the addon can read from your target (for bug reports)

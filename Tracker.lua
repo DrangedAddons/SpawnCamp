@@ -77,7 +77,7 @@ function SC.Observe(name, kind, spawn, t, src, extra)
         if kind == "A" and mob.alertSpawn and events[#events] == e then
             SC.Alert(name .. " is up!" .. (src ~= "you" and (" (seen by " .. src .. ")") or ""))
         end
-        if kind == "D" and e.mine and mob.mode == "attack" then
+        if kind == "D" and e.mine and mob.mode ~= "interact" then
             mob.hunting = false
             mob.armed = false
             SC.ApplyBindings()
@@ -216,7 +216,51 @@ end
 -- Scanning
 ------------------------------------------------------------------------------
 
+-- Every NPC seen on a nameplate, as target or as mouseover, for the Nearby picker.
+-- name -> { t = GetTime() last seen, hostile, level, class = classification }. Session only.
+SC.nearby = {}
+local NEARBY_KEEP = 180
+
+local function NoteNearby(unit)
+    pcall(function()
+        if not SC.True(UnitExists(unit)) or SC.True(UnitIsPlayer(unit)) then return end
+        local n = SC.Plain(UnitName(unit))
+        if not n then return end
+        local guid = SC.Plain(UnitGUID(unit))
+        -- Skips pets, totems' owners' pets and other non-creatures when the GUID is readable.
+        if guid and not (guid:find("^Creature") or guid:find("^Vehicle")) then return end
+        local e = SC.nearby[n] or {}
+        e.t = GetTime()
+        e.hostile = SC.Plain(UnitCanAttack("player", unit))
+        e.level = SC.Plain(UnitLevel(unit))
+        e.class = SC.Plain(UnitClassification(unit))
+        e.dead = SC.Plain(UnitIsDead(unit))
+        SC.nearby[n] = e
+    end)
+end
+
+local RANK = { worldboss = 1, rareelite = 2, rare = 3, elite = 4 }
+
+-- Nearby NPC names, rares first, then most recently seen.
+function SC.NearbyList()
+    local now, out = GetTime(), {}
+    for n, e in pairs(SC.nearby) do
+        if now - e.t > NEARBY_KEEP then
+            SC.nearby[n] = nil
+        else
+            out[#out + 1] = { name = n, info = e, rank = RANK[e.class or ""] or 9 }
+        end
+    end
+    table.sort(out, function(a, b)
+        if a.rank ~= b.rank then return a.rank < b.rank end
+        if math.abs(a.info.t - b.info.t) > 1 then return a.info.t > b.info.t end
+        return a.name < b.name
+    end)
+    return out
+end
+
 local function Check(unit)
+    NoteNearby(unit)
     local name, mob, dead, spawn, tapDenied = SC.ReadUnit(unit)
     if not name then return end
     if dead == true then
@@ -224,7 +268,7 @@ local function Check(unit)
         -- Exact when we saw this spawn alive (same UID, or the last event was it alive).
         local last = events[#events]
         local sawAlive = last and last.k == "A" and (not spawn or not last.s or last.s == spawn)
-        local mine = tapDenied == false and mob.mode == "attack" and sawAlive
+        local mine = tapDenied == false and mob.mode ~= "interact" and sawAlive
         SC.Observe(name, "D", spawn, nil, "you", { approx = not sawAlive, mine = mine })
     elseif dead == false then
         SC.Observe(name, "A", spawn, nil, "you")

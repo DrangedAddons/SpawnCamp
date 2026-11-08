@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- One compact window replaces the big window and the timer list. It stays on screen with a line per mob (status, countdown bar, key). **More** opens Setup, History and Options tabs under it.
+- Setup is laid out in steps: 1. Action, 2. What it does, 3. Key, 4. Alarms.
+- New action: **Custom macro**. Your own macro text runs on the key, with `{mob}` replaced by the name. It can start from the attack macro.
+- **Nearby** list: NPCs seen on nameplates, as target or as mouseover in the last 3 minutes, rares first. Click one to watch it.
+- **+** in the header watches your target and opens its setup.
+
 ## 0.1.0
 
 - First version.
