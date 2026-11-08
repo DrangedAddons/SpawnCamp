@@ -82,7 +82,7 @@ function SC.Observe(name, kind, spawn, t, src, extra)
             mob.mode = nil
             SC.ApplyBindings()
             SC.Alert("You got " .. name .. "!")
-            SC.Print("took " .. name .. " off the Attack key. Click its sword to hunt it again.")
+            SC.Print("took " .. name .. " off your key. Click its sword to hunt it again.")
         end
     end
     SC.Refresh()
@@ -134,33 +134,40 @@ function SC.Stats(name)
     return lo, avg, hi, #list
 end
 
--- What the timer list shows. Returns state, text, fraction (0-1 progress toward the window) or nil.
---   "up"      seen alive, last event is a spawn
---   "waiting" dead, window not open yet
+-- What a mob's line shows. The timer runs from the death and stops when the
+-- mob is seen again; that time is the respawn. Returns state, text, fraction
+-- (bar fill toward the expected respawn) or nil.
+--   "up"      seen alive since its last death
+--   "waiting" dead, before the earliest expected respawn
 --   "window"  dead, between earliest and latest expected respawn
 --   "late"    dead, past the latest expected respawn
---   "dead"    dead, no timing data yet
+--   "dead"    dead, no respawn time known yet
 --   "none"    nothing logged
 function SC.Status(name)
     local events = SC.History(name).events
     local last = events[#events]
     if not last then return "none", "no sightings yet" end
     local now = GetServerTime()
-    local ago = now - last.t
     if last.k == "A" then
+        local prev = events[#events - 1]
         local seen = now - (last.seen or last.t)
-        return "up", seen < 5 and "UP, in view" or ("up, last seen " .. SC.Clock(seen) .. " ago")
+        local text = seen < 5 and "UP" or ("up, seen " .. SC.Clock(seen) .. " ago")
+        if prev and prev.k == "D" then
+            text = text .. ", respawned after " .. SC.Clock(last.t - prev.t) .. (prev.approx and "+" or "")
+        end
+        return "up", text
     end
+    local dead = now - last.t
+    local text = "dead " .. SC.Clock(dead) .. (last.approx and "+" or "")
     local lo, avg, hi = SC.Stats(name)
-    local died = "died " .. SC.Clock(ago) .. " ago" .. (last.approx and "+" or "")
-    if not lo then return "dead", died end
-    if ago < lo then
-        return "waiting", "spawns in " .. SC.Clock(lo - ago) .. " (" .. died .. ")", ago / lo
+    if not lo then return "dead", text end
+    if dead < lo then
+        return "waiting", text .. ", due in " .. SC.Clock(lo - dead), dead / lo
     end
-    if hi and ago <= hi then
-        return "window", "IN WINDOW, closes in " .. SC.Clock(hi - ago), 1
+    if hi and dead <= hi then
+        return "window", text .. ", due now (until " .. SC.Clock(hi) .. ")", 1
     end
-    return "late", "overdue by " .. SC.Clock(ago - (hi or avg or lo)), 1
+    return "late", text .. ", overdue (usually " .. SC.Clock(avg or lo) .. ")", 1
 end
 
 ------------------------------------------------------------------------------
@@ -295,6 +302,7 @@ local function Check(unit)
     NoteNearby(unit)
     local name, mob, dead, spawn, tapDenied = SC.ReadUnit(unit)
     if not name then return end
+    if SC.CapturePortrait then SC.CapturePortrait(name, unit) end
     if dead == true then
         local events = SC.History(name).events
         -- Exact when we saw this spawn alive (same UID, or the last event was it alive).
@@ -326,13 +334,24 @@ local function Died(name, unit)
     follow[name] = nil
 end
 
--- Right after a key press: a target now is one of that key's mobs (the macro
--- cleared the old one). A readable name says which; with the name hidden it's
--- only known when the key covers a single mob.
-local function TakeTarget(kind)
-    local mobs = SC.MobsIn(kind)
-    if #mobs == 0 then return end
+-- Right after a key press: a target now is one of the lit mobs (the macro
+-- cleared the old one). A readable name says which. With the name hidden,
+-- hostile means a sword mob and friendly a bubble mob, which is enough when
+-- that side has just one.
+local function TakeTarget()
     if not SC.MaybeExists("target") or SC.True(UnitIsPlayer("target")) then return end
+    local hostile = SC.Bool(UnitCanAttack("player", "target"))
+    if hostile == false then SC.lastPress.interact = GetTime() end
+    local mobs
+    if hostile == true then
+        mobs = SC.MobsIn("attack")
+    elseif hostile == false then
+        mobs = SC.MobsIn("interact")
+    else
+        mobs = SC.MobsIn("attack")
+        for _, m in ipairs(SC.MobsIn("interact")) do mobs[#mobs + 1] = m end
+    end
+    if #mobs == 0 then return end
     local n = SC.UnitNameSafe("target")
     local name
     if n then
@@ -343,6 +362,7 @@ local function TakeTarget(kind)
         name = mobs[1].name
     end
     if not name then return end
+    if SC.CapturePortrait then SC.CapturePortrait(name, "target") end
     local f = follow[name]
     if not f then f = {}; follow[name] = f end
     f.viaTarget = true
@@ -360,12 +380,10 @@ local function TakeTarget(kind)
     end
 end
 
-function SC.OnKeyPressed(kind)
+function SC.OnKeyPressed()
     if not SC.char then return end
-    -- Talk modes that don't target by name can't tell which unit is the mob.
-    if kind == "interact" and SC.char.interact.how ~= "target" then return end
-    TakeTarget(kind)
-    C_Timer.After(0.15, function() pcall(TakeTarget, kind) end)
+    TakeTarget()
+    C_Timer.After(0.15, function() pcall(TakeTarget) end)
 end
 
 local function CheckFollowed()
@@ -392,9 +410,7 @@ end
 SC.On("PLAYER_TARGET_CHANGED", function()
     local now = GetTime()
     for name, f in pairs(follow) do
-        local mob = SC.char.mobs[name]
-        local pressed = mob and mob.mode and SC.lastPress[mob.mode] or 0
-        if f.viaTarget and now - pressed > 0.6 then
+        if f.viaTarget and now - (SC.lastPress.key or 0) > 0.6 then
             f.viaTarget = nil
             if not f.plate then follow[name] = nil end
         end

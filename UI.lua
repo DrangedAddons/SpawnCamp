@@ -15,8 +15,8 @@ local F
 local ui = {}
 local rowOffset, histOffset = 0, 0
 local MAX_ROWS, HIST_ROWS = 10, 10
-local ROW_H = 20
-local W_COMPACT, W_PANEL = 300, 440
+local ROW_H = 40
+local W_COMPACT, W_PANEL = 340, 440
 local PANEL_H = { mob = 330, settings = 470 }
 local capturing     -- the settings table whose key is being set, or nil
 
@@ -216,7 +216,7 @@ local function KeyButton(parent, x, y, settings, what)
     end)
     b:EnableKeyboard(false)
     b:SetScript("OnHide", function(self) if capturing and capturing.button == self then StopCapture() end end)
-    Tip(b, what .. " key", "Click, then press a key (Shift/Ctrl/Alt combos work) or mouse button 3-5. Escape cancels. The key only takes over while a mob uses it.")
+    Tip(b, what, "Click, then press a key (Shift/Ctrl/Alt combos work) or mouse button 3-5. Escape cancels. The key only takes over while some mob has a sword or bubble.")
     local clear = Btn(parent, "Clear", 50, x + 144, y, function()
         settings.key = ""
         SC.ApplyBindings()
@@ -256,36 +256,86 @@ end
 local function SetMode(mob, mode)
     mob.mode = (mob.mode ~= mode) and mode or nil
     if mob.mode == "attack" then mob.hunting = true end
-    local S = mob.mode and (mob.mode == "attack" and SC.char.attack or SC.char.interact)
-    if S and S.key == "" then
-        SC.Print("set your " .. (mob.mode == "attack" and "Attack" or "Talk") .. " key in the settings first.")
-        OpenSettings()
-    end
     SC.ApplyBindings()
     SC.Refresh()
 end
 
+-- The sword and bubble: big red buttons with a gold icon, the main thing on
+-- each line. Lit = bright red with a gold border; off = dark red, dim icon.
+local ICON_BTN = 30
+
 local function IconToggle(parent, texture, onClick, title, body)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetSize(18, 18)
+    local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    b:SetSize(ICON_BTN, ICON_BTN)
+    b:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 2,
+    })
     b.tex = b:CreateTexture(nil, "ARTWORK")
-    b.tex:SetAllPoints()
+    b.tex:SetPoint("TOPLEFT", 5, -5)
+    b.tex:SetPoint("BOTTOMRIGHT", -5, 5)
     b.tex:SetTexture(texture)
-    b.ring = b:CreateTexture(nil, "OVERLAY")
-    b.ring:SetPoint("TOPLEFT", -2, 2)
-    b.ring:SetPoint("BOTTOMRIGHT", 2, -2)
-    b.ring:SetColorTexture(1, 0.82, 0, 0.35)
-    b.ring:SetDrawLayer("BACKGROUND")
-    b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    b.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    b.tex:SetDesaturated(true)
+    b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
+    b:GetHighlightTexture():SetVertexColor(1, 0.85, 0.3, 0.15)
     b:SetScript("OnClick", Safe(onClick))
     Tip(b, title, body)
     return b
 end
 
+------------------------------------------------------------------------------
+-- Portraits: the game draws a unit's portrait only while the unit exists, so
+-- each mob's is captured whenever it's seen (target, nameplate, mouseover) and
+-- kept for the session. Until then a question mark.
+------------------------------------------------------------------------------
+
+local portraits = {}   -- mob name -> frame
+
+local function Portrait(name)
+    local p = portraits[name]
+    if p then return p end
+    p = CreateFrame("Frame", nil, F)
+    p.tex = p:CreateTexture(nil, "ARTWORK")
+    p.tex:SetAllPoints()
+    p.tex:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    pcall(function()
+        local mask = p:CreateMaskTexture()
+        mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        mask:SetAllPoints(p.tex)
+        p.tex:AddMaskTexture(mask)
+    end)
+    p.ring = p:CreateTexture(nil, "OVERLAY")
+    p.ring:SetPoint("TOPLEFT", -3, 3)
+    p.ring:SetPoint("BOTTOMRIGHT", 3, -3)
+    p.ring:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    p.ring:SetTexCoord(0, 0.6, 0, 0.6)
+    p.ring:Hide()
+    portraits[name] = p
+    return p
+end
+
+function SC.CapturePortrait(name, unit)
+    if not F or not SC.char.mobs[name] then return end
+    local p = Portrait(name)
+    local now = GetTime()
+    if p.at and now - p.at < 15 then return end
+    if pcall(SetPortraitTexture, p.tex, unit) then p.at = now end
+end
+
 local function SetLit(b, on)
-    b.tex:SetDesaturated(not on)
-    b.tex:SetAlpha(on and 1 or 0.35)
-    b.ring:SetShown(on)
+    if on then
+        b:SetBackdropColor(0.75, 0.08, 0.05, 1)
+        b:SetBackdropBorderColor(1, 0.82, 0.1, 1)
+        b.tex:SetVertexColor(1, 0.85, 0.25)
+        b.tex:SetAlpha(1)
+    else
+        b:SetBackdropColor(0.25, 0.03, 0.02, 0.9)
+        b:SetBackdropBorderColor(0.45, 0.32, 0.08, 0.8)
+        b.tex:SetVertexColor(0.8, 0.65, 0.25)
+        b.tex:SetAlpha(0.45)
+    end
 end
 
 ------------------------------------------------------------------------------
@@ -332,7 +382,7 @@ local function BuildHeader()
         SC.char.panel = SC.char.panel ~= "settings" and "settings" or nil
         SC.Refresh()
     end)
-    Tip(gear, "Settings", "Your Attack and Talk keys, the attack spell, and how talking works.")
+    Tip(gear, "Settings", "Your SpawnCamp key, the attack spell, and how talking works.")
 
     local near = HeaderButton("Nearby", 54, gear, function() SC.ToggleNearby() end,
         "Nearby mobs", "NPCs around you from nameplates, target and mouseover. Click one to add it.")
@@ -351,7 +401,7 @@ local function BuildHeader()
     ui.keyLine:SetJustifyH("LEFT")
     ui.keyLine:SetWordWrap(false)
     keys:SetScript("OnClick", OpenSettings)
-    Tip(keys, "Your keys", "Click to change them in the settings.")
+    Tip(keys, "Your key", "One key for every mob: the sword or bubble on each line says what it does. Click to change it.")
 
     -- Name box, shown by + when the name can't be read.
     local add = CreateFrame("Frame", nil, F)
@@ -377,30 +427,36 @@ end
 local function BuildRows()
     ui.rows = {}
     for i = 1, MAX_ROWS do
+        -- [portrait] Big Name               [sword] [bubble]
+        --            status / timer (bar behind)
         local r = CreateFrame("Button", nil, F)
         r:SetHeight(ROW_H - 2)
         r.bg = r:CreateTexture(nil, "BACKGROUND")
         r.bg:SetAllPoints()
+        r.portraitHolder = CreateFrame("Frame", nil, r)
+        r.portraitHolder:SetSize(ROW_H - 4, ROW_H - 4)
+        r.portraitHolder:SetPoint("LEFT", 2, 0)
         r.bar = CreateFrame("StatusBar", nil, r)
-        r.bar:SetPoint("TOPLEFT")
-        r.bar:SetPoint("BOTTOMRIGHT", -46, 0)
+        r.bar:SetPoint("BOTTOMLEFT", r.portraitHolder, "BOTTOMRIGHT", 4, 1)
+        r.bar:SetPoint("RIGHT", r, "RIGHT", -(ICON_BTN * 2 + 14), 0)
+        r.bar:SetHeight(14)
         r.bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
         r.bar:SetMinMaxValues(0, 1)
-        r.name = r.bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        r.name:SetPoint("LEFT", 4, 0)
-        r.name:SetWidth(110)
+        r.name = r:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        r.name:SetPoint("TOPLEFT", r.portraitHolder, "TOPRIGHT", 6, -1)
+        r.name:SetPoint("RIGHT", r.bar, "RIGHT", 0, 0)
         r.name:SetJustifyH("LEFT")
         r.name:SetWordWrap(false)
         r.status = r.bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        r.status:SetPoint("LEFT", r.name, "RIGHT", 4, 0)
-        r.status:SetPoint("RIGHT", -4, 0)
+        r.status:SetPoint("LEFT", 3, 0)
+        r.status:SetPoint("RIGHT", -3, 0)
         r.status:SetJustifyH("LEFT")
         r.status:SetWordWrap(false)
-        r.talk = IconToggle(r, BUBBLE, function(self) SetMode(SC.char.mobs[r.mobName], "interact") end,
-            "Talk", "The Talk key goes to this NPC: chat, hand in quests, accept new and follow-up quests. Click again to stop.")
-        r.talk:SetPoint("RIGHT", -2, 0)
-        r.sword = IconToggle(r, SWORD, function(self) SetMode(SC.char.mobs[r.mobName], "attack") end,
-            "Attack", "The Attack key goes for this mob: targets it and casts your attack spell. Click again to stop.")
+        r.talk = IconToggle(r, BUBBLE, function() SetMode(SC.char.mobs[r.mobName], "interact") end,
+            "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests. Click again to turn off.")
+        r.talk:SetPoint("RIGHT", -4, 0)
+        r.sword = IconToggle(r, SWORD, function() SetMode(SC.char.mobs[r.mobName], "attack") end,
+            "Attack", "Your key targets this mob and casts your attack spell. Click again to turn off.")
         r.sword:SetPoint("RIGHT", r.talk, "LEFT", -6, 0)
         r:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
         r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
@@ -515,70 +571,51 @@ end
 -- Build: settings panel
 ------------------------------------------------------------------------------
 
-local function HowButton(P, text, x, y, w, value, tip)
-    local b = Btn(P, text, w, x, y, function()
-        SC.char.interact.how = value
-        SC.ApplyBindings()
-        SC.Refresh()
-    end)
-    b.value = value
-    Tip(b, text, tip)
-    table.insert(ui.hows, b)
-    return b
-end
 
 local function BuildSettings(P)
     local A, I = SC.char.attack, SC.char.interact
 
-    -- Attack
+    -- Key
     local y = -8
-    Header(P, "Attack  |TInterface\\Icons\\INV_Sword_04:14|t", y)
+    Header(P, "Key", y)
     Text(P, "Key", 8, y - 24)
-    KeyButton(P, 60, y - 20, A, "Attack")
-    Text(P, "Spell", 8, y - 50)
-    ui.spell = Edit(P, 160, 54, y - 46, function(t)
+    KeyButton(P, 60, y - 20, SC.char, "SpawnCamp key")
+    Text(P, "One key for every mob. The sword or bubble on a mob\nsays what the key does to it.", 8, y - 46)
+
+    -- Attack
+    y = -78
+    Header(P, "Sword: attack  |TInterface\\Icons\\INV_Sword_04:14|t", y)
+    Text(P, "Spell", 8, y - 24)
+    ui.spell = Edit(P, 160, 54, y - 20, function(t)
         A.spell = strtrim(t)
         SC.ApplyBindings()
     end)
     ui.spell:SetScript("OnReceiveDrag", TakeDroppedSpell)
     ui.spell:HookScript("OnMouseDown", TakeDroppedSpell)
-    Text(P, "drag one from your spellbook;\nempty = auto attack", 230, y - 46)
-    ui.spellNote = Text(P, "", 60, y - 70)
-    Text(P, "Custom macro (optional). |cffffd100{target}|r = the targeting lines.", 8, y - 88)
-    ui.macroEdit = BigEdit(P, 420, 54, 8, y - 104, 900, function(t)
+    Text(P, "drag one from your spellbook;\nempty = auto attack", 230, y - 20)
+    ui.spellNote = Text(P, "", 60, y - 44)
+    Text(P, "Custom attack lines (optional, replace the spell lines; run after targeting):", 8, y - 62)
+    ui.macroEdit = BigEdit(P, 420, 54, 8, y - 78, 800, function(t)
         A.macro = t
     end)
 
     -- Talk
-    y = -176
-    Header(P, "Talk  |TInterface\\GossipFrame\\GossipGossipIcon:14|t", y)
-    Text(P, "Key", 8, y - 24)
-    KeyButton(P, 60, y - 20, I, "Talk")
-    ui.keyClash = Text(P, "", 260, y - 24)
-    ui.keyClash:SetWidth(170)
-    Text(P, "Reach", 8, y - 50)
-    HowButton(P, "Target by name", 54, y - 46, 108, "target", "Targets the NPC by name, then talks to it.")
-    HowButton(P, "Mouseover", 164, y - 46, 80, "mouseover", "Talks to the NPC under your mouse.")
-    HowButton(P, "Nearest", 246, y - 46, 70, "nearest",
-        "Your Talk key becomes the game's Interact key: the nearest NPC, or an object (chest, quest item) when soft interact is on.")
-    ui.soft = Btn(P, "Soft interact on", 104, 320, y - 46, function()
-        SC.EnableSoftInteract()
-        SC.Refresh()
-    end)
-    Check(P, "Hand in and accept quests (follow-ups too)", 4, y - 72,
+    y = -222
+    Header(P, "Bubble: talk  |TInterface\\GossipFrame\\GossipGossipIcon:14|t", y)
+    Check(P, "Hand in and accept quests (follow-ups too)", 4, y - 16,
         function() return I.autoQuest end, function(v) I.autoQuest = v end)
-    Check(P, "Click through chat", 4, y - 94,
+    Check(P, "Click through chat", 4, y - 38,
         function() return I.gossip end, function(v) I.gossip = v end,
         "Picks the chat option when there's only one. With several, it picks one matching the list below, or asks you.")
-    Text(P, "Prefer chat options containing (one per line):", 8, y - 122)
-    ui.prefer = BigEdit(P, 270, 46, 8, y - 138, 600, function(t) I.prefer = t end)
-    Text(P, "Reward choice", 290, y - 140)
-    ui.reward = Edit(P, 30, 370, y - 136, function(t) I.reward = tonumber(t) or 0 end, true)
-    Text(P, "1 = first, empty = ask", 290, y - 162)
-    Text(P, "Hold Shift while talking to do it yourself.", 8, y - 192)
+    Text(P, "Prefer chat options containing (one per line):", 8, y - 66)
+    ui.prefer = BigEdit(P, 270, 46, 8, y - 82, 600, function(t) I.prefer = t end)
+    Text(P, "Reward choice", 290, y - 84)
+    ui.reward = Edit(P, 30, 370, y - 80, function(t) I.reward = tonumber(t) or 0 end, true)
+    Text(P, "1 = first, empty = ask", 290, y - 106)
+    Text(P, "Hold Shift while talking to do it yourself.", 8, y - 136)
 
     -- General
-    y = -390
+    y = -380
     Header(P, "General", y)
     Check(P, "Share sightings with group/guild", 4, y - 16,
         function() return SC.char.share end, function(v) SC.char.share = v end,
@@ -721,7 +758,7 @@ local function Build()
         F:ClearAllPoints()
         F:SetPoint(pos[1], UIParent, pos[2], pos[3], pos[4])
     end
-    ui.checks, ui.keys, ui.hows = {}, {}, {}
+    ui.checks, ui.keys = {}, {}
     BuildHeader()
     BuildRows()
     ui.panels = {}
@@ -741,17 +778,12 @@ end
 -- Refresh
 ------------------------------------------------------------------------------
 
-local function KeyText(S, what)
-    if S.key == "" then return what .. ": |cffff6060no key|r" end
-    return what .. ": |cffffd100" .. S.key .. "|r"
-end
-
 local function RefreshKeyLine()
-    local A, I = SC.char.attack, SC.char.interact
-    local spell = A.spell ~= "" and (" |cff999999(" .. A.spell .. ")|r") or ""
-    if strtrim(A.macro or "") ~= "" then spell = " |cff999999(macro)|r" end
-    ui.keyLine:SetText("|T" .. SWORD .. ":12|t " .. KeyText(A, "Attack") .. spell
-        .. "    |T" .. BUBBLE .. ":12|t " .. KeyText(I, "Talk"))
+    local A = SC.char.attack
+    local key = SC.char.key ~= "" and ("|cffffd100" .. SC.char.key .. "|r") or "|cffff6060not set, click to set|r"
+    local spell = A.spell ~= "" and A.spell or "auto attack"
+    if strtrim(A.macro or "") ~= "" then spell = "custom" end
+    ui.keyLine:SetText("Key: " .. key .. "   |cff999999attack: " .. spell .. "|r")
 end
 
 local function RefreshRows(top)
@@ -761,6 +793,7 @@ local function RefreshRows(top)
         if m and (m.hunting or m.mode or SC.char.showDone) then list[#list + 1] = n end
     end
     rowOffset = math.max(0, math.min(rowOffset, #list - MAX_ROWS))
+    for _, p in pairs(portraits) do p:Hide() end
     local shown = 0
     for i, r in ipairs(ui.rows) do
         local n = list[i + rowOffset]
@@ -775,6 +808,11 @@ local function RefreshRows(top)
             r.bar:SetStatusBarColor(c[1], c[2], c[3], 0.55)
             r.bar:SetValue((state == "up" or state == "window" or state == "late") and 1 or (frac or 0))
             r.name:SetText(n .. (m.hunting and "" or " |cff40ff40(got)|r"))
+            local p = Portrait(n)
+            p:SetParent(r.portraitHolder)
+            p:ClearAllPoints()
+            p:SetAllPoints(r.portraitHolder)
+            p:Show()
             r.status:SetText(StatusColor(state) .. text .. "|r")
             SetLit(r.sword, m.mode == "attack")
             SetLit(r.talk, m.mode == "interact")
@@ -858,11 +896,6 @@ local function RefreshSettings()
         ui.spellNote:SetText("|cff40ff40Instant cast.|r")
     end
     SetEditText(ui.macroEdit, A.macro)
-    for _, b in ipairs(ui.hows) do
-        if I.how == b.value then b:LockHighlight() else b:UnlockHighlight() end
-    end
-    ui.soft:SetShown(I.how == "nearest" and not SC.SoftInteractOn())
-    ui.keyClash:SetText(SC.KeyClash() and "|cffff6060Same as the Attack key: pick another.|r" or "")
     SetEditText(ui.prefer, I.prefer)
     SetEditText(ui.reward, (I.reward or 0) > 0 and tostring(I.reward) or "")
 end

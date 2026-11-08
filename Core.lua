@@ -54,14 +54,12 @@ SC.CHAR_DEFAULTS = {
     order = {},           -- names in list order
     selected = nil,       -- mob shown in the details panel
     panel = nil,          -- nil, "mob" (details) or "settings"
+    key = "",             -- the one SpawnCamp key, for every mob with a sword or bubble
     attack = {
-        key = "",         -- the Attack key
         spell = "",       -- instant spell; empty = auto attack only
-        macro = "",       -- optional custom macro; {target} = the targeting lines
+        macro = "",       -- optional custom attack lines, replacing the spell lines
     },
     interact = {
-        key = "",         -- the Talk key
-        how = "target",   -- "target" (by name), "mouseover", "nearest" (game Interact key)
         autoQuest = true, -- hand in finished quests, accept new and follow-up ones
         gossip = true,    -- click through chat options
         prefer = "",      -- chat options to pick first, one text match per line
@@ -327,18 +325,19 @@ SC.On("ADDON_LOADED", function(name)
     for _, n in ipairs(SC.char.order) do
         if SC.char.mobs[n] and not seen[n] then seen[n] = true; order[#order + 1] = n end
     end
-    -- 0.3 kept key/spell/quest options per mob; they now live in attack/interact.
+    -- 0.3 kept key/spell/quest options per mob, 0.4 had an Attack and a Talk key;
+    -- now there's one key (SC.char.key) and shared attack/interact settings.
     local A, I = SC.char.attack, SC.char.interact
+    for _, k in ipairs({ A.key or "", I.key or "" }) do
+        if SC.char.key == "" and k ~= "" then SC.char.key = k end
+    end
+    A.key, I.key, I.how = nil, nil, nil
     for n, m in pairs(SC.char.mobs) do
         m.name = n
         if m.mode == "macro" then m.mode = "attack" end
         if m.key ~= nil then
-            if m.mode == "attack" and A.key == "" and m.key ~= "" then A.key = m.key end
+            if SC.char.key == "" and m.key ~= "" then SC.char.key = m.key end
             if m.mode == "attack" and A.spell == "" and m.spell and m.spell ~= "" then A.spell = m.spell end
-            if m.mode == "interact" and I.key == "" and m.key ~= "" then
-                I.key = m.key
-                I.how = m.interact or I.how
-            end
             if m.armed == false then m.mode = nil end
         end
         for _, old in ipairs({ "key", "spell", "macro", "interact", "armed", "autoQuest", "onlyOption", "gossip", "reward" }) do

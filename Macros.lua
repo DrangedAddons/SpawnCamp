@@ -1,21 +1,20 @@
--- SpawnCamp keys. Two keys for the whole list, set in the gear settings:
+-- SpawnCamp key. One key, set in the settings, for every mob with a sword or a
+-- bubble. The icon decides what the key does to that mob:
 --
--- Attack key: targets whichever sword mob is around and casts the attack spell.
 --   /cleartarget
---   /targetexact Mob One
---   /targetexact [noexists] Mob Two      (only if the first wasn't found)
---   /cast [@target,harm,nodead] <spell>
+--   /targetexact Sword Mob                    (sword mobs first)
+--   /targetexact [noexists] Other Sword Mob
+--   /targetexact [noexists] Bubble NPC        (then bubble mobs)
+--   /cast [@target,harm,nodead] <spell>       attack lines: hostile target only
 --   /startattack [@target,harm,nodead]
---   Clearing first means a miss leaves you with no target, so the cast can't
---   land on whatever you had targeted before.
+--   /click [help,nodead] SpawnCampInteract    talk: friendly target only
 --
--- Talk key: same targeting for the bubble mobs, then interacts. Or, by setting,
---   the unit under the mouse, or the game's own Interact key (nearest NPC/object).
---
--- Each key is bound with an override binding owned by the addon, only while at
--- least one mob uses it, so the player's own bindings are never rewritten.
--- Every press is a real keypress: the game won't let addons target, cast or
--- interact on their own, and SpawnCamp never presses anything for you.
+-- Clearing first means a miss leaves you with no target, so nothing lands on
+-- whatever you had targeted before. The key is bound with an override binding
+-- owned by the addon, only while some mob has a sword or bubble, so the
+-- player's own bindings are never rewritten. Every press is a real keypress:
+-- the game won't let addons target, cast or interact on their own, and
+-- SpawnCamp never presses anything for you.
 
 local ADDON, SC = ...
 
@@ -39,103 +38,54 @@ local function NewSecure(name)
     return b
 end
 
-------------------------------------------------------------------------------
--- Key presses
-------------------------------------------------------------------------------
-
--- Forever hides NPC names from addons in dungeons, so a press is how the addon
--- knows what it's looking at: a target right after the Attack/Talk key is one
--- of that key's mobs. SC.lastPress.interact also tells the quest code a chat
--- window is one to handle.
+-- Key presses. In dungeons Forever hides NPC names from addons, so a press is
+-- how the addon knows what it's looking at: a target right after the press is
+-- one of the lit mobs. A friendly one also tells the quest code that the next
+-- chat window is one to handle.
 SC.lastPress = {}
 
-local function Pressed(kind)
-    local now = GetTime()
-    if SC.lastPress[kind] and now - SC.lastPress[kind] < 0.1 then return end
-    SC.lastPress[kind] = now
-    if SC.OnKeyPressed then
-        local ok, err = pcall(SC.OnKeyPressed, kind)
-        if not ok then SC.Print("|cffff4040error|r " .. tostring(err)) end
-    end
-end
-
-local attackBtn = NewSecure("SpawnCampAttack")
-local talkBtn = NewSecure("SpawnCampTalk")
-local interactTarget = NewSecure("SpawnCampInteractTarget")
-interactTarget:SetAttribute("type", "interact")
-interactTarget:SetAttribute("unit", "target")
+local keyBtn = NewSecure("SpawnCampKey")
+local interactBtn = NewSecure("SpawnCampInteract")
+interactBtn:SetAttribute("type", "interact")
+interactBtn:SetAttribute("unit", "target")
 
 -- Runs after the secure action, so the macro's /targetexact has happened.
-attackBtn:HookScript("OnClick", function() Pressed("attack") end)
-talkBtn:HookScript("OnClick", function() Pressed("interact") end)
-
--- "Nearest" binds the Talk key to the game's Interact key, so no button of ours
--- is clicked. A keyboard frame that passes every key on sees the press. It's
--- only switched on while that's the setting.
-local watcher = CreateFrame("Frame", nil, UIParent)
-local watchKey
-
-watcher:SetScript("OnKeyDown", function(_, key)
-    local full = (IsAltKeyDown() and "ALT-" or "") .. (IsControlKeyDown() and "CTRL-" or "")
-        .. (IsShiftKeyDown() and "SHIFT-" or "") .. key
-    if full == watchKey then Pressed("interact") end
+keyBtn:HookScript("OnClick", function()
+    local now = GetTime()
+    if SC.lastPress.key and now - SC.lastPress.key < 0.1 then return end
+    SC.lastPress.key = now
+    if SC.OnKeyPressed then
+        local ok, err = pcall(SC.OnKeyPressed)
+        if not ok then SC.Print("|cffff4040error|r " .. tostring(err)) end
+    end
 end)
 
-local function SetWatcher(key)
-    watchKey = key
-    if key then
-        local ok = pcall(watcher.SetPropagateKeyboardInput, watcher, true)
-        -- Never take the keyboard without passing keys on.
-        if ok then pcall(watcher.EnableKeyboard, watcher, true) end
-    else
-        pcall(watcher.EnableKeyboard, watcher, false)
-    end
-end
-
-------------------------------------------------------------------------------
--- Macro text
-------------------------------------------------------------------------------
-
-local function TargetLines(mobs)
+function SC.KeyMacro()
+    local attack, talk = SC.MobsIn("attack"), SC.MobsIn("interact")
+    if #attack + #talk == 0 then return "" end
     local lines = { "/cleartarget" }
-    for i, m in ipairs(mobs) do
-        lines[#lines + 1] = (i == 1 and "/targetexact " or "/targetexact [noexists] ") .. m.name
+    local first = true
+    for _, list in ipairs({ attack, talk }) do
+        for _, m in ipairs(list) do
+            lines[#lines + 1] = (first and "/targetexact " or "/targetexact [noexists] ") .. m.name
+            first = false
+        end
+    end
+    if #attack > 0 then
+        local A = SC.char.attack
+        if A.macro and strtrim(A.macro) ~= "" then
+            lines[#lines + 1] = strtrim(A.macro)
+        else
+            if A.spell and A.spell ~= "" then
+                lines[#lines + 1] = "/cast [@target,harm,nodead] " .. A.spell
+            end
+            lines[#lines + 1] = "/startattack [@target,harm,nodead]"
+        end
+    end
+    if #talk > 0 then
+        lines[#lines + 1] = "/click [help,nodead] SpawnCampInteract"
     end
     return table.concat(lines, "\n")
-end
-
--- Attack macro for the sword mobs (or for `names`, a list of mob tables, when given).
-function SC.AttackMacro(mobs)
-    mobs = mobs or SC.MobsIn("attack")
-    if #mobs == 0 then return "" end
-    local A = SC.char.attack
-    local targeting = TargetLines(mobs)
-    if A.macro and strtrim(A.macro) ~= "" then
-        -- {target} -> the targeting lines; a function replacement keeps "%" literal.
-        local text = A.macro:gsub("{target}", function() return targeting end)
-        return text
-    end
-    local lines = { targeting }
-    if A.spell and A.spell ~= "" then
-        lines[#lines + 1] = "/cast [@target,harm,nodead] " .. A.spell
-    end
-    lines[#lines + 1] = "/startattack [@target,harm,nodead]"
-    return table.concat(lines, "\n")
-end
-
-function SC.TalkMacro(mobs)
-    mobs = mobs or SC.MobsIn("interact")
-    if #mobs == 0 then return "" end
-    return TargetLines(mobs) .. "\n/click SpawnCampInteractTarget"
-end
-
-------------------------------------------------------------------------------
--- Bindings
-------------------------------------------------------------------------------
-
-function SC.KeyClash()
-    local a, i = SC.char.attack.key, SC.char.interact.key
-    return a ~= "" and a == i
 end
 
 function SC.ApplyBindings()
@@ -145,38 +95,14 @@ function SC.ApplyBindings()
         return
     end
     ClearOverrideBindings(owner)
-    attackBtn:RegisterForClicks(ClickEdge())
-    talkBtn:RegisterForClicks(ClickEdge())
-    interactTarget:RegisterForClicks(ClickEdge())
-
-    local A, I = SC.char.attack, SC.char.interact
-    local attackMobs, talkMobs = SC.MobsIn("attack"), SC.MobsIn("interact")
-
-    attackBtn:SetAttribute("type", "macro")
-    attackBtn:SetAttribute("macrotext", SC.AttackMacro(attackMobs))
-    if A.key ~= "" and #attackMobs > 0 then
-        SetOverrideBindingClick(owner, true, A.key, "SpawnCampAttack", "LeftButton")
+    keyBtn:RegisterForClicks(ClickEdge())
+    interactBtn:RegisterForClicks(ClickEdge())
+    local text = SC.KeyMacro()
+    keyBtn:SetAttribute("type", "macro")
+    keyBtn:SetAttribute("macrotext", text)
+    if SC.char.key ~= "" and text ~= "" then
+        SetOverrideBindingClick(owner, true, SC.char.key, "SpawnCampKey", "LeftButton")
     end
-
-    local watch = nil
-    if I.how == "mouseover" then
-        talkBtn:SetAttribute("type", "interact")
-        talkBtn:SetAttribute("unit", "mouseover")
-        talkBtn:SetAttribute("macrotext", nil)
-    else
-        talkBtn:SetAttribute("type", "macro")
-        talkBtn:SetAttribute("unit", nil)
-        talkBtn:SetAttribute("macrotext", SC.TalkMacro(talkMobs))
-    end
-    if I.key ~= "" and #talkMobs > 0 and not SC.KeyClash() then
-        if I.how == "nearest" then
-            SetOverrideBinding(owner, true, I.key, "INTERACTTARGET")
-            watch = I.key
-        else
-            SetOverrideBindingClick(owner, true, I.key, "SpawnCampTalk", "LeftButton")
-        end
-    end
-    SetWatcher(watch)
 end
 
 SC.On("CVAR_UPDATE", function(name)
@@ -184,21 +110,3 @@ SC.On("CVAR_UPDATE", function(name)
         SC.ApplyBindings()
     end
 end)
-
--- Soft-target interact lets the Interact key reach the nearest NPC or object
--- (chests, quest items) without targeting it. Changed only when the player
--- presses the button for it in the settings.
-function SC.SoftInteractOn()
-    local v = GetCVar and SC.Plain(GetCVar("SoftTargetInteract"))
-    return v ~= nil and tonumber(v) ~= nil and tonumber(v) > 0
-end
-
-function SC.EnableSoftInteract()
-    if InCombatLockdown() then SC.Print("can't change that in combat"); return end
-    if not (SetCVar and GetCVar and GetCVar("SoftTargetInteract")) then
-        SC.Print("this client has no soft-target interact setting")
-        return
-    end
-    SetCVar("SoftTargetInteract", "3")
-    SC.Print("soft-target interact is on (Options > Controls can turn it off again)")
-end

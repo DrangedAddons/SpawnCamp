@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+- **One key** for every mob, set once in the settings. The sword or bubble on each mob decides what it does: hostile targets get the attack lines, friendly ones get talked to. The separate Attack and Talk keys are gone, and so is the Talk "Reach" option (talking is always by name).
+- Sword and bubble are big red buttons with gold icons. Clicking one only toggles it, it never opens a menu.
+- Mob lines are taller: big name, the mob's portrait (grabbed whenever it's targeted or on a nameplate), and the timer under the name.
+- The timer counts up from the death (`dead 2:05, due in 2:55`) and shows the measured respawn once the mob is seen again (`UP, respawned after 4:51`).
+- With hidden names (dungeons), hostile/friendly narrows which mob a key press targeted.
+- Existing keys move into the one key setting.
+
 ## 0.4.0
 
 Simpler window.
