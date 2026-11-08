@@ -157,7 +157,20 @@ local function TalkAndAttack(lines, attack, talk, at)
     end
 end
 
+-- The game's limit on a secure macro's text is 1023 characters.
+local MACRO_MAX = 1000
+
 function SC.KeyMacro()
+    SC.questCap = 8
+    local text = SC.BuildKeyMacro()
+    while #text > MACRO_MAX and SC.questCap > 0 do
+        SC.questCap = SC.questCap - 1
+        text = SC.BuildKeyMacro()
+    end
+    return text
+end
+
+function SC.BuildKeyMacro()
     local attack, talk = SC.MobsIn("attack"), SC.MobsIn("interact")
     if #attack + #talk == 0 then return "" end
     local all = {}

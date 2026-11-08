@@ -1058,6 +1058,10 @@ function SC.RefreshQuests()
             local current = SC.IsActive(item.name)
             r.use:SetShown(not current)
             r.current:SetShown(current)
+            if not current and SC.char.anyQuest and SC.IsQuestWanted(item.name) then
+                bits[#bits + 1] = "|cff40ff40on key|r"
+                r.info:SetText(table.concat(bits, "  "))
+            end
             r.mobName, r.hostile, r.ctype = item.name, e and e.hostile, e and e.ctype
             r.tipQuest, r.tipObjective = item.quest, item.objective
             r:Show()
@@ -1071,6 +1075,10 @@ end
 
 local function BuildQuests()
     Q = Popup("SpawnCampQuests", 400, 60 + QUEST_ROWS * 18, "Quest mobs")
+    Q.any = Check(Q, "Target any quest mob", 120, -5,
+        function() return SC.char.anyQuest end,
+        function(v) SC.char.anyQuest = v; SC.QuestWantedReset(); SC.fastUnit = nil end,
+        "Ticked, your key goes for any mob on this list that your quests still need, alive and not tagged by someone else, after your own targets. Finished objectives drop off. You can still Use one to make it a target of its own.")
     Q.count = Text(Q, "", 8, -30 - QUEST_ROWS * 18 - 4)
     Q.empty = Text(Q, QUEST_EMPTY, 8, -32)
     Q.rows = {}
@@ -1205,20 +1213,32 @@ local function RefreshKey()
         end
     end
     local m = SC.Active()
+    local quests = #SC.QuestWanted()
     if SC.char.key == "" then
         ui.keyNote:SetText("|cffff6060No key assigned.|r")
-    elseif not m then
-        ui.keyNote:SetText("|cff999999Does nothing: no target.|r")
+    elseif not m and quests == 0 then
+        ui.keyNote:SetText(SC.char.anyQuest and "|cff999999Does nothing: no quest mobs needed.|r"
+            or "|cff999999Does nothing: no target.|r")
     else
         local state, text = SC.KeyState()
         local color = (state == "on" or state == "lock") and "|cff40ff40" or "|cffffd100"
-        ui.keyNote:SetText(color .. (m.mode == "attack" and "Attack" or "Talk") .. ": " .. text .. "|r")
+        local what = m and (m.mode == "attack" and "Attack" or "Talk") or "Quest mobs"
+        ui.keyNote:SetText(color .. what .. ": " .. text .. "|r")
     end
 end
 
 local function RefreshBox(bx, m, slot)
     for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear, bx.keep }) do w:SetShown(m ~= nil) end
     bx.empty:SetShown(m == nil and slot == 1)
+    if m == nil and slot == 1 then
+        if SC.char.anyQuest then
+            local n = #SC.QuestWanted()
+            bx.empty:SetText("|cff40ff40Any quest mob is on.|r Your key goes for any of the\n" .. n
+                .. " mob" .. (n == 1 and "" or "s") .. " your quests still need (Quest button).")
+        else
+            bx.empty:SetText("No target. Your key does nothing until you add one\nor pick one from Recent or Quest.")
+        end
+    end
     if not m then return end
     PlacePortrait(m.name, bx.portrait)
     bx.name:SetText(m.name)

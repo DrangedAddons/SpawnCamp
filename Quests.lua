@@ -311,3 +311,47 @@ function SC.QuestMobs()
 end
 
 SC._MobFromObjective = MobFromObjective
+
+------------------------------------------------------------------------------
+-- "Any quest mob": the key also goes for any mob your quests still need.
+------------------------------------------------------------------------------
+
+-- Names of quest mobs still needed, nearby ones first. Skips finished
+-- objectives, your own targets, and mobs seen as friendly.
+local want, wantAt = {}, -10
+function SC.QuestWanted()
+    if not (SC.char and SC.char.anyQuest) then return {} end
+    local now = GetTime()
+    if now - wantAt < 1 then return want end
+    wantAt = now
+    local out = {}
+    for _, r in ipairs(SC.QuestMobs()) do
+        if not r.finished and not SC.IsActive(r.name) and not (r.nearby and r.nearby.hostile == false) then
+            out[#out + 1] = r.name
+        end
+    end
+    want = out
+    return out
+end
+
+function SC.IsQuestWanted(name)
+    for _, n in ipairs(SC.QuestWanted()) do
+        if n == name then return true end
+    end
+    return false
+end
+
+function SC.QuestWantedReset() wantAt = -10 end
+
+-- Rebuild the key when the list changes (a new quest, an objective done, a
+-- drop mob first seen). Out of combat only; combat keeps the macro as it was.
+local lastSig
+C_Timer.NewTicker(1, function()
+    if not SC.char then return end
+    local sig = table.concat(SC.QuestWanted(), "|")
+    if sig ~= lastSig and not InCombatLockdown() then
+        lastSig = sig
+        SC.ApplyBindings()
+        if SC.Refresh then SC.Refresh() end
+    end
+end)

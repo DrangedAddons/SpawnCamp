@@ -66,6 +66,7 @@ SC.CHAR_DEFAULTS = {
         prefer = "",      -- chat options to pick first, one text match per line
         reward = 1,       -- reward choice when a quest offers several (0 = you pick)
     },
+    anyQuest = false,     -- the key also goes for any mob your quests still need
     markTarget = true,    -- raid marker on the mob once the key has it
     markIcon = 8,         -- 1 star ... 8 skull
     alertSpawn = true,    -- loud alert when a watched mob is seen alive
@@ -125,11 +126,20 @@ function SC.IsActive(name)
     return SC.SlotOf(name) ~= nil
 end
 
--- The targets in this mode.
+-- The targets in this mode. With "any quest mob" on, attack also gets the
+-- mobs your quests still need (stand-ins with quest = true, after your own
+-- targets), capped by SC.questCap so the key's macro stays short enough.
+SC.questCap = 8
 function SC.MobsIn(mode)
     local out = {}
     for _, m in ipairs(SC.Actives()) do
         if m.mode == mode then out[#out + 1] = m end
+    end
+    if mode == "attack" and SC.QuestWanted then
+        for i, n in ipairs(SC.QuestWanted()) do
+            if i > SC.questCap then break end
+            out[#out + 1] = { name = n, mode = "attack", quest = true }
+        end
     end
     return out
 end

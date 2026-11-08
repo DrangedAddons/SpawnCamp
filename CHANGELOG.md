@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.0
+
+- **Target any quest mob** (tick box in the Quest pop-out). Your key then goes for any mob your quests still need, alive and not tagged by someone else, after your own targets. You don't need to add them; finished objectives drop off by themselves. A quest mob's nameplate locks the key the same way a target's does, and the key won't hop to another quest mob while you're on one. You can still Use a quest mob to make it a target of its own.
+
 ## 0.17.0
 
 - **Quest** pop-out next to Recent: mobs your current quests want, with **Use**. It lists kill objectives from your quest log (with progress, e.g. 3/10), plus mobs you've seen nearby whose tooltip names one of your quests, which covers mobs that drop quest items. Unfinished ones first, then ones nearby; finished ones are greyed.

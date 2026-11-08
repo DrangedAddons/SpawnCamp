@@ -342,8 +342,27 @@ function SC.NearbyList()
     return out
 end
 
+-- A quest mob's alive, untagged nameplate locks the key onto it, the same as a
+-- target's. It never takes the lock from another plate (your own target's or
+-- another quest mob's), so spamming doesn't hop between mobs.
+local function CheckQuestPlate(unit)
+    if not (SC.char.anyQuest and unit:find("^nameplate%d+$")) then return end
+    local n = SC.UnitNameSafe(unit)
+    if not n or SC.IsActive(n) then return end
+    local wanted = SC.IsQuestWanted(n)
+    local dead = SC.Bool(UnitIsDead(unit))
+    local tap = UnitIsTapDenied and SC.Bool(UnitIsTapDenied(unit)) or nil
+    local ok = wanted and dead == false and tap ~= true
+    if ok and not SC.fastUnit then
+        SC.SetFastUnit(unit)
+    elseif not ok and SC.fastUnit == unit then
+        SC.SetFastUnit(nil)
+    end
+end
+
 local function Check(unit)
     NoteNearby(unit)
+    pcall(CheckQuestPlate, unit)
     local name, mob, dead, spawn, tapDenied = SC.ReadUnit(unit)
     if not name then return end
     if SC.CapturePortrait then SC.CapturePortrait(name, unit) end
@@ -383,7 +402,7 @@ local function Died(name, unit)
     local tap = nil
     if UnitIsTapDenied then tap = SC.Bool(UnitIsTapDenied(unit)) end
     local mine = tap == false and f.sawAlive and mob and mob.mode ~= "interact"
-    SC.Observe(name, "D", nil, nil, "you", { approx = not f.sawAlive, mine = mine })
+    if mob then SC.Observe(name, "D", nil, nil, "you", { approx = not f.sawAlive, mine = mine }) end
     follow[name] = nil
 end
 
@@ -429,7 +448,7 @@ local function TakeTarget()
         Died(name, "target")
     elseif dead == false then
         f.sawAlive = true
-        SC.Observe(name, "A", nil, nil, "you")
+        if SC.char.mobs[name] then SC.Observe(name, "A", nil, nil, "you") end
     end
 end
 
@@ -453,7 +472,7 @@ local function CheckFollowed()
                     break
                 elseif dead == false then
                     f.sawAlive = true
-                    SC.Observe(name, "A", nil, nil, "you")   -- updates "last seen"
+                    if SC.char.mobs[name] then SC.Observe(name, "A", nil, nil, "you") end   -- updates "last seen"
                 end
             end
         end
@@ -465,7 +484,8 @@ end
 -- names, when the key itself put it there.
 function SC.EvalTarget()
     if not SC.char then return end
-    local actives = SC.Actives()
+    local actives = SC.MobsIn("attack")
+    for _, m in ipairs(SC.MobsIn("interact")) do actives[#actives + 1] = m end
     local on = false
     if #actives > 0 and SC.MaybeExists("target") and not SC.True(UnitIsPlayer("target"))
         and SC.Bool(UnitIsDead("target")) == false
