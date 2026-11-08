@@ -50,6 +50,18 @@ interactBtn:SetAttribute("type", "interact")
 interactBtn:SetAttribute("unit", "target")
 
 -- Runs after the secure action, so the macro's /targetexact has happened.
+-- Why a press didn't cast: the game's red error text (facing, range, line of
+-- sight...) right after a key press is echoed to chat, once per message every
+-- few seconds, so a "slow" cast can be traced to its cause.
+local lastErr, lastErrAt = nil, 0
+SC.On("UI_ERROR_MESSAGE", function(_, msg)
+    msg = SC.Plain(msg)
+    if not msg or not SC.lastPress.key or GetTime() - SC.lastPress.key > 0.5 then return end
+    if msg == lastErr and GetTime() - lastErrAt < 4 then return end
+    lastErr, lastErrAt = msg, GetTime()
+    SC.Print("|cffff8040key press didn't cast:|r " .. msg)
+end)
+
 keyBtn:HookScript("OnClick", function()
     local now = GetTime()
     if SC.lastPress.key and now - SC.lastPress.key < 0.1 then return end
@@ -89,10 +101,13 @@ function SC.KeyMacro()
         if A.macro and strtrim(A.macro) ~= "" then
             lines[#lines + 1] = strtrim(A.macro)
         else
+            -- With the fast path the cast goes straight at the nameplate unit, in the
+            -- same press, without depending on the target swap; else at the target.
+            local at = SC.fastUnit and ("[@" .. SC.fastUnit .. ",harm,nodead][@target,harm,nodead]") or "[@target,harm,nodead]"
             if A.spell and A.spell ~= "" then
-                lines[#lines + 1] = "/cast [@target,harm,nodead] " .. A.spell
+                lines[#lines + 1] = "/cast " .. at .. " " .. A.spell
             end
-            lines[#lines + 1] = "/startattack [@target,harm,nodead]"
+            lines[#lines + 1] = "/startattack " .. at
         end
     end
     if #talk > 0 then

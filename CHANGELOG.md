@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1
+
+- With the fast path, the spell and auto attack go straight at the mob's nameplate unit (`/cast [@nameplate5,harm,nodead][@target,harm,nodead]`) in the same press, not waiting on the target swap.
+- If a key press doesn't cast, the game's reason (facing, range, line of sight...) is echoed in chat, so a slow first cast can be traced.
+
 ## 0.11.0
 
 - **Faster targeting.** Out of combat, the moment the target mob's alive nameplate appears, the key is rewritten to target that exact unit (`/target nameplateN`). That's instant and can't land on the last kill's corpse, which `/targetexact` (nearest by name, dead or alive) could. The name search stays as a fallback, and in combat it's the only path, because the key can't be changed then.
