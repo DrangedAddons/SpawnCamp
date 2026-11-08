@@ -414,8 +414,8 @@ local function SetPressed(b, pressed)
         b.icon:SetVertexColor(0.72, 0.72, 0.72)
     end
 end
-local function SetMode(mode)
-    local mob = SC.Active()
+local function SetMode(mode, slot)
+    local mob = SC.Active(slot)
     if not mob or mob.mode == mode then return end
     mob.mode = mode
     SC.ApplyBindings()
@@ -600,115 +600,135 @@ local function BuildTop()
         "Recent", "Every mob you've targeted before. Pick one again or remove it.")
 end
 
--- Target box, left to right:
+-- Target boxes, one per slot, left to right:
 --   [portrait] Name               ETA 0:15        [sword] [bubble]  [Clear]
 --              dead 0:05, ...     Avg respawn 0:20                  Keep [x]
-local function BuildTarget()
+local BOX_H = 64
+
+local function BuildTargetBox(slot)
+    local bx = {}
     local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
-    T:SetPoint("TOPLEFT", 6, -84)
-    T:SetPoint("RIGHT", F, "RIGHT", -6, 0)
-    T:SetHeight(64)
+    T:SetHeight(BOX_H)
     Backdrop(T, 0.6)
     T:SetBackdropBorderColor(1, 0.82, 0, 0.6)
-    ui.target = T
+    bx.frame = T
 
-    ui.tPortrait = CreateFrame("Frame", nil, T)
-    ui.tPortrait:SetSize(52, 52)
-    ui.tPortrait:SetPoint("LEFT", 6, 0)
+    bx.portrait = CreateFrame("Frame", nil, T)
+    bx.portrait:SetSize(52, 52)
+    bx.portrait:SetPoint("LEFT", 6, 0)
 
     -- Right column: Clear, with Keep under it.
-    ui.clearTarget = Btn(T, "Clear", 58, 0, 0, function()
-        SC.SetActive(nil)
-    end)
-    ui.clearTarget:ClearAllPoints()
-    ui.clearTarget:SetPoint("TOPRIGHT", -6, -8)
-    ui.clearTarget:SetHeight(20)
-    Tip(ui.clearTarget, "Clear target", "Your key stops doing anything until you pick a target again. The mob stays in Recent.")
-    ui.keep = Check(T, "Keep", 0, 0,
-        function() local m = SC.Active(); return m and m.keep end,
-        function(v) local m = SC.Active(); if m then m.keep = v end end,
+    bx.clear = Btn(T, "Clear", 58, 0, 0, function() SC.SetActive(nil, slot) end)
+    bx.clear:ClearAllPoints()
+    bx.clear:SetPoint("TOPRIGHT", -6, -8)
+    bx.clear:SetHeight(20)
+    Tip(bx.clear, "Clear target", "Takes this mob off your key. It stays in Recent.")
+    bx.keep = Check(T, "Keep", 0, 0,
+        function() local m = SC.Active(slot); return m and m.keep end,
+        function(v) local m = SC.Active(slot); if m then m.keep = v end end,
         "Ticked, this mob stays your target after you get the kill, until you press Clear. Unticked, getting the kill clears it.")
-    ui.keep:ClearAllPoints()
-    ui.keep:SetSize(20, 20)
-    ui.keep:SetPoint("TOPRIGHT", ui.clearTarget, "BOTTOMRIGHT", 0, -4)
-    ui.keep.label:ClearAllPoints()
-    ui.keep.label:SetPoint("RIGHT", ui.keep, "LEFT", -1, 0)
+    bx.keep:ClearAllPoints()
+    bx.keep:SetSize(20, 20)
+    bx.keep:SetPoint("TOPRIGHT", bx.clear, "BOTTOMRIGHT", 0, -4)
+    bx.keep.label:ClearAllPoints()
+    bx.keep.label:SetPoint("RIGHT", bx.keep, "LEFT", -1, 0)
 
     -- The two big buttons.
-    ui.talk = ModeButton(T, BUBBLE, function() HideSidePanels(); SetMode("interact") end, function(self) ShowBeside(TP, self) end,
+    bx.talk = ModeButton(T, BUBBLE, function() HideSidePanels(); SetMode("interact", slot) end, function(self) ShowBeside(TP, self) end,
         "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests.\n|cffffd100Right-click|r for the chat and quest options.")
-    ui.talk:SetPoint("RIGHT", T, "RIGHT", -74, 0)
-    ui.attack = ModeButton(T, SWORD, function() HideSidePanels(); SetMode("attack") end, function(self) ShowBeside(AP, self) end,
+    bx.talk:SetPoint("RIGHT", T, "RIGHT", -74, 0)
+    bx.attack = ModeButton(T, SWORD, function() HideSidePanels(); SetMode("attack", slot) end, function(self) ShowBeside(AP, self) end,
         "Attack", "Your key targets this mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro.")
-    ui.attack:SetPoint("RIGHT", ui.talk, "LEFT", -6, 0)
+    bx.attack:SetPoint("RIGHT", bx.talk, "LEFT", -6, 0)
 
     -- ETA column.
     local eta = CreateFrame("Frame", nil, T)
     eta:SetSize(92, 52)
-    eta:SetPoint("RIGHT", ui.attack, "LEFT", -8, 0)
-    ui.tEta = eta:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    ui.tEta:SetPoint("TOP", 0, -6)
-    ui.tAvg = eta:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    ui.tAvg:SetPoint("BOTTOM", 0, 8)
+    eta:SetPoint("RIGHT", bx.attack, "LEFT", -8, 0)
+    bx.eta = eta:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    bx.eta:SetPoint("TOP", 0, -6)
+    bx.avg = eta:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    bx.avg:SetPoint("BOTTOM", 0, 8)
     eta:EnableMouse(true)
     Tip(eta, "Respawn ETA", "Avg respawn: how long this mob usually takes to come back after it dies (from the log). ETA counts down to that from its last death. At zero you get a soft ding, whether or not it has shown.")
-    ui.tEtaBox = eta
+    bx.etaBox = eta
 
     -- Name and status, taking the rest.
-    local nameBtn = CreateFrame("Frame", nil, T)
-    nameBtn:SetPoint("TOPLEFT", ui.tPortrait, "TOPRIGHT", 8, 0)
-    nameBtn:SetPoint("BOTTOMRIGHT", eta, "BOTTOMLEFT", -6, 0)
-    ui.tName = nameBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    ui.tName:SetPoint("TOPLEFT", 0, -6)
-    ui.tName:SetPoint("RIGHT", 0, 0)
-    ui.tName:SetJustifyH("LEFT")
-    ui.tName:SetWordWrap(false)
-    ui.tStatus = nameBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    ui.tStatus:SetPoint("BOTTOMLEFT", 0, 8)
-    ui.tStatus:SetPoint("RIGHT", 0, 0)
-    ui.tStatus:SetJustifyH("LEFT")
-    ui.tStatus:SetWordWrap(false)
-    ui.tNameBtn = nameBtn
+    local nameArea = CreateFrame("Frame", nil, T)
+    nameArea:SetPoint("TOPLEFT", bx.portrait, "TOPRIGHT", 8, 0)
+    nameArea:SetPoint("BOTTOMRIGHT", eta, "BOTTOMLEFT", -6, 0)
+    bx.name = nameArea:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    bx.name:SetPoint("TOPLEFT", 0, -6)
+    bx.name:SetPoint("RIGHT", 0, 0)
+    bx.name:SetJustifyH("LEFT")
+    bx.name:SetWordWrap(false)
+    bx.status = nameArea:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    bx.status:SetPoint("BOTTOMLEFT", 0, 8)
+    bx.status:SetPoint("RIGHT", 0, 0)
+    bx.status:SetJustifyH("LEFT")
+    bx.status:SetWordWrap(false)
+    bx.nameArea = nameArea
 
-    ui.tEmpty = Text(T, "No target. Your key does nothing until you add one\nor pick one from Recent.", 10, -14, "GameFontHighlight")
+    bx.empty = Text(T, "No target. Your key does nothing until you add one\nor pick one from Recent.", 10, -14, "GameFontHighlight")
+    return bx
 end
--- Clicking the target's name targets the mob in game. Targeting is protected,
--- so a secure button sits over the name. It's parented to UIParent and placed
--- by screen position (a protected frame anchored to the window would make the
--- window itself protected), and only moved or changed out of combat.
-local nameSecure
+
+local function BuildTarget()
+    ui.boxes = { BuildTargetBox(1), BuildTargetBox(2) }
+    -- Under the first target when there's no second: add one.
+    ui.addSecond = Btn(F, "+ Add a second target", 170, 0, 0, function()
+        SC.addSlot = 2
+        SC.Print("adding a second target: type a name, use My Target, or Use one from Nearby or Recent.")
+        if ui.addName then ui.addName:SetFocus() end
+        SC.Refresh()
+    end)
+    Tip(ui.addSecond, "Second target", "Your key goes for whichever of the two shows up first, alive and untagged, and the same Attack/Talk rules apply to each.")
+    ui.addSecondHint = Text(F, "|cffffd100Adding the second target:|r type a name, My Target, or Use in Nearby / Recent.", 0, 0)
+    ui.cancelSecond = Btn(F, "Cancel", 60, 0, 0, function() SC.addSlot = 1; SC.Refresh() end)
+end
+
+-- Clicking a target's name targets that mob in game. Targeting is protected,
+-- so a secure button sits over each name. They're parented to UIParent and
+-- placed by screen position (a protected frame anchored to the window would
+-- make the window itself protected), and only moved or changed out of combat.
+local nameSecure = {}
 
 local function BuildNameSecure()
-    local b = CreateFrame("Button", "SpawnCampTargetName", UIParent, "SecureActionButtonTemplate")
-    b:RegisterForClicks("LeftButtonUp", "LeftButtonDown")
-    b:SetAttribute("type", "macro")
-    b:SetAttribute("macrotext", "")
-    b:SetFrameStrata("MEDIUM")
-    b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
-    b:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.15)
-    Tip(b, "Target it", "Click to target this mob in game, if it's in range.")
-    b:Hide()
-    nameSecure = b
+    for slot = 1, 2 do
+        local b = CreateFrame("Button", "SpawnCampTargetName" .. slot, UIParent, "SecureActionButtonTemplate")
+        b:RegisterForClicks("LeftButtonUp", "LeftButtonDown")
+        b:SetAttribute("type", "macro")
+        b:SetAttribute("macrotext", "")
+        b:SetFrameStrata("MEDIUM")
+        b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
+        b:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.15)
+        Tip(b, "Target it", "Click to target this mob in game, if it''s in range.")
+        b:Hide()
+        nameSecure[slot] = b
+    end
 end
 
 local function PlaceNameSecure()
-    if not nameSecure or InCombatLockdown() then return end
-    local m = SC.Active()
-    local l, bottom = ui.tName:GetLeft(), ui.tName:GetBottom()
-    if not (m and F:IsShown() and ui.tName:IsVisible() and l and bottom) then
-        nameSecure:Hide()
-        return
+    if InCombatLockdown() then return end
+    for slot = 1, 2 do
+        local b, bx = nameSecure[slot], ui.boxes[slot]
+        local m = SC.Active(slot)
+        local fs = bx.name
+        local l, bottom = fs:GetLeft(), fs:GetBottom()
+        if not (b and m and F:IsShown() and bx.frame:IsShown() and fs:IsVisible() and l and bottom) then
+            if b then b:Hide() end
+        else
+            b:SetAttribute("macrotext", "/targetexact " .. m.name)
+            local s = fs:GetEffectiveScale() / UIParent:GetEffectiveScale()
+            local w = math.max(fs:GetStringWidth() or 0, 40)
+            b:ClearAllPoints()
+            b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l * s, bottom * s - 2)
+            b:SetSize(w * s, fs:GetHeight() * s + 4)
+            b:SetFrameLevel(F:GetFrameLevel() + 30)
+            b:Show()
+        end
     end
-    nameSecure:SetAttribute("macrotext", "/targetexact " .. m.name)
-    local s = ui.tName:GetEffectiveScale() / UIParent:GetEffectiveScale()
-    local w = math.max(ui.tName:GetStringWidth() or 0, 40)
-    nameSecure:ClearAllPoints()
-    nameSecure:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l * s, bottom * s - 2)
-    nameSecure:SetSize(w * s, ui.tName:GetHeight() * s + 4)
-    nameSecure:SetFrameLevel(F:GetFrameLevel() + 30)
-    nameSecure:Show()
 end
-
 -- Recent targets: a pop-out beside the window listing every mob you've
 -- targeted, newest first, with Use and remove.
 
@@ -751,7 +771,7 @@ local function BuildRecent()
         r.use:SetSize(44, 18)
         r.use:SetPoint("RIGHT", r.x, "LEFT", -4, 0)
         r.use:SetText("Use")
-        r.use:SetScript("OnClick", Safe(function() SC.SetActive(r.mobName) end))
+        r.use:SetScript("OnClick", Safe(function() SC.SetActive(r.mobName, SC.addSlot) end))
         Tip(r.use, "Use", "Makes it your target again.")
         r.current = r:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         r.current:SetPoint("RIGHT", r.x, "LEFT", -6, 0)
@@ -769,9 +789,9 @@ function SC.ToggleRecent()
     if not F then return end
     ShowBeside(RP)
 end
--- The log describes the selected target.
+-- The log describes one target: the first, or the second when switched.
 local function Sel()
-    return SC.Active()
+    return SC.Active(SC.char.logSlot or 1) or SC.Active(1)
 end
 
 local LOG_W = 380
@@ -784,9 +804,21 @@ local function BuildLog()
     Backdrop(P, 0.9)
     P:EnableMouse(true)
     ui.log = P
-    ui.logTitle = Text(P, "", 10, -10, "GameFontNormal")
-    ui.logTitle:SetWidth(330)
+    local titleBtn = CreateFrame("Button", nil, P)
+    titleBtn:SetPoint("TOPLEFT", 8, -6)
+    titleBtn:SetSize(340, 18)
+    ui.logTitle = titleBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    ui.logTitle:SetPoint("LEFT", 2, 0)
+    ui.logTitle:SetWidth(336)
+    ui.logTitle:SetJustifyH("LEFT")
     ui.logTitle:SetWordWrap(false)
+    titleBtn:SetScript("OnClick", function()
+        if SC.Active(2) then
+            SC.char.logSlot = (SC.char.logSlot == 2) and 1 or 2
+            histOffset = 0
+            SC.Refresh()
+        end
+    end)
     local close = CreateFrame("Button", nil, P, "UIPanelCloseButton")
     close:SetSize(22, 22)
     close:SetPoint("TOPRIGHT", -1, -1)
@@ -923,7 +955,7 @@ local function RefreshNearby()
             if ago > 3 then bits[#bits + 1] = "|cff999999" .. SC.Clock(ago) .. " ago|r" end
             r.name:SetText(color .. item.name .. "|r")
             r.info:SetText(table.concat(bits, " "))
-            local current = SC.char.active == item.name
+            local current = SC.IsActive(item.name)
             r.use:SetShown(not current)
             r.current:SetShown(current)
             r.mobName, r.hostile, r.ctype = item.name, e.hostile, e.ctype
@@ -969,7 +1001,7 @@ local function BuildNearby()
         r.use:SetText("Use")
         r.use:SetScript("OnClick", Safe(function()
             if SC.char.mobs[r.mobName] then
-                SC.SetActive(r.mobName)
+                SC.SetActive(r.mobName, SC.addSlot)
             else
                 local m = SC.AddMob(r.mobName, r.hostile == false and "interact" or "attack")
                 if m and r.ctype then m.ctype = r.ctype; SC.Refresh() end
@@ -1080,29 +1112,64 @@ local function RefreshKey()
     end
 end
 
-local function RefreshTarget()
-    local m = SC.Active()
-    local on = m ~= nil
-    for _, w in ipairs({ ui.tPortrait, ui.tNameBtn, ui.tEtaBox, ui.attack, ui.talk, ui.clearTarget, ui.keep }) do w:SetShown(on) end
-    ui.tEmpty:SetShown(not on)
+local function RefreshBox(bx, m, slot)
+    for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear, bx.keep }) do w:SetShown(m ~= nil) end
+    bx.empty:SetShown(m == nil and slot == 1)
     if not m then return end
-    PlacePortrait(m.name, ui.tPortrait)
-    ui.tName:SetText(m.name)
+    PlacePortrait(m.name, bx.portrait)
+    bx.name:SetText(m.name)
     local state, text = SC.Status(m.name)
-    ui.tStatus:SetText(StatusColor(state) .. text .. "|r")
+    bx.status:SetText(StatusColor(state) .. text .. "|r")
     local big, small, color = SC.ETA(m.name)
-    ui.tEta:SetText(color .. big .. "|r")
-    ui.tAvg:SetText(small)
-    SetPressed(ui.attack, m.mode == "attack")
-    SetPressed(ui.talk, m.mode == "interact")
+    bx.eta:SetText(color .. big .. "|r")
+    bx.avg:SetText(small)
+    SetPressed(bx.attack, m.mode == "attack")
+    SetPressed(bx.talk, m.mode == "interact")
 end
 
+-- Lays out both boxes and the "add a second target" row; returns the y below.
+local function RefreshTarget()
+    local y = -84
+    local m1, m2 = SC.Active(1), SC.Active(2)
+    local b1, b2 = ui.boxes[1], ui.boxes[2]
+    b1.frame:ClearAllPoints()
+    b1.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
+    b1.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
+    RefreshBox(b1, m1, 1)
+    y = y - BOX_H - 4
+    ui.addSecond:Hide(); ui.addSecondHint:Hide(); ui.cancelSecond:Hide()
+    if m2 then
+        b2.frame:ClearAllPoints()
+        b2.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
+        b2.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
+        b2.frame:Show()
+        RefreshBox(b2, m2, 2)
+        y = y - BOX_H - 4
+    else
+        b2.frame:Hide()
+        if m1 and SC.addSlot == 2 then
+            ui.addSecondHint:ClearAllPoints()
+            ui.addSecondHint:SetPoint("TOPLEFT", F, "TOPLEFT", 10, y - 5)
+            ui.addSecondHint:Show()
+            ui.cancelSecond:ClearAllPoints()
+            ui.cancelSecond:SetPoint("TOPRIGHT", F, "TOPRIGHT", -8, y)
+            ui.cancelSecond:Show()
+            y = y - 26
+        elseif m1 then
+            ui.addSecond:ClearAllPoints()
+            ui.addSecond:SetPoint("TOPLEFT", F, "TOPLEFT", 8, y)
+            ui.addSecond:Show()
+            y = y - 26
+        end
+    end
+    return y
+end
 local function RefreshRecent()
     if not (RP and RP:IsShown()) then return end
     local list = {}
     for _, n in ipairs(SC.char.order) do
         local m = SC.char.mobs[n]
-        if m and (m.hunting or SC.char.showDone or n == SC.char.active) then list[#list + 1] = n end
+        if m and (m.hunting or SC.char.showDone or SC.IsActive(n)) then list[#list + 1] = n end
     end
     recentOffset = math.max(0, math.min(recentOffset, #list - RECENT_ROWS))
     for i, r in ipairs(ui.recent) do
@@ -1116,7 +1183,7 @@ local function RefreshRecent()
             r.bar:SetValue((state == "up" or state == "window" or state == "late") and 1 or (frac or 0))
             r.name:SetText(n .. (m.hunting and "" or " |cff40ff40(got)|r"))
             r.status:SetText(StatusColor(state) .. text .. "|r")
-            local current = n == SC.char.active
+            local current = SC.IsActive(n)
             r.use:SetShown(not current)
             r.current:SetShown(current)
             PlacePortrait(n, r.holder)
@@ -1196,7 +1263,7 @@ function SC.RefreshWindow()
     if not SC.char then return end
     if not SC.char.shown then
         if F then F:Hide(); HideSidePanels() end
-        if nameSecure and not InCombatLockdown() then nameSecure:Hide() end
+        if not InCombatLockdown() then for _, b in pairs(nameSecure) do b:Hide() end end
         return
     end
     if not F then Build() end
@@ -1204,8 +1271,9 @@ function SC.RefreshWindow()
     for _, p in pairs(portraits) do p:Hide() end
 
     RefreshKey()
-    RefreshTarget()
-    local m = SC.Active()
+    local y = RefreshTarget()
+    if not SC.Active(2) then SC.char.logSlot = 1 end
+    local m = SC.Active(SC.char.logSlot or 1) or SC.Active(1)
     ui.logToggle:SetShown(m ~= nil)
     if SC.char.logRight then
         ui.logToggle:SetText(SC.char.logOpen and "Log <" or "Log >")
@@ -1219,7 +1287,7 @@ function SC.RefreshWindow()
         else
             ui.log:SetPoint("TOPRIGHT", F, "TOPLEFT", -2, 0)
         end
-        ui.logTitle:SetText("Log: " .. m.name)
+        ui.logTitle:SetText("Log: " .. m.name .. (SC.Active(2) and "  |cff999999(click to switch)|r" or ""))
         ui.log:Show()
         RefreshMobPanel()
     else
@@ -1228,7 +1296,6 @@ function SC.RefreshWindow()
     SetEditText(ui.lead, tostring(SC.char.lead or 0))
     ui.markIcon.tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_" .. (SC.char.markIcon or 8))
     RefreshRecent()
-    local y = -150
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
     RefreshPopups()
 

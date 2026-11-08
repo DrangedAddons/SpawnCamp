@@ -82,9 +82,10 @@ function SC.Observe(name, kind, spawn, t, src, extra)
             SC.Alert("You got " .. name .. "!")
         elseif kind == "D" and e.mine and mob.mode ~= "interact" then
             mob.hunting = false
-            if SC.char.active == name then
-                SC.char.active = nil
-                SC.Print("cleared " .. name .. " as your target, so your key does nothing now. Pick it from Recent to camp it again.")
+            local slot = SC.SlotOf(name)
+            if slot then
+                SC.SetActive(nil, slot)
+                SC.Print("cleared " .. name .. " as a target. Pick it from Recent to camp it again, or tick Keep to hold it.")
             end
             SC.ApplyBindings()
             SC.Alert("You got " .. name .. "!")
@@ -342,7 +343,7 @@ local function Check(unit)
     if not name then return end
     if SC.CapturePortrait then SC.CapturePortrait(name, unit) end
     -- The target's alive nameplate: point the key straight at it.
-    if name == SC.char.active and unit:find("^nameplate%d+$") then
+    if SC.IsActive(name) and unit:find("^nameplate%d+$") then
         -- Alive and not tagged by someone else (yours or nobody's is fine).
         if dead == false and tapDenied ~= true then
             SC.SetFastUnit(unit)
@@ -459,17 +460,19 @@ end
 -- names, when the key itself put it there.
 function SC.EvalTarget()
     if not SC.char then return end
-    local m = SC.Active()
+    local actives = SC.Actives()
     local on = false
-    if m and SC.MaybeExists("target") and not SC.True(UnitIsPlayer("target"))
+    if #actives > 0 and SC.MaybeExists("target") and not SC.True(UnitIsPlayer("target"))
         and SC.Bool(UnitIsDead("target")) == false
         and not (UnitIsTapDenied and SC.Bool(UnitIsTapDenied("target")) == true) then
         local n = SC.UnitNameSafe("target")
-        if n then
-            on = n:lower() == m.name:lower()
-        else
-            local f = follow[m.name]
-            on = f and f.viaTarget or false
+        for _, m in ipairs(actives) do
+            if n then
+                if n:lower() == m.name:lower() then on = true end
+            else
+                local f = follow[m.name]
+                if f and f.viaTarget then on = true end
+            end
         end
     end
     if not on then SC.markDone = false end

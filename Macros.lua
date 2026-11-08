@@ -160,10 +160,19 @@ end
 function SC.KeyMacro()
     local attack, talk = SC.MobsIn("attack"), SC.MobsIn("interact")
     if #attack + #talk == 0 then return "" end
-    local m = attack[1] or talk[1]
+    local all = {}
+    for _, x in ipairs(attack) do all[#all + 1] = x end
+    for _, x in ipairs(talk) do all[#all + 1] = x end
     local lines = {}
+    -- Name search for every target: the first unconditional, the rest only if
+    -- the earlier ones found nothing.
+    local function Search(firstCond)
+        for i, x in ipairs(all) do
+            lines[#lines + 1] = ((i == 1 and not firstCond) and "/targetexact " or "/targetexact [noexists] ") .. x.name
+        end
+    end
     if SC.onMob then
-        lines[#lines + 1] = "/targetexact [noexists] " .. m.name
+        Search(true)
         TalkAndAttack(lines, attack, talk, "[@target,harm,nodead]")
     elseif SC.fastUnit then
         -- The exact unit first; the name search backs it up in case the client
@@ -173,7 +182,7 @@ function SC.KeyMacro()
         -- someone else), never at whatever the name search found.
         lines[#lines + 1] = "/cleartarget"
         lines[#lines + 1] = "/target " .. SC.fastUnit
-        lines[#lines + 1] = "/targetexact [noexists] " .. m.name
+        Search(true)
         lines[#lines + 1] = "/cleartarget [dead]"
         TalkAndAttack(lines, attack, talk, "[@" .. SC.fastUnit .. ",harm,nodead]")
     else
@@ -184,7 +193,7 @@ function SC.KeyMacro()
         -- In combat the macro is frozen and can't switch to "on target", so it
         -- casts at what it finds (the old behaviour).
         lines[#lines + 1] = "/cleartarget"
-        lines[#lines + 1] = "/targetexact " .. m.name
+        Search(false)
         lines[#lines + 1] = "/cleartarget [dead]"
         TalkAndAttack(lines, attack, talk, SC.inCombat and "[@target,harm,nodead]" or nil)
     end

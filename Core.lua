@@ -89,24 +89,53 @@ SC.MOB_DEFAULTS = {
     manualMax = 0,        -- minutes; >0 overrides the history's latest respawn
 }
 
--- The selected target: the one mob the key works on. nil = the key does nothing.
-function SC.Active()
-    local n = SC.char and SC.char.active
+-- The selected targets: up to two mobs the key works on (slot 1 = SC.char.active,
+-- slot 2 = SC.char.active2). None = the key does nothing.
+function SC.Active(slot)
+    if not SC.char then return nil end
+    local n
+    if slot == 2 then n = SC.char.active2 else n = SC.char.active end
     return n and SC.char.mobs[n] or nil
 end
 
--- The selected target as a list when it's in this mode, else an empty list.
-function SC.MobsIn(mode)
-    local m = SC.Active()
-    if m and m.mode == mode then return { m } end
-    return {}
+function SC.Actives()
+    local out = {}
+    for slot = 1, 2 do
+        local m = SC.Active(slot)
+        if m then out[#out + 1] = m end
+    end
+    return out
 end
 
--- Makes a mob the selected target and moves it to the top of the recent list.
-function SC.SetActive(name)
+function SC.IsActive(name)
+    return name ~= nil and (name == SC.char.active or name == SC.char.active2)
+end
+
+-- The selected targets in this mode.
+function SC.MobsIn(mode)
+    local out = {}
+    for _, m in ipairs(SC.Actives()) do
+        if m.mode == mode then out[#out + 1] = m end
+    end
+    return out
+end
+
+-- The next mob added goes to this slot (set by "+ Add a second target").
+SC.addSlot = 1
+
+-- Makes a mob a selected target (slot 1 unless given) and moves it to the top
+-- of the recent list. nil clears that slot; clearing slot 1 moves slot 2 up.
+function SC.SetActive(name, slot)
+    slot = slot or 1
     if name and not SC.char.mobs[name] then return end
-    if SC.char.active ~= name then SC.fastUnit, SC.onMob = nil, false end
-    SC.char.active = name
+    local key = slot == 2 and "active2" or "active"
+    local other = slot == 2 and "active" or "active2"
+    if SC.char[key] ~= name then SC.fastUnit, SC.onMob = nil, false end
+    if name and SC.char[other] == name then SC.char[other] = nil end
+    SC.char[key] = name
+    if not SC.char.active and SC.char.active2 then
+        SC.char.active, SC.char.active2 = SC.char.active2, nil
+    end
     if name then
         local m = SC.char.mobs[name]
         m.hunting = true
@@ -115,10 +144,17 @@ function SC.SetActive(name)
         end
         table.insert(SC.char.order, 1, name)
     end
+    SC.addSlot = 1
     SC.ApplyBindings()
     SC.Refresh()
 end
 
+-- Slot a name is in, or nil.
+function SC.SlotOf(name)
+    if name == nil then return nil end
+    if name == SC.char.active then return 1 end
+    if name == SC.char.active2 then return 2 end
+end
 local function Fill(t, defaults)
     for k, v in pairs(defaults) do
         if t[k] == nil then
@@ -157,7 +193,7 @@ function SC.AddMob(name, mode)
         Fill(mobs[name], SC.MOB_DEFAULTS)
         mobs[name].mode = mode or "attack"
     end
-    SC.SetActive(name)
+    SC.SetActive(name, SC.addSlot)
     return mobs[name]
 end
 
@@ -172,7 +208,11 @@ function SC.RemoveMob(name)
         SC.char.selected = nil
         if SC.char.panel == "mob" then SC.char.panel = nil end
     end
-    if SC.char.active == name then SC.char.active = nil end
+    local slot = SC.SlotOf(name)
+    if slot then
+        SC.SetActive(nil, slot)
+        return
+    end
     SC.ApplyBindings()
     SC.Refresh()
 end
@@ -387,6 +427,8 @@ SC.On("ADDON_LOADED", function(name)
     end
     SC.char.order = order
     if SC.char.active and not SC.char.mobs[SC.char.active] then SC.char.active = nil end
+    if SC.char.active2 and not SC.char.mobs[SC.char.active2] then SC.char.active2 = nil end
+    if not SC.char.active and SC.char.active2 then SC.char.active, SC.char.active2 = SC.char.active2, nil end
     SC.char.expanded, SC.char.tab, SC.char.showTimers = nil, nil, nil
 end)
 

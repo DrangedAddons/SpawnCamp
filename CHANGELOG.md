@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.15.0
+
+- **Second target.** **+ Add a second target** under the first, then add a mob the usual way (typed name, My Target, or Use in Nearby / Recent). Each target has its own box with Attack/Talk, ETA, Keep and Clear, and clicking either name targets it.
+- The key covers both: it goes for whichever is alive, untagged and found first, and once you're on either one it won't swap off. Clearing the first target moves the second up.
+- With two targets, click the log's title to switch which one it shows.
+
 ## 0.14.2
 
 - The marker goes on through a hidden secure "raidtarget" button the key's macro clicks, instead of `/tm`, which didn't mark in testing.
