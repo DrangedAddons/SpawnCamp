@@ -1,0 +1,22 @@
+## Interface: 16001
+## Title: SpawnCamp
+## Notes: Tag or interact with a camped mob on one key, auto-handle its chat and quests, and time its respawn from kill history.
+## Author: Dranged
+## Version: 0.1.0
+## X-DrangedAddons-Games: _forever_
+## IconTexture: Interface\Icons\Ability_Hunter_MarkedForDeath
+## AddonCompartmentFunc: SpawnCamp_OnCompartmentClick
+## SavedVariables: SpawnCampDB
+## SavedVariablesPerCharacter: SpawnCampCharDB
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
+Core.lua
+Macros.lua
+Quests.lua
+Tracker.lua
+UI.lua
+Timers.lua
+Minimap.lua
