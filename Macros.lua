@@ -97,14 +97,15 @@ end
 --      if the target is gone ([noexists]).
 --   2. The mob's alive nameplate is known (SC.fastUnit): target that unit, with
 --      the name search as a backup, drop a corpse, cast at the target.
---   3. Neither: clear, search by name, drop a corpse, cast at the target.
+--   3. Neither: clear, search by name, drop a corpse. No cast: once the target
+--      checks out the key becomes 1 and the next press casts.
 -- Combat freezes the macro; PLAYER_REGEN_DISABLED drops the nameplate token
 -- (it could be reused for another mob) and leaves 1 or 3.
 SC.fastUnit = nil
 SC.onMob = false
 
 local function TalkAndAttack(lines, attack, talk, at)
-    if #attack > 0 then
+    if #attack > 0 and at then
         local A = SC.char.attack
         if A.macro and strtrim(A.macro) ~= "" then
             lines[#lines + 1] = strtrim(A.macro)
@@ -132,16 +133,24 @@ function SC.KeyMacro()
         -- The exact unit first; the name search backs it up in case the client
         -- won't target a nameplate token. Your target isn't the mob here, so
         -- clearing first loses nothing.
+        -- The cast goes at that exact unit (checked alive and not tagged by
+        -- someone else), never at whatever the name search found.
         lines[#lines + 1] = "/cleartarget"
         lines[#lines + 1] = "/target " .. SC.fastUnit
         lines[#lines + 1] = "/targetexact [noexists] " .. m.name
         lines[#lines + 1] = "/cleartarget [dead]"
-        TalkAndAttack(lines, attack, talk, "[@target,harm,nodead]")
+        TalkAndAttack(lines, attack, talk, "[@" .. SC.fastUnit .. ",harm,nodead]")
     else
+        -- Search only, no cast: the search can't tell a mob someone else tagged
+        -- from a free one, and casting at it would cost the global cooldown. Once
+        -- the target checks out (alive, free), the key switches to "on target"
+        -- and the next press casts.
+        -- In combat the macro is frozen and can't switch to "on target", so it
+        -- casts at what it finds (the old behaviour).
         lines[#lines + 1] = "/cleartarget"
         lines[#lines + 1] = "/targetexact " .. m.name
         lines[#lines + 1] = "/cleartarget [dead]"
-        TalkAndAttack(lines, attack, talk, "[@target,harm,nodead]")
+        TalkAndAttack(lines, attack, talk, SC.inCombat and "[@target,harm,nodead]" or nil)
     end
     return table.concat(lines, "\n")
 end
@@ -150,8 +159,8 @@ end
 function SC.KeyState()
     if SC.onMob then return "on", "On target: won't swap" end
     if SC.fastUnit then return "lock", "Locked on its nameplate" end
-    if InCombatLockdown() then return "off", "In combat: searching by name" end
-    return "off", "Waiting: no live nameplate yet"
+    if InCombatLockdown() then return "off", "In combat: searching by name (no cast)" end
+    return "off", "Searching: next press casts once it's checked"
 end
 -- Rewrites only the macro text (for the fast path). Out of combat only.
 function SC.UpdateKeyMacro()
@@ -172,12 +181,17 @@ function SC.SetOnMob(v)
     SC.UpdateKeyMacro()
 end
 
--- PLAYER_REGEN_DISABLED runs just before lockdown: last chance to drop the token.
+-- PLAYER_REGEN_DISABLED runs just before lockdown: last chance to drop the
+-- nameplate token and switch the search to casting.
+SC.inCombat = false
 SC.On("PLAYER_REGEN_DISABLED", function()
-    if SC.fastUnit then
-        SC.fastUnit = nil
-        keyBtn:SetAttribute("macrotext", SC.KeyMacro())
-    end
+    SC.inCombat = true
+    SC.fastUnit = nil
+    keyBtn:SetAttribute("macrotext", SC.KeyMacro())
+end)
+SC.On("PLAYER_REGEN_ENABLED", function()
+    SC.inCombat = false
+    SC.UpdateKeyMacro()
 end)
 
 function SC.ApplyBindings()

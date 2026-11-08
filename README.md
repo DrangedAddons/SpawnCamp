@@ -35,9 +35,9 @@ The game requires a real keypress for every target, cast and interact. SpawnCamp
 
 The key picks the best of three, and the line next to it says which one it's in:
 
-1. **On target: won't swap.** Your target is the alive mob, so the key only casts at it (and re-finds it by name only if your target is gone). Spamming can't move you off it, including during combat.
-2. **Locked on its nameplate.** The mob's alive nameplate is showing, so the key targets that unit first, with the name search as a backup, drops a corpse, and casts.
-3. **Waiting / searching by name.** `/cleartarget`, `/targetexact <name>`, drop a corpse (`/cleartarget [dead]`), then cast. Used before the mob's nameplate shows, and in combat when the key can't be changed.
+1. **On target: won't swap.** Your target is the alive mob and nobody else has tagged it, so the key only casts at it (and re-finds it by name only if your target is gone). Spamming can't move you off it, including during combat.
+2. **Locked on its nameplate.** The mob's alive nameplate is showing and it isn't tagged by someone else, so the key targets that unit and casts at exactly it.
+3. **Searching.** `/cleartarget`, `/targetexact <name>`, drop a corpse (`/cleartarget [dead]`). No cast, since a name search can't tell a tagged mob from a free one. Once the target checks out the key switches to 1 and the next press casts. In combat, when the key can't switch, it casts at what it finds.
 
 The game requires a real keypress for every target and cast. Keep enemy nameplates on (V) so the lock can work.
 ### Bubble options (right-click the bubble)

@@ -343,7 +343,8 @@ local function Check(unit)
     if SC.CapturePortrait then SC.CapturePortrait(name, unit) end
     -- The target's alive nameplate: point the key straight at it.
     if name == SC.char.active and unit:find("^nameplate%d+$") then
-        if dead == false then
+        -- Alive and not tagged by someone else (yours or nobody's is fine).
+        if dead == false and tapDenied ~= true then
             SC.SetFastUnit(unit)
         elseif SC.fastUnit == unit then
             SC.SetFastUnit(nil)
@@ -461,7 +462,8 @@ function SC.EvalTarget()
     local m = SC.Active()
     local on = false
     if m and SC.MaybeExists("target") and not SC.True(UnitIsPlayer("target"))
-        and SC.Bool(UnitIsDead("target")) == false then
+        and SC.Bool(UnitIsDead("target")) == false
+        and not (UnitIsTapDenied and SC.Bool(UnitIsTapDenied("target")) == true) then
         local n = SC.UnitNameSafe("target")
         if n then
             on = n:lower() == m.name:lower()

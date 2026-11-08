@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0
+
+The key only goes for a mob nobody else has tagged.
+
+- **Locked** only arms on a live nameplate that isn't tagged by someone else, and the cast goes at exactly that mob.
+- **On target** only counts when your target isn't tagged by someone else (yours or nobody's).
+- The **name search** only targets and doesn't cast, because it can't tell a tagged mob from a free one, and casting at a tagged one would put you on the global cooldown as the real spawn appears. Once the target checks out, the key switches to On target and the next press casts. In combat, when the key can't switch, the search casts as before.
+
 ## 0.12.2
 
 - The Attack and Talk options stay open when you click in the spellbook or on the action bars, or while holding a spell on the cursor, so a spell can be dragged onto the Spell box.
