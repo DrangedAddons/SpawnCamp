@@ -70,15 +70,33 @@ keyBtn:HookScript("OnClick", function()
         local ok, err = pcall(SC.OnKeyPressed)
         if not ok then SC.Print("|cffff4040error|r " .. tostring(err)) end
     end
+    pcall(SC.LogPress)
 end)
+
+-- The last 20 presses: mode, the macro that ran, and what you ended up targeting.
+-- /spc key prints them; they're saved in SpawnCampDB.keyLog for bug reports.
+function SC.LogPress()
+    local state = SC.KeyState()
+    local function show(v)
+        if v == nil then return "nil" end
+        if SC.issecret(v) then return "hidden" end
+        return tostring(v)
+    end
+    local target = SC.MaybeExists("target") and (show(UnitName("target")) .. (SC.Bool(UnitIsDead("target")) and " (dead)" or "")) or "none"
+    local entry = string.format("%s %s | target after: %s | %s", date("%H:%M:%S"), state,
+        target, (keyBtn:GetAttribute("macrotext") or ""):gsub("\n", " ; "))
+    SpawnCampDB.keyLog = SpawnCampDB.keyLog or {}
+    table.insert(SpawnCampDB.keyLog, entry)
+    while #SpawnCampDB.keyLog > 20 do table.remove(SpawnCampDB.keyLog, 1) end
+end
 
 -- How the key gets the mob, best first. The macro is rewritten (out of combat
 -- only) as the situation changes:
 --   1. Your target already is the alive mob (SC.onMob): never touch the target,
 --      just cast at it. Spamming can't swap you off it. The name search only runs
 --      if the target is gone ([noexists]).
---   2. The mob's alive nameplate is known (SC.fastUnit): target exactly that unit
---      and cast at it. No clearing, no name search, so no other mob or corpse.
+--   2. The mob's alive nameplate is known (SC.fastUnit): target that unit, with
+--      the name search as a backup, drop a corpse, cast at the target.
 --   3. Neither: clear, search by name, drop a corpse, cast at the target.
 -- Combat freezes the macro; PLAYER_REGEN_DISABLED drops the nameplate token
 -- (it could be reused for another mob) and leaves 1 or 3.
@@ -111,8 +129,14 @@ function SC.KeyMacro()
         lines[#lines + 1] = "/targetexact [noexists] " .. m.name
         TalkAndAttack(lines, attack, talk, "[@target,harm,nodead]")
     elseif SC.fastUnit then
+        -- The exact unit first; the name search backs it up in case the client
+        -- won't target a nameplate token. Your target isn't the mob here, so
+        -- clearing first loses nothing.
+        lines[#lines + 1] = "/cleartarget"
         lines[#lines + 1] = "/target " .. SC.fastUnit
-        TalkAndAttack(lines, attack, talk, "[@" .. SC.fastUnit .. ",harm,nodead]")
+        lines[#lines + 1] = "/targetexact [noexists] " .. m.name
+        lines[#lines + 1] = "/cleartarget [dead]"
+        TalkAndAttack(lines, attack, talk, "[@target,harm,nodead]")
     else
         lines[#lines + 1] = "/cleartarget"
         lines[#lines + 1] = "/targetexact " .. m.name

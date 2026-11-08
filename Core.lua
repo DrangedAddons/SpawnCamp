@@ -422,6 +422,7 @@ local function Help()
     print("  /spawncamp died [name] - log a death now (selected mob if no name)")
     print("  /spawncamp up [name] - log a spawn now")
     print("  /spawncamp probe - print and save what the addon can read (target, mouseover, a nameplate)")
+    print("  /spawncamp key - the key's mode, its macro, and the last presses")
 end
 
 local function MobArg(rest)
@@ -455,6 +456,10 @@ SlashCmdList.SPAWNCAMP = function(msg)
         SC.char.shown = true
         SC.char.panel = SC.char.panel ~= "settings" and "settings" or nil
         SC.Refresh()
+    elseif cmd == "key" then
+        SC.Print("key mode: " .. select(2, SC.KeyState()))
+        print("  macro: " .. (SC.KeyMacro():gsub("\n", " ; ")))
+        for _, line in ipairs(SpawnCampDB.keyLog or {}) do print("  " .. line) end
     elseif cmd == "debug" or cmd == "probe" then
         SC.Debug()
     else

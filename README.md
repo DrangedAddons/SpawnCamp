@@ -36,7 +36,7 @@ The game requires a real keypress for every target, cast and interact. SpawnCamp
 The key picks the best of three, and the line next to it says which one it's in:
 
 1. **On target: won't swap.** Your target is the alive mob, so the key only casts at it (and re-finds it by name only if your target is gone). Spamming can't move you off it, including during combat.
-2. **Locked on its nameplate.** The mob's alive nameplate is showing, so the key targets exactly that unit and casts at it. No other mob, no corpse.
+2. **Locked on its nameplate.** The mob's alive nameplate is showing, so the key targets that unit first, with the name search as a backup, drops a corpse, and casts.
 3. **Waiting / searching by name.** `/cleartarget`, `/targetexact <name>`, drop a corpse (`/cleartarget [dead]`), then cast. Used before the mob's nameplate shows, and in combat when the key can't be changed.
 
 The game requires a real keypress for every target and cast. Keep enemy nameplates on (V) so the lock can work.
@@ -75,3 +75,4 @@ In dungeons Forever hides NPC names from addons. SpawnCamp then knows a mob by y
 - `/spawncamp add [name]`: watch your target, or a mob by name
 - `/spawncamp died [name]` / `up [name]`: log a sighting now
 - `/spawncamp probe`: print and save what the addon can read (for bug reports)
+- `/spawncamp key`: the key's mode, its macro, and what the last presses targeted

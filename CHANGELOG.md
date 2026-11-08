@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.1
+
+- Fixed: in "Locked on its nameplate" mode the key didn't target at all. It relied only on `/target nameplateN`, which this client apparently doesn't honour. That mode now falls back to the name search, drops a corpse, and casts at the target.
+- `/spawncamp key` shows the key's mode, its macro, and the last 20 presses with what each one ended up targeting (saved in SpawnCampDB.keyLog).
+
 ## 0.12.0
 
 The key never swaps off the mob once it has it, and only ever goes for the alive mob.
