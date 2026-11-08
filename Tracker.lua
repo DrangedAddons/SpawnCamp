@@ -77,7 +77,10 @@ function SC.Observe(name, kind, spawn, t, src, extra)
         if kind == "A" and SC.char.alertSpawn and events[#events] == e then
             SC.Alert(name .. " is up!" .. (src ~= "you" and (" (seen by " .. src .. ")") or ""))
         end
-        if kind == "D" and e.mine and mob.mode ~= "interact" then
+        if kind == "D" and e.mine and mob.mode ~= "interact" and mob.keep then
+            -- "Keep" ticked: stays the target and on the key.
+            SC.Alert("You got " .. name .. "!")
+        elseif kind == "D" and e.mine and mob.mode ~= "interact" then
             mob.hunting = false
             if SC.char.active == name then
                 SC.char.active = nil

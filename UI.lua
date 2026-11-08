@@ -624,8 +624,16 @@ local function BuildTarget()
         SC.SetActive(nil)
     end)
     ui.clearTarget:ClearAllPoints()
-    ui.clearTarget:SetPoint("RIGHT", -6, 0)
+    ui.clearTarget:SetPoint("TOPRIGHT", -6, -6)
     Tip(ui.clearTarget, "Clear target", "Your key stops doing anything until you pick a target again. The mob stays in Recent.")
+    -- Keep: the target stays set (and on the key) after you get the kill.
+    ui.keep = Check(T, "Keep", 0, 0,
+        function() local m = SC.Active(); return m and m.keep end,
+        function(v) local m = SC.Active(); if m then m.keep = v end end,
+        "Ticked, this mob stays your target after you get the kill, until you press Clear. Unticked, getting the kill clears it.")
+    ui.keep:ClearAllPoints()
+    ui.keep:SetPoint("TOPRIGHT", ui.clearTarget, "BOTTOMLEFT", 6, 0)
+    ui.keep:SetSize(20, 20)
     ui.talk = ModeButton(T, BUBBLE, function() HideSidePanels(); SetMode("interact") end, function(self) ShowBeside(TP, self) end,
         "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests.\n|cffffd100Right-click|r for the chat and quest options.")
     ui.talk:SetPoint("RIGHT", ui.clearTarget, "LEFT", -8, 0)
@@ -1030,7 +1038,7 @@ end
 local function RefreshTarget()
     local m = SC.Active()
     local on = m ~= nil
-    for _, w in ipairs({ ui.tPortrait, ui.tNameBtn, ui.attack, ui.talk, ui.clearTarget }) do w:SetShown(on) end
+    for _, w in ipairs({ ui.tPortrait, ui.tNameBtn, ui.attack, ui.talk, ui.clearTarget, ui.keep }) do w:SetShown(on) end
     ui.tEmpty:SetShown(not on)
     if not m then return end
     PlacePortrait(m.name, ui.tPortrait)

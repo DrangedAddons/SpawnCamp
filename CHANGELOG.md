@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+
+- **Keep** tick box under Clear on the target, saved per mob, off by default. Ticked, getting the kill leaves the mob as your target and on the key until you press Clear.
+
 ## 0.10.0
 
 - **Click the target's name** to target the mob in game (a secure click area over the name; it repositions out of combat).
