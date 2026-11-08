@@ -341,6 +341,14 @@ local function Check(unit)
     local name, mob, dead, spawn, tapDenied = SC.ReadUnit(unit)
     if not name then return end
     if SC.CapturePortrait then SC.CapturePortrait(name, unit) end
+    -- The target's alive nameplate: point the key straight at it.
+    if name == SC.char.active and unit:find("^nameplate%d+$") then
+        if dead == false then
+            SC.SetFastUnit(unit)
+        elseif SC.fastUnit == unit then
+            SC.SetFastUnit(nil)
+        end
+    end
     if dead == true then
         local events = SC.History(name).events
         -- Exact when we saw this spawn alive (same UID, or the last event was it alive).
@@ -496,6 +504,7 @@ end)
 SC.On("NAME_PLATE_UNIT_REMOVED", function(unit)
     Check(unit)
     plates[unit] = nil
+    if SC.fastUnit == unit then SC.SetFastUnit(nil) end
 end)
 
 SC.On("PLAYER_TARGET_CHANGED", function() Check("target") end)

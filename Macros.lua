@@ -60,17 +60,30 @@ keyBtn:HookScript("OnClick", function()
     end
 end)
 
+-- Fast path: while out of combat, the nameplate of the target mob, alive, as
+-- soon as it shows. Targeting that unit token is instant and can't pick up the
+-- old corpse (corpses have no nameplate), which /targetexact (nearest by name,
+-- dead or alive) can. Set by the tracker; cleared when combat starts, since the
+-- token could be reused for another mob while the macro can't be changed.
+SC.fastUnit = nil
+
 function SC.KeyMacro()
     local attack, talk = SC.MobsIn("attack"), SC.MobsIn("interact")
     if #attack + #talk == 0 then return "" end
     local lines = { "/cleartarget" }
     local first = true
+    if SC.fastUnit then
+        lines[#lines + 1] = "/target " .. SC.fastUnit
+        first = false
+    end
     for _, list in ipairs({ attack, talk }) do
         for _, m in ipairs(list) do
             lines[#lines + 1] = (first and "/targetexact " or "/targetexact [noexists] ") .. m.name
             first = false
         end
     end
+    -- The name search can land on a corpse; drop it so nothing is cast at it.
+    lines[#lines + 1] = "/cleartarget [dead]"
     if #attack > 0 then
         local A = SC.char.attack
         if A.macro and strtrim(A.macro) ~= "" then
@@ -87,6 +100,26 @@ function SC.KeyMacro()
     end
     return table.concat(lines, "\n")
 end
+
+-- Rewrites only the macro text (for the fast path). Out of combat only.
+function SC.UpdateKeyMacro()
+    if InCombatLockdown() then return end
+    keyBtn:SetAttribute("macrotext", SC.KeyMacro())
+end
+
+function SC.SetFastUnit(unit)
+    if unit == SC.fastUnit or InCombatLockdown() then return end
+    SC.fastUnit = unit
+    SC.UpdateKeyMacro()
+end
+
+-- PLAYER_REGEN_DISABLED runs just before lockdown: last chance to drop the token.
+SC.On("PLAYER_REGEN_DISABLED", function()
+    if SC.fastUnit then
+        SC.fastUnit = nil
+        keyBtn:SetAttribute("macrotext", SC.KeyMacro())
+    end
+end)
 
 function SC.ApplyBindings()
     if not SC.char then return end

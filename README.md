@@ -41,7 +41,9 @@ The game requires a real keypress for every target, cast and interact. SpawnCamp
 /click [help,nodead] SpawnCampInteract     (bubble)
 ```
 
-If the mob isn't there you end up with no target, so nothing lands on anything else.
+If the mob isn't there you end up with no target, so nothing lands on anything else. A corpse found by name is dropped (`/cleartarget [dead]`) before the cast.
+
+**Fast path:** out of combat, as soon as the mob's alive nameplate shows, the key targets that exact unit first (`/target nameplate5`). That's instant and skips the old corpse, which a name search can pick if it's nearer. Turn enemy nameplates on (V) for this. In combat the key can't be changed, so it uses the name search only.
 
 ### Bubble options (right-click the bubble)
 

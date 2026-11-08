@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0
+
+- **Faster targeting.** Out of combat, the moment the target mob's alive nameplate appears, the key is rewritten to target that exact unit (`/target nameplateN`). That's instant and can't land on the last kill's corpse, which `/targetexact` (nearest by name, dead or alive) could. The name search stays as a fallback, and in combat it's the only path, because the key can't be changed then.
+- `/cleartarget [dead]` after the targeting lines, so a corpse is never cast at.
+- Target box laid out in columns: name and status, ETA and Avg respawn, sword and bubble, then Clear with Keep under it. The window is a little wider so the name and status line fit.
+
 ## 0.10.1
 
 - **Keep** tick box under Clear on the target, saved per mob, off by default. Ticked, getting the kill leaves the mob as your target and on the key until you press Clear.

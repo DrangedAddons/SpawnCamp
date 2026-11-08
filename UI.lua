@@ -22,7 +22,7 @@ local ui = {}
 local recentOffset, histOffset = 0, 0
 local RECENT_ROWS, HIST_ROWS = 14, 14
 local RECENT_H = 22
-local W = 470
+local W = 520
 local PANEL_H = { settings = 166 }
 local capturing     -- { settings = table with .key, button = key button } while setting a key
 
@@ -75,6 +75,7 @@ local function Check(parent, label, x, y, get, set, tip)
     local fs = cb:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     fs:SetPoint("LEFT", cb, "RIGHT", 2, 0)
     fs:SetText(label)
+    cb.label = fs
     cb:SetScript("OnClick", Safe(function(self)
         set(self:GetChecked() and true or false)
         SC.ApplyBindings()
@@ -584,66 +585,78 @@ local function BuildTop()
         "Recent", "Every mob you've targeted before. Pick one again or remove it.")
 end
 
+-- Target box, left to right:
+--   [portrait] Name               ETA 0:15        [sword] [bubble]  [Clear]
+--              dead 0:05, ...     Avg respawn 0:20                  Keep [x]
 local function BuildTarget()
     local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
     T:SetPoint("TOPLEFT", 6, -84)
     T:SetPoint("RIGHT", F, "RIGHT", -6, 0)
-    T:SetHeight(60)
+    T:SetHeight(64)
     Backdrop(T, 0.6)
     T:SetBackdropBorderColor(1, 0.82, 0, 0.6)
     ui.target = T
 
     ui.tPortrait = CreateFrame("Frame", nil, T)
-    ui.tPortrait:SetSize(48, 48)
+    ui.tPortrait:SetSize(52, 52)
     ui.tPortrait:SetPoint("LEFT", 6, 0)
 
-    local nameBtn = CreateFrame("Button", nil, T)
-    nameBtn:SetPoint("TOPLEFT", ui.tPortrait, "TOPRIGHT", 6, 0)
-    nameBtn:SetSize(230, 48)
-    -- ETA to the average respawn, big, on the right of the name area.
-    ui.tEta = nameBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    ui.tEta:SetPoint("TOPRIGHT", 0, -4)
-    ui.tEta:SetJustifyH("RIGHT")
-    ui.tAvg = nameBtn:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    ui.tAvg:SetPoint("TOPRIGHT", ui.tEta, "BOTTOMRIGHT", 0, -2)
-    ui.tAvg:SetJustifyH("RIGHT")
-    ui.tName = nameBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    ui.tName:SetPoint("TOPLEFT", 0, -4)
-    ui.tName:SetPoint("RIGHT", ui.tEta, "LEFT", -8, 0)
-    ui.tName:SetJustifyH("LEFT")
-    ui.tName:SetWordWrap(false)
-    ui.tStatus = nameBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    ui.tStatus:SetPoint("BOTTOMLEFT", 0, 4)
-    ui.tStatus:SetPoint("RIGHT", ui.tAvg, "LEFT", -6, 0)
-    ui.tStatus:SetJustifyH("LEFT")
-    ui.tStatus:SetWordWrap(false)
-    Tip(nameBtn, "Respawn ETA", "Counts down to the average respawn time: how long this mob usually takes to come back after dying. At zero you get a soft ding, whether or not it has shown.")
-    ui.tNameBtn = nameBtn
-
-    ui.clearTarget = Btn(T, "Clear", 54, 0, 0, function()
+    -- Right column: Clear, with Keep under it.
+    ui.clearTarget = Btn(T, "Clear", 58, 0, 0, function()
         SC.SetActive(nil)
     end)
     ui.clearTarget:ClearAllPoints()
-    ui.clearTarget:SetPoint("TOPRIGHT", -6, -6)
+    ui.clearTarget:SetPoint("TOPRIGHT", -6, -8)
+    ui.clearTarget:SetHeight(20)
     Tip(ui.clearTarget, "Clear target", "Your key stops doing anything until you pick a target again. The mob stays in Recent.")
-    -- Keep: the target stays set (and on the key) after you get the kill.
     ui.keep = Check(T, "Keep", 0, 0,
         function() local m = SC.Active(); return m and m.keep end,
         function(v) local m = SC.Active(); if m then m.keep = v end end,
         "Ticked, this mob stays your target after you get the kill, until you press Clear. Unticked, getting the kill clears it.")
     ui.keep:ClearAllPoints()
-    ui.keep:SetPoint("TOPRIGHT", ui.clearTarget, "BOTTOMLEFT", 6, 0)
     ui.keep:SetSize(20, 20)
+    ui.keep:SetPoint("TOPRIGHT", ui.clearTarget, "BOTTOMRIGHT", 0, -4)
+    ui.keep.label:ClearAllPoints()
+    ui.keep.label:SetPoint("RIGHT", ui.keep, "LEFT", -1, 0)
+
+    -- The two big buttons.
     ui.talk = ModeButton(T, BUBBLE, function() HideSidePanels(); SetMode("interact") end, function(self) ShowBeside(TP, self) end,
         "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests.\n|cffffd100Right-click|r for the chat and quest options.")
-    ui.talk:SetPoint("RIGHT", ui.clearTarget, "LEFT", -8, 0)
+    ui.talk:SetPoint("RIGHT", T, "RIGHT", -74, 0)
     ui.attack = ModeButton(T, SWORD, function() HideSidePanels(); SetMode("attack") end, function(self) ShowBeside(AP, self) end,
         "Attack", "Your key targets this mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro.")
     ui.attack:SetPoint("RIGHT", ui.talk, "LEFT", -6, 0)
 
-    ui.tEmpty = Text(T, "No target. Your key does nothing until you add one\nor pick one from Recent.", 10, -12, "GameFontHighlight")
-end
+    -- ETA column.
+    local eta = CreateFrame("Frame", nil, T)
+    eta:SetSize(92, 52)
+    eta:SetPoint("RIGHT", ui.attack, "LEFT", -8, 0)
+    ui.tEta = eta:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    ui.tEta:SetPoint("TOP", 0, -6)
+    ui.tAvg = eta:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ui.tAvg:SetPoint("BOTTOM", 0, 8)
+    eta:EnableMouse(true)
+    Tip(eta, "Respawn ETA", "Avg respawn: how long this mob usually takes to come back after it dies (from the log). ETA counts down to that from its last death. At zero you get a soft ding, whether or not it has shown.")
+    ui.tEtaBox = eta
 
+    -- Name and status, taking the rest.
+    local nameBtn = CreateFrame("Frame", nil, T)
+    nameBtn:SetPoint("TOPLEFT", ui.tPortrait, "TOPRIGHT", 8, 0)
+    nameBtn:SetPoint("BOTTOMRIGHT", eta, "BOTTOMLEFT", -6, 0)
+    ui.tName = nameBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    ui.tName:SetPoint("TOPLEFT", 0, -6)
+    ui.tName:SetPoint("RIGHT", 0, 0)
+    ui.tName:SetJustifyH("LEFT")
+    ui.tName:SetWordWrap(false)
+    ui.tStatus = nameBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    ui.tStatus:SetPoint("BOTTOMLEFT", 0, 8)
+    ui.tStatus:SetPoint("RIGHT", 0, 0)
+    ui.tStatus:SetJustifyH("LEFT")
+    ui.tStatus:SetWordWrap(false)
+    ui.tNameBtn = nameBtn
+
+    ui.tEmpty = Text(T, "No target. Your key does nothing until you add one\nor pick one from Recent.", 10, -14, "GameFontHighlight")
+end
 -- Clicking the target's name targets the mob in game. Targeting is protected,
 -- so a secure button sits over the name. It's parented to UIParent and placed
 -- by screen position (a protected frame anchored to the window would make the
@@ -1038,7 +1051,7 @@ end
 local function RefreshTarget()
     local m = SC.Active()
     local on = m ~= nil
-    for _, w in ipairs({ ui.tPortrait, ui.tNameBtn, ui.attack, ui.talk, ui.clearTarget, ui.keep }) do w:SetShown(on) end
+    for _, w in ipairs({ ui.tPortrait, ui.tNameBtn, ui.tEtaBox, ui.attack, ui.talk, ui.clearTarget, ui.keep }) do w:SetShown(on) end
     ui.tEmpty:SetShown(not on)
     if not m then return end
     PlacePortrait(m.name, ui.tPortrait)
@@ -1182,7 +1195,7 @@ function SC.RefreshWindow()
     end
     SetEditText(ui.lead, tostring(SC.char.lead or 0))
     RefreshRecent()
-    local y = -146
+    local y = -150
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
     RefreshPopups()
 
