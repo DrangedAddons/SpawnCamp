@@ -63,9 +63,11 @@ SC.CHAR_DEFAULTS = {
         autoQuest = true, -- hand in finished quests, accept new and follow-up ones
         gossip = true,    -- click through chat options
         prefer = "",      -- chat options to pick first, one text match per line
-        reward = 0,       -- reward choice when a quest offers several (0 = you pick)
+        reward = 1,       -- reward choice when a quest offers several (0 = you pick)
     },
-    share = true,         -- send and receive sightings with party/raid and guild
+    shareParty = true,    -- send and receive sightings with your party
+    shareRaid = true,     -- ... your raid
+    shareGuild = true,    -- ... your guild
     shown = true,         -- the window is on screen
     showDone = true,      -- keep mobs you already got on the list
     locked = false,       -- window can't be dragged
@@ -332,6 +334,15 @@ SC.On("ADDON_LOADED", function(name)
         if SC.char.key == "" and k ~= "" then SC.char.key = k end
     end
     A.key, I.key, I.how = nil, nil, nil
+    -- 0.7: one "share" box became party/raid/guild; reward 0 (ask) became 1 (first).
+    if SC.char.share == false then
+        SC.char.shareParty, SC.char.shareRaid, SC.char.shareGuild = false, false, false
+    end
+    SC.char.share = nil
+    if not I.rewardV then
+        if I.reward == 0 then I.reward = 1 end
+        I.rewardV = 2
+    end
     for n, m in pairs(SC.char.mobs) do
         m.name = n
         if m.mode == "macro" then m.mode = "attack" end

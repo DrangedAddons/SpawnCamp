@@ -472,16 +472,23 @@ end)
 -- Sharing: "1;<A|D>;<server time>;<spawn uid>;<approx 0/1>;<name>"
 ------------------------------------------------------------------------------
 
+-- Which addon channels sharing is on for (the Party / Raid / Guild boxes).
+local SHARE_FLAG = { PARTY = "shareParty", RAID = "shareRaid", GUILD = "shareGuild" }
+
 local function Channels()
     local out = {}
-    if IsInRaid and IsInRaid() then out[#out + 1] = "RAID"
-    elseif IsInGroup and IsInGroup() then out[#out + 1] = "PARTY" end
-    if IsInGuild and IsInGuild() then out[#out + 1] = "GUILD" end
+    local c = SC.char
+    if IsInRaid and IsInRaid() then
+        if c.shareRaid then out[#out + 1] = "RAID" end
+    elseif IsInGroup and IsInGroup() then
+        if c.shareParty then out[#out + 1] = "PARTY" end
+    end
+    if c.shareGuild and IsInGuild and IsInGuild() then out[#out + 1] = "GUILD" end
     return out
 end
 
 function SC.Share(name, e)
-    if not (SC.char.share and C_ChatInfo and C_ChatInfo.SendAddonMessage) then return end
+    if not (C_ChatInfo and C_ChatInfo.SendAddonMessage) then return end
     local msg = table.concat({ "1", e.k, tostring(e.t), e.s or "", e.approx and "1" or "0", name }, ";")
     if #msg > 255 then return end
     for _, ch in ipairs(Channels()) do
@@ -495,8 +502,10 @@ SC.On("PLAYER_LOGIN", function()
     end
 end)
 
-SC.On("CHAT_MSG_ADDON", function(prefix, msg, _, sender)
-    if prefix ~= PREFIX or not SC.char or not SC.char.share then return end
+SC.On("CHAT_MSG_ADDON", function(prefix, msg, channel, sender)
+    if prefix ~= PREFIX or not SC.char then return end
+    local flag = SHARE_FLAG[channel]
+    if not (flag and SC.char[flag]) then return end
     msg, sender = SC.Plain(msg), SC.Plain(sender)
     if not (msg and sender) then return end
     local me = SC.Plain(UnitName("player"))

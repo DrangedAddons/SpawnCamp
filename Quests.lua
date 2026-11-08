@@ -3,8 +3,8 @@
 -- handle a window yourself.
 --
 -- Order on a chat window: hand in finished quests, take available ones, then
--- pick a chat option (the preferred text matches in order, else the only
--- option; with several and no match it asks you). Follow-up quests open as a new quest
+-- pick a chat option (the preferred text matches in order, else the first
+-- option). Follow-up quests open as a new quest
 -- window from the same NPC and are accepted the same way.
 
 local ADDON, SC = ...
@@ -76,7 +76,11 @@ local function PickGossipOption(S, options, onlyQuestsLeft)
             if text and text:lower():find(want, 1, true) then return opt end
         end
     end
-    if #options == 1 and onlyQuestsLeft then return options[1] end
+    -- No preferred match: the first option, as the window lists them.
+    if onlyQuestsLeft and #options > 0 then
+        table.sort(options, function(a, b) return (a.orderIndex or 0) < (b.orderIndex or 0) end)
+        return options[1]
+    end
     return nil
 end
 
@@ -99,11 +103,7 @@ SC.On("GOSSIP_SHOW", function()
         local noQuestsWaiting = #avail == 0
         if not mob.gossip then return end
         local opt = PickGossipOption(mob, options, noQuestsWaiting)
-        if opt and opt.gossipOptionID then
-            G.SelectOption(opt.gossipOptionID)
-        elseif #options > 1 and noQuestsWaiting then
-            SC.Print("several chat options: pick one. (Talk settings can list text to pick automatically.)")
-        end
+        if opt and opt.gossipOptionID then G.SelectOption(opt.gossipOptionID) end
     end)
 end)
 
@@ -153,7 +153,7 @@ SC.On("QUEST_COMPLETE", function()
         elseif mob.reward and mob.reward >= 1 and mob.reward <= n then
             GetQuestReward(mob.reward)
         else
-            SC.Print("pick a reward (Talk settings > Reward choice picks one automatically)")
+            SC.Print("pick a reward (Quest reward in the settings is empty, or past the last choice)")
         end
     end)
 end)

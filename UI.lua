@@ -18,7 +18,7 @@ local rowOffset, histOffset = 0, 0
 local MAX_ROWS, HIST_ROWS = 10, 10
 local ROW_H = 40
 local W_COMPACT, W_PANEL = 420, 440
-local PANEL_H = { mob = 330, settings = 470 }
+local PANEL_H = { mob = 330, settings = 482 }
 local capturing     -- the settings table whose key is being set, or nil
 
 -- The game's sword and chat cursors, tinted gold on the buttons.
@@ -591,7 +591,7 @@ local function BuildSettings(P)
 
     -- Attack
     y = -78
-    Header(P, "Sword: attack  |TInterface\\Icons\\INV_Sword_04:14|t", y)
+    Header(P, "Attack  |TInterface\\CURSOR\\Attack:14|t", y)
     Text(P, "Spell", 8, y - 24)
     ui.spell = Edit(P, 160, 54, y - 20, function(t)
         A.spell = strtrim(t)
@@ -608,30 +608,36 @@ local function BuildSettings(P)
 
     -- Talk
     y = -222
-    Header(P, "Bubble: talk  |TInterface\\GossipFrame\\GossipGossipIcon:14|t", y)
+    Header(P, "Talk  |TInterface\\CURSOR\\Speak:14|t", y)
     Check(P, "Hand in and accept quests (follow-ups too)", 4, y - 16,
         function() return I.autoQuest end, function(v) I.autoQuest = v end)
     Check(P, "Click through chat", 4, y - 38,
         function() return I.gossip end, function(v) I.gossip = v end,
-        "Picks the chat option when there's only one. With several, it picks one matching the list below, or asks you.")
-    Text(P, "Prefer chat options containing (one per line):", 8, y - 66)
+        "Picks a chat option for you: one matching the Prefer list below if there is one, otherwise the first option.")
+    Text(P, "Prefer chat options containing (one per line, optional):", 8, y - 66)
     ui.prefer = BigEdit(P, 270, 46, 8, y - 82, 600, function(t) I.prefer = t end)
-    Text(P, "Reward choice", 290, y - 84)
+    Text(P, "Quest reward", 290, y - 84)
     ui.reward = Edit(P, 30, 370, y - 80, function(t) I.reward = tonumber(t) or 0 end, true)
-    Text(P, "1 = first, empty = ask", 290, y - 106)
+    Text(P, "When a quest offers a\nchoice: 1 = first, 2 =\nsecond... Empty = I pick.", 290, y - 104)
     Text(P, "Hold Shift while talking to do it yourself.", 8, y - 136)
 
     -- General
     y = -380
     Header(P, "General", y)
-    Check(P, "Share sightings with group/guild", 4, y - 16,
-        function() return SC.char.share end, function(v) SC.char.share = v end,
-        "Sends spawns and deaths you see to party/raid and guild members running SpawnCamp, and logs theirs for mobs you watch.")
-    Check(P, "Sound with alerts", 230, y - 16,
+    Text(P, "Share sightings with:", 8, y - 22)
+    local tip = "Sends spawns and deaths you see to other SpawnCamp users there, and logs theirs for mobs you watch."
+    Check(P, "Party", 130, y - 16,
+        function() return SC.char.shareParty end, function(v) SC.char.shareParty = v end, tip)
+    Check(P, "Raid", 200, y - 16,
+        function() return SC.char.shareRaid end, function(v) SC.char.shareRaid = v end, tip)
+    Check(P, "Guild", 266, y - 16,
+        function() return SC.char.shareGuild end, function(v) SC.char.shareGuild = v end, tip)
+    Check(P, "Show mobs I've already killed", 4, y - 40,
+        function() return SC.char.showDone end, function(v) SC.char.showDone = v end,
+        "When you get the kill on a mob, it comes off your key and is marked \"got\". Ticked, it stays on the list; unticked, it's hidden.")
+    Check(P, "Sound with alerts", 230, y - 40,
         function() return SC.char.sound end, function(v) SC.char.sound = v end)
-    Check(P, "Keep mobs I already got", 4, y - 40,
-        function() return SC.char.showDone end, function(v) SC.char.showDone = v end)
-    Check(P, "Lock window", 230, y - 40,
+    Check(P, "Lock window", 4, y - 62,
         function() return SC.char.locked end, function(v) SC.char.locked = v end)
 end
 
@@ -805,7 +811,7 @@ local function RefreshRows(top)
     local list = {}
     for _, n in ipairs(SC.char.order) do
         local m = SC.char.mobs[n]
-        if m and (m.hunting or m.mode or SC.char.showDone) then list[#list + 1] = n end
+        if m and (m.hunting or SC.char.showDone) then list[#list + 1] = n end
     end
     rowOffset = math.max(0, math.min(rowOffset, #list - MAX_ROWS))
     for _, p in pairs(portraits) do p:Hide() end

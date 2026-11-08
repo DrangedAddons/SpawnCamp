@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+
+- Sharing has separate **Party**, **Raid** and **Guild** boxes. Messages are only sent to and accepted from ticked ones.
+- "Keep mobs I already got" is now **Show mobs I've already killed**, with a tooltip. It also works again: since every mob always has Attack or Talk, killed mobs could never be hidden.
+- Click through chat picks the first option when several are offered and none match the Prefer list (it used to stop and ask).
+- Quest reward defaults to **1** (first reward); empty means you pick. Existing settings left at "ask" move to 1 once.
+
 ## 0.6.0
 
 - **Attack** and **Talk** are a pressed/raised pair on each mob, in the game's red button style with gold icons and text. One is always pressed. Clicking it again does nothing; clicking the other swaps them.

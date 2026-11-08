@@ -49,17 +49,20 @@ The game requires a real keypress for every target, cast and interact. SpawnCamp
   - **Spell**: drag an instant spell from your spellbook. Empty = auto attack only.
   - **Custom attack lines**: optional, replace the spell lines.
 - **Talk**:
-  - **Hand in and accept quests** and **Click through chat**: both on by default. With several chat options it picks one matching your **Prefer** list, or asks you.
-  - **Reward choice**: for quests with several rewards.
+  - **Hand in and accept quests** and **Click through chat**: both on by default. With several chat options it picks one matching your **Prefer** list, otherwise the first one.
+  - **Quest reward**: which reward to take when a quest offers a choice. 1 (the default) = first, 2 = second, and so on. Empty = you pick.
   - Hold **Shift** while talking to do a window yourself.
-- **General**: share sightings with group/guild, sound, keep mobs you already got, lock the window.
+- **General**:
+  - Share sightings with **Party**, **Raid** and **Guild**: separate boxes.
+  - **Show mobs I've already killed**: when you get the kill on a mob, it comes off your key and is marked "got". Ticked, it stays on the list; unticked, it's hidden.
+  - Sound with alerts, lock window.
 
 ## Respawn timer
 
 The timer starts when the mob dies and stops when it's seen alive again. That time is the respawn. The line shows `dead 2:05` while it's down (with `due in` once there's history), then `UP, respawned after 4:51`. SpawnCamp sees deaths and spawns on nameplates, your target, your mouseover, and whatever your key targets. The details show the earliest, average and latest respawn.
 
 - **Respawn alarm** goes off a set time before the earliest respawn, and again when the window opens.
-- **Alert when it spawns** goes off when it's seen alive (by you, or by another SpawnCamp user with sharing on).
+- **Alert when it spawns** goes off when it's seen alive (by you, or by another SpawnCamp user in a party, raid or guild you share with).
 - **Known respawn** (minutes) overrides the history.
 - When you get the kill yourself, the mob comes off your key and is marked "got". Tick **Still hunting** in its details to put it back.
 
