@@ -5,29 +5,34 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
 ## The window
 
 ```
-SpawnCamp                                                [gear] [x]
-Key [ F ] [Unassign]                        Attacks Mechanized Sentry.
+SpawnCamp                                                 [gear] [x]
+[ Bound: F ] [Unassign]                     Attacks Mechanized Sentry.
 [ type or paste a mob name ] [Add] [My Target] [Nearby]
 +--------------------------------------------------------------------+
-| (portrait) Mechanized Sentry               [SWORD] [BUBBLE] [Clear] |
-|            dead 2:05, due in 2:55                                   |
+| (portrait) Mechanized Sentry    ETA 2:55   [SWORD] [BUBBLE] [Clear] |
+|            dead 2:05, earliest in 1:10  avg 5:00                    |
 +--------------------------------------------------------------------+
-Recent ----------------------------------------------------------------
-(p) Other Mob        up, seen 0:12 ago                              x
+Log -------------------------------------------------------------------
+Respawn from 3 kills: earliest 3:15, average 5:00, latest 6:40
+[x] Alert when it spawns   [x] Respawn alarm [60] sec early
+Known respawn [  ] to [  ] min            [It died now] [It's up now]
+11-08 19:40:12  died  you
+11-08 19:35:02  spawned  you  respawn 4:51
+[+] Recent targets (2)
 ```
 
-- **Key**: your one SpawnCamp key, right on the front. Click it and press a key to assign or change it; **Unassign** removes it. It only does something while you have a **target** selected.
+- **Key button**: says **Click to Bind Key** until you bind one, then **Bound: F**. Click it and press a key, roll the mouse wheel, or press mouse button 3-5 (Shift/Ctrl/Alt combos work). **Unassign** removes it. The key only does something while you have a **target**.
 - **Target**: the mob your key works on. Set it by typing or pasting a name (**Add** or Enter), with **My Target** (your in-game target), or with **Use** in the **Nearby** list. **Clear** unsets it: the key then does nothing and goes back to its normal binding.
-- **Sword / bubble**: big square buttons, one always pressed. The sword means your key targets the mob and casts your attack spell. The bubble means it targets the NPC and talks to it: chat, quest hand-ins, new and follow-up quests. Clicking the pressed one does nothing; clicking the other swaps them. **Right-click the sword** to set the spell or your own macro lines. **Right-click the bubble** for the chat and quest options.
-- **Recent**: mobs you've targeted before, newest first, each with its timer. Click one to make it the target again; right-click it for its respawn log. **x** removes it.
-- **Respawn log**: click the target's name, or right-click a Recent mob. It opens beside the window with respawn times, full history, alarms and the manual "it died / it's up" buttons.
-- **Portrait**: the mob's real portrait once it has been seen (targeted, on a nameplate, moused over). Before that, an icon for its creature type (beast, humanoid, undead...), or a sword or scroll if that isn't known yet.
+- **ETA**: counts down to the mob's average respawn time since its last death. It shows **DUE** once the average has passed without a sighting, and **UP** once the mob has been seen. The average is under it.
+- **Sword / bubble**: big square buttons, one always pressed. The sword means your key targets the mob and casts your attack spell. The bubble means it targets the NPC and talks to it: chat, quest hand-ins, new and follow-up quests. Clicking the pressed one does nothing; clicking the other swaps them. **Right-click the sword** for the spell or your own macro lines, **right-click the bubble** for the chat and quest options. Clicking anywhere outside an options box closes it.
+- **Log**: under the target, covering its respawn stats, alarms, known respawn time, manual "it died / it's up" buttons, and every sighting with its time.
+- **Recent targets**: collapsed until you click the header. Mobs you've targeted before, with their timers. Click one to make it the target again; **x** removes it.
+- **Portrait**: the mob's real portrait once it has been seen (targeted, on a nameplate, moused over). Before that, an icon for its creature type, or a sword or scroll if that isn't known yet.
 - **Gear**: sharing with **Party**, **Raid** and **Guild**, whether to show mobs you've already killed in Recent, sound, lock window.
 
 Hostile mobs start on the sword and friendly ones on the bubble.
 
 The game requires a real keypress for every target, cast and interact. SpawnCamp doesn't press anything for you and never will.
-
 ### What the key runs
 
 ```
@@ -58,10 +63,10 @@ The timer starts when the mob dies and stops when it's seen alive again. That ti
 
 A mob first found already dead is logged with a **+** ("died at least this long ago"), since the real time of death isn't known.
 
-Other alerts:
+Alerts:
 
-- **Respawn alarm**: goes off a set time before the earliest respawn, and again when the window opens.
-- **Alert when it spawns**: goes off when it's seen alive.
+- **Spawn alert** (loud, raid-warning sound): the mob is seen alive.
+- **Soft ding** (whisper sound, small yellow text): a set time before the earliest respawn, when the respawn window opens, and when the **average** respawn time is reached, whether or not the mob has shown.
 - **Known respawn** (minutes): overrides the history.
 - **Your own kill**: the mob is marked "got" and cleared as your target.
 ### Hidden names (dungeons)

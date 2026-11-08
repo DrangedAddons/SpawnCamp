@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+
+- **ETA** next to the target's name: a countdown to the average respawn, with the average under it; **DUE** once it has passed, **UP** once the mob is seen.
+- A soft **ding** (whisper sound plus small yellow text) when the average respawn time is reached, whether or not the mob has shown. The early warning and window-open alarms use the ding too; the spawn alert keeps the raid-warning sound.
+- The key button reads **Click to Bind Key** / **Bound: F**, with no separate label. The mouse wheel can be bound.
+- The Attack and Talk options are wider so the text fits, and close when you click anywhere outside them (clicking the other button just closes them).
+- The log sits under the target instead of in a side panel.
+- Recent targets are collapsed until you click the header.
+
 ## 0.8.1
 
 - Removed the combat log. Forever forbids addons from reading it, and registering for it brought up the "blocked from an action only available to the Blizzard UI" popup.

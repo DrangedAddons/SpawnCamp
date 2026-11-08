@@ -164,12 +164,26 @@ function SC.Status(name)
     local lo, avg, hi = SC.Stats(name)
     if not lo then return "dead", text end
     if dead < lo then
-        return "waiting", text .. ", due in " .. SC.Clock(lo - dead), dead / lo
+        return "waiting", text .. ", earliest in " .. SC.Clock(lo - dead), dead / lo
     end
     if hi and dead <= hi then
-        return "window", text .. ", due now (until " .. SC.Clock(hi) .. ")", 1
+        return "window", text .. ", in the respawn window", 1
     end
-    return "late", text .. ", overdue (usually " .. SC.Clock(avg or lo) .. ")", 1
+    return "late", text .. ", past the latest respawn seen", 1
+end
+
+-- Countdown to the average respawn, for the big ETA next to the name.
+-- Returns big text, small text, colour code.
+function SC.ETA(name)
+    local events = SC.History(name).events
+    local last = events[#events]
+    local _, avg = SC.Stats(name)
+    local avgText = avg and ("avg " .. SC.Clock(avg)) or "no respawn time yet"
+    if last and last.k == "A" then return "UP", avgText, "|cff40ff40" end
+    if not (last and avg) then return "ETA --:--", avgText, "|cff999999" end
+    local left = avg - (GetServerTime() - last.t)
+    if left > 0 then return "ETA " .. SC.Clock(left), avgText, "|cffffd100" end
+    return "DUE", avgText .. ", " .. SC.Clock(-left) .. " over", "|cffff8040"
 end
 
 ------------------------------------------------------------------------------
@@ -188,6 +202,19 @@ function SC.Alert(text)
     if FlashClientIcon then pcall(FlashClientIcon) end
 end
 
+-- The quieter alert: a ding and a line in the middle of the screen. Used for
+-- timing (early warning, average reached); the spawn alert keeps the raid warning.
+function SC.Ding(text)
+    SC.Print("|cffffd100" .. text .. "|r")
+    if UIErrorsFrame and UIErrorsFrame.AddMessage then
+        pcall(UIErrorsFrame.AddMessage, UIErrorsFrame, text, 1, 0.82, 0.2)
+    end
+    if SC.char.sound then
+        local kit = SOUNDKIT and SOUNDKIT.TELL_MESSAGE or 3081
+        pcall(PlaySound, kit, "Master")
+    end
+end
+
 -- Alarm flags per death event, so each fires once. Session only.
 local fired = setmetatable({}, { __mode = "k" })
 
@@ -199,7 +226,7 @@ local function CheckAlarms()
             local events = SC.History(name).events
             local last = events[#events]
             if last and last.k == "D" then
-                local lo = SC.Stats(name)
+                local lo, avg = SC.Stats(name)
                 if lo then
                     local f = fired[last]
                     if not f then f = {}; fired[last] = f end
@@ -209,11 +236,16 @@ local function CheckAlarms()
                     -- logging in to an old death doesn't go off.
                     if not f.pre and lead > 0 and ago >= lo - lead and ago < lo then
                         f.pre = true
-                        SC.Alert(name .. " may spawn in " .. SC.Clock(lo - ago))
+                        SC.Ding(name .. " may spawn in " .. SC.Clock(lo - ago))
                     end
                     if not f.open and ago >= lo and ago < lo + 120 then
                         f.open = true
-                        SC.Alert(name .. " respawn window is open")
+                        SC.Ding(name .. ": respawn window is open")
+                    end
+                    -- The average respawn time is reached, whether or not it has shown.
+                    if avg and not f.avg and ago >= avg and ago < avg + 120 then
+                        f.avg = true
+                        SC.Ding(name .. " is due (average respawn " .. SC.Clock(avg) .. ")")
                     end
                 end
             end
