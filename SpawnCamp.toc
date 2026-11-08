@@ -4,7 +4,7 @@
 ## Author: Dranged
 ## Version: 0.12.2
 ## X-DrangedAddons-Games: _forever_
-## IconTexture: Interface\Icons\Ability_Hunter_MarkedForDeath
+## IconTexture: Interface\AddOns\SpawnCamp\icon
 ## AddonCompartmentFunc: SpawnCamp_OnCompartmentClick
 ## SavedVariables: SpawnCampDB
 ## SavedVariablesPerCharacter: SpawnCampCharDB

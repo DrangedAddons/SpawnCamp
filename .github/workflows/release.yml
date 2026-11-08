@@ -29,7 +29,7 @@ jobs:
       - name: Build zip
         run: |
           mkdir -p build/SpawnCamp
-          rsync -a --exclude='.git*' --exclude='.github' --exclude='build' ./ build/SpawnCamp/
+          rsync -a --exclude='.git*' --exclude='.github' --exclude='build' --exclude='tools' ./ build/SpawnCamp/
           cd build && zip -qr "../SpawnCamp-${GITHUB_REF_NAME}.zip" SpawnCamp
 
       # Every CHANGELOG section since the previous release, so versions that were never tagged on
