@@ -342,6 +342,7 @@ local function NoteNearby(unit)
             SC.CaptureTip(n, unit)
         end
         SC.nearby[n] = e
+        if SC.MatchPartial then SC.MatchPartial(n) end
         return "ok"
     end)
     if not ok then

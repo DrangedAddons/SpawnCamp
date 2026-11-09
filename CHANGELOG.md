@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.0
+
+- Typed names can be part of a name. A name the addon already knows (nearby, quests, history, Recent) is matched ignoring capitals and stored as the game spells it, so "young panther" becomes Young Panther.
+- Anything else becomes a search: every mob seen nearby whose name contains the text is added as its own target, under the search. Clearing one of those makes the search skip that name. If the full name turns up with different capitals, the search just becomes that mob.
+
 ## 0.23.1
 
 - Removed pinging and marking. Neither works from an addon on this client. The setting is gone.

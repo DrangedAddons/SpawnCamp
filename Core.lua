@@ -151,7 +151,7 @@ SC.questCap = 8
 function SC.MobsIn(mode)
     local out = {}
     for _, m in ipairs(SC.Actives()) do
-        if m.mode == mode then out[#out + 1] = m end
+        if m.mode == mode and not m.partial then out[#out + 1] = m end
     end
     if mode == "attack" and SC.QuestWanted then
         for i, n in ipairs(SC.QuestWanted()) do
@@ -169,6 +169,16 @@ function SC.SetActive(name, slot)
     local list = SC.char.targets
     SC.fastUnit, SC.onMob = nil, false
     if not name then
+        local gone = slot and list[slot]
+        local gm = gone and SC.char.mobs[gone]
+        if gm and gm.fromPartial then
+            local search = SC.char.mobs[gm.fromPartial]
+            if search and search.partial then
+                search.rejected = search.rejected or {}
+                search.rejected[gone] = true
+            end
+            gm.fromPartial = nil
+        end
         if slot and list[slot] then table.remove(list, slot) end
     elseif not SC.SlotOf(name) then
         if slot and list[slot] then
@@ -239,6 +249,141 @@ function SC.AddMob(name, mode)
     end
     SC.SetActive(name)
     return mobs[name]
+end
+
+-- Typed names. A name the addon already knows (nearby, quests, history,
+-- Recent) is matched ignoring case and stored as the game spells it. Anything
+-- else goes in as typed and unconfirmed (m.partial): a search that isn't on
+-- the key itself. Every mob seen whose name contains the text is added as a
+-- target of its own (fromPartial), right under the search. Clearing one of
+-- those tells the search to skip that name from then on.
+function SC.KnownNames()
+    local out, seen = {}, {}
+    local function add(n)
+        if type(n) == "string" and n ~= "" and not seen[n] then seen[n] = true; out[#out + 1] = n end
+    end
+    for n in pairs(SC.nearby or {}) do add(n) end
+    if SC.QuestMobs then
+        local ok, list = pcall(SC.QuestMobs)
+        if ok then for _, r in ipairs(list) do add(r.name) end end
+    end
+    local r = SpawnCampDB and SpawnCampDB.realms and SpawnCampDB.realms[SC.Realm()]
+    for n in pairs(r or {}) do add(n) end
+    for n, m in pairs(SC.char.mobs) do if not m.partial then add(n) end end
+    return out
+end
+
+-- The slash command that targets a target's name: part of a name for an
+-- unconfirmed one, the exact name otherwise.
+function SC.TargetCmd(name)
+    local m = SC.char and SC.char.mobs[name]
+    return (m and m.partial) and "/target " or "/targetexact "
+end
+
+function SC.AddTyped(text)
+    text = strtrim(text or "")
+    if text == "" then return end
+    local low = text:lower()
+    for _, n in ipairs(SC.KnownNames()) do
+        if n:lower() == low then return SC.AddMob(n) end
+    end
+    local mobs = SC.char.mobs
+    if not mobs[text] then
+        mobs[text] = { name = text, partial = true, rejected = {} }
+        Fill(mobs[text], SC.MOB_DEFAULTS)
+    end
+    SC.SetActive(text)
+    SC.FindPartials()
+    return mobs[text]
+end
+
+local function Replace(list, old, new)
+    for i, n in ipairs(list) do
+        if n == old then list[i] = new; return i end
+    end
+end
+
+-- The search's own name turned up with different capitals: it becomes that mob.
+local function Settle(key, name)
+    local mobs = SC.char.mobs
+    local m = mobs[key]
+    mobs[key] = nil
+    if mobs[name] then
+        local slot = SC.SlotOf(key)
+        if slot then
+            if SC.SlotOf(name) then table.remove(SC.char.targets, slot) else SC.char.targets[slot] = name end
+        end
+        for i, n in ipairs(SC.char.order) do
+            if n == key then table.remove(SC.char.order, i); break end
+        end
+    else
+        m.name, m.partial, m.rejected = name, nil, nil
+        mobs[name] = m
+        Replace(SC.char.targets, key, name)
+        Replace(SC.char.order, key, name)
+    end
+    mobs[name].hunting = true
+    if SC.char.selected == key then SC.char.selected = name end
+end
+
+-- A found mob goes on the key right under its search.
+local function AddFound(key, name)
+    local list = SC.char.targets
+    if #list >= SC.MAX_TARGETS then
+        SC.Print("found |cffffffff" .. name .. "|r for \"" .. key .. "\", but that's " .. SC.MAX_TARGETS .. " targets already.")
+        return false
+    end
+    local mobs = SC.char.mobs
+    if not mobs[name] then
+        mobs[name] = { name = name }
+        Fill(mobs[name], SC.MOB_DEFAULTS)
+        mobs[name].mode = mobs[key].mode
+    end
+    local m = mobs[name]
+    m.fromPartial, m.hunting = key, true
+    local at = SC.SlotOf(key) or #list
+    -- after the search and the finds already under it
+    while list[at + 1] and mobs[list[at + 1]] and mobs[list[at + 1]].fromPartial == key do at = at + 1 end
+    table.insert(list, at + 1, name)
+    for i, n in ipairs(SC.char.order) do
+        if n == name then table.remove(SC.char.order, i); break end
+    end
+    table.insert(SC.char.order, 1, name)
+    SC.Print("found |cffffffff" .. name .. "|r for \"" .. key .. "\" and added it. Clear it if it's not the one.")
+    return true
+end
+
+-- A name seen in game: added for every search it matches.
+function SC.MatchPartial(name)
+    if type(name) ~= "string" or name == "" or not SC.char or SC.IsActive(name) then return end
+    local low, hits = name:lower(), {}
+    for key, m in pairs(SC.char.mobs) do
+        if m.partial and key ~= name and SC.IsActive(key)
+            and not (m.rejected and m.rejected[name]) and low:find(key:lower(), 1, true) then
+            hits[#hits + 1] = key
+        end
+    end
+    if #hits == 0 then return end
+    local changed = false
+    for _, key in ipairs(hits) do
+        if SC.IsActive(name) then break end
+        if low == key:lower() then
+            Settle(key, name); changed = true
+        elseif AddFound(key, name) then
+            changed = true
+        end
+    end
+    if changed then
+        SC.fastUnit, SC.onMob = nil, false
+        SC.ApplyBindings()
+        if SC.PickLock then pcall(SC.PickLock) end
+        if SC.EvalTarget then pcall(SC.EvalTarget) end
+        SC.Refresh()
+    end
+end
+
+function SC.FindPartials()
+    for _, n in ipairs(SC.KnownNames()) do SC.MatchPartial(n) end
 end
 
 function SC.RemoveMob(name)

@@ -656,14 +656,14 @@ local function BuildPicker()
     ui.addName:HookScript("OnTextChanged", showHint)
     local function addTyped()
         local n = strtrim(ui.addName:GetText() or "")
-        if n ~= "" then SC.AddMob(n) end
+        if n ~= "" then SC.AddTyped(n) end
         ui.addName:SetText("")
         ui.addName:ClearFocus()
         SC.Refresh()
     end
     ui.addName:SetScript("OnEnterPressed", addTyped)
     ui.addName:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    Tip(Btn(T, "Add", 44, 326, -8, addTyped), "Add", "Adds the typed name to your targets. Use the exact name the game shows.")
+    Tip(Btn(T, "Add", 44, 326, -8, addTyped), "Add", "Adds the typed name to your targets. Part of a name works too: it becomes a search, and every mob seen with that in its name is added as its own target. Clear a wrong one and the search skips it from then on.")
     Tip(Btn(T, "My Target", 84, 8, -36, function() SC.AddTarget(); SC.Refresh() end),
         "My Target", "Adds the mob you have targeted in game to your targets: Attack if hostile, Talk if friendly.")
     Tip(Btn(T, "Nearby", 64, 94, -36, function() SC.ToggleNearby() end),
@@ -767,7 +767,6 @@ local function BuildTargetBox(slot, quest)
     bx.status:SetWordWrap(false)
     bx.nameArea = nameArea
 
-
     if not quest then
         -- Priority arrows at the left edge. Higher in the list = higher priority.
         local function Arrow(dir, delta, tip)
@@ -838,7 +837,7 @@ end
 local function Cover(b, region, name, w, h, dy)
     local l, bottom = region:GetLeft(), region:GetBottom()
     if not (name and l and bottom and region:IsVisible()) then b:Hide(); return end
-    b:SetAttribute("macrotext", "/targetexact " .. name)
+    b:SetAttribute("macrotext", SC.TargetCmd(name) .. name)
     b.mobName = name
     local s = region:GetEffectiveScale() / UIParent:GetEffectiveScale()
     b:ClearAllPoints()
@@ -887,7 +886,7 @@ local function PlaceNameSecure()
         if not (b and m and F:IsShown() and bx.frame:IsShown() and fs:IsVisible() and l and bottom) then
             if b then b:Hide() end
         else
-            b:SetAttribute("macrotext", "/targetexact " .. m.name)
+            b:SetAttribute("macrotext", SC.TargetCmd(m.name) .. m.name)
             b.mobName = m.name
             local s = fs:GetEffectiveScale() / UIParent:GetEffectiveScale()
             local w = math.max(fs:GetStringWidth() or 0, 40)
@@ -1427,9 +1426,16 @@ local function RefreshBox(bx, m, slot)
     if not m then bx.up:Hide(); bx.down:Hide(); return end
     PlacePortrait(m.name, bx.portrait)
     bx.tipName = m.name
-    bx.name:SetText(m.name)
-    local state, text = SC.Status(m.name)
-    bx.status:SetText(StatusColor(state) .. text .. "|r")
+    if m.partial then
+        bx.name:SetText(m.name .. "  |cff999999(search)|r")
+        local skipped = 0
+        for _ in pairs(m.rejected or {}) do skipped = skipped + 1 end
+        bx.status:SetText("|cffc0c0c0Adds any mob with this in its name|r" .. (skipped > 0 and ("  |cff808080(" .. skipped .. " skipped)|r") or ""))
+    else
+        bx.name:SetText(m.name)
+        local state, text = SC.Status(m.name)
+        bx.status:SetText(StatusColor(state) .. text .. "|r")
+    end
     local big, small, color = SC.ETA(m.name)
     bx.eta:SetText(color .. big .. "|r")
     bx.avg:SetText(small)
