@@ -723,6 +723,27 @@ local function BuildTargetBox(slot, quest)
     bx.nameArea = nameArea
 
 
+    if not quest then
+        -- Priority arrows down the portrait's left edge, with 2+ targets.
+        local function Arrow(dir, delta, tip)
+            local a = CreateFrame("Button", nil, T)
+            a:SetSize(18, 18)
+            a:SetFrameLevel(bx.portrait:GetFrameLevel() + 5)
+            a:SetNormalTexture("Interface\\Buttons\\UI-ScrollBar-Scroll" .. dir .. "Button-Up")
+            a:SetPushedTexture("Interface\\Buttons\\UI-ScrollBar-Scroll" .. dir .. "Button-Down")
+            a:SetHighlightTexture("Interface\\Buttons\\UI-ScrollBar-Scroll" .. dir .. "Button-Highlight", "ADD")
+            a:SetScript("OnClick", function() SC.MoveTarget(slot, delta) end)
+            Tip(a, "Priority", tip)
+            return a
+        end
+        bx.up = Arrow("Up", -1, "Moves this mob up. With several targets in view, the key goes for the highest one, and drops one you haven't hit yet when a higher one shows up.")
+        bx.up:SetPoint("TOPLEFT", bx.portrait, "TOPLEFT", -4, 4)
+        bx.down = Arrow("Down", 1, "Moves this mob down. With several targets in view, the key goes for the highest one.")
+        bx.down:SetPoint("BOTTOMLEFT", bx.portrait, "BOTTOMLEFT", -4, -4)
+        bx.prio = T:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        bx.prio:SetPoint("TOPRIGHT", bx.portrait, "TOPRIGHT", 2, 2)
+    end
+
     if quest then
         bx.talk:Hide()
         bx.keep:Hide()
@@ -745,7 +766,7 @@ local function BuildTarget()
         SC.Refresh()
         if ui.addName then ui.addName:SetFocus() end
     end)
-    Tip(ui.addAnother, "Another target", "Your key goes for whichever target shows up first, alive and untagged; each keeps its own Attack/Talk. Up to " .. SC.MAX_TARGETS .. ".")
+    Tip(ui.addAnother, "Another target", "Your key goes for the highest target in the list that's in view, alive and untagged (arrows on the portrait change the order); each keeps its own Attack/Talk. Up to " .. SC.MAX_TARGETS .. ".")
 end
 
 -- Clicking a target's name targets that mob in game. Targeting is protected,
@@ -763,7 +784,19 @@ local function BuildNameSecure()
         b:SetFrameStrata("MEDIUM")
         b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
         b:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.15)
-        Tip(b, "Target it", "Click to target this mob in game, if it''s in range.")
+        b:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            local u = SC.UnitFor(self.mobName)
+            if u then
+                GameTooltip:SetUnit(u)
+            else
+                GameTooltip:SetText(self.mobName or "?")
+                GameTooltip:AddLine("Not in view right now.", 0.7, 0.7, 0.7)
+            end
+            GameTooltip:AddLine("Click to target it.", 0.25, 1, 0.25)
+            GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave", GameTooltip_Hide)
         b:Hide()
         nameSecure[slot] = b
     end
@@ -784,6 +817,7 @@ local function PlaceNameSecure()
             if b then b:Hide() end
         else
             b:SetAttribute("macrotext", "/targetexact " .. m.name)
+            b.mobName = m.name
             local s = fs:GetEffectiveScale() / UIParent:GetEffectiveScale()
             local w = math.max(fs:GetStringWidth() or 0, 40)
             b:ClearAllPoints()
@@ -1335,7 +1369,7 @@ end
 
 local function RefreshBox(bx, m, slot)
     for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear, bx.keep }) do w:SetShown(m ~= nil) end
-    if not m then return end
+    if not m then bx.up:Hide(); bx.down:Hide(); bx.prio:SetText(""); return end
     PlacePortrait(m.name, bx.portrait)
     bx.name:SetText(m.name)
     local state, text = SC.Status(m.name)
@@ -1345,6 +1379,10 @@ local function RefreshBox(bx, m, slot)
     bx.avg:SetText(small)
     SetPressed(bx.attack, m.mode == "attack")
     SetPressed(bx.talk, m.mode == "interact")
+    local n = #SC.Targets()
+    bx.up:SetShown(n > 1 and slot > 1)
+    bx.down:SetShown(n > 1 and slot < n)
+    bx.prio:SetText(n > 1 and ("|cffffd100" .. slot .. "|r") or "")
 end
 
 -- Lays out a box per target and the "add another" button; returns the y below.

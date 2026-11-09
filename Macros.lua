@@ -64,6 +64,9 @@ local lastErr, lastErrAt = nil, 0
 SC.On("UI_ERROR_MESSAGE", function(_, msg)
     msg = SC.Plain(msg)
     if not msg or not SC.lastPress.key or GetTime() - SC.lastPress.key > 0.5 then return end
+    if (SPELL_FAILED_LINE_OF_SIGHT and msg == SPELL_FAILED_LINE_OF_SIGHT) or msg:lower():find("line of sight", 1, true) then
+        if SC.BlockTarget then pcall(SC.BlockTarget) end
+    end
     if msg == lastErr and GetTime() - lastErrAt < 4 then return end
     lastErr, lastErrAt = msg, GetTime()
     SC.Print("|cffff8040key press didn't cast:|r " .. msg)

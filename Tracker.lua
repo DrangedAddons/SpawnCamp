@@ -344,40 +344,80 @@ function SC.NearbyList()
     return out
 end
 
--- A quest mob's alive, untagged nameplate locks the key onto it, the same as a
--- target's. It never takes the lock from another plate (your own target's or
--- another quest mob's), so spamming doesn't hop between mobs.
-local function CheckQuestPlate(unit)
-    if not (SC.char.anyQuest and unit:find("^nameplate%d+$")) then return end
+-- The lock: the key points at the alive, untagged nameplate of the
+-- highest-priority mob in view (your targets in list order, then Auto Quest
+-- mobs). On a tie the current plate stays, so equal mobs don't hop. Plates that
+-- just failed with "not in line of sight" sit out for a few seconds.
+local blocked = {}       -- nameplate token -> GetTime() it's skipped until
+SC.blockedPlates = blocked
+local BLOCK_SECS = 8
+
+local function PlateRank(unit)
+    if not SC.MaybeExists(unit) or SC.True(UnitIsPlayer(unit)) then return end
+    if blocked[unit] and blocked[unit] > GetTime() then return end
+    if SC.Bool(UnitIsDead(unit)) ~= false then return end
+    if UnitIsTapDenied and SC.Bool(UnitIsTapDenied(unit)) == true then return end
     local n = SC.UnitNameSafe(unit)
-    if not n or SC.IsActive(n) then return end
-    local wanted = SC.IsQuestWanted(n)
-    local dead = SC.Bool(UnitIsDead(unit))
-    local tap = UnitIsTapDenied and SC.Bool(UnitIsTapDenied(unit)) or nil
-    local ok = wanted and dead == false and tap ~= true
-    if ok and not SC.fastUnit then
-        SC.lastQuestMob = n
-        SC.SetFastUnit(unit)
-    elseif not ok and SC.fastUnit == unit then
-        SC.SetFastUnit(nil)
+    if not n then return end
+    local slot = SC.SlotOf(n)
+    if slot then return slot, n end
+    if SC.char.anyQuest and SC.IsQuestWanted(n) and SC.Bool(UnitCanAttack("player", unit)) ~= false then
+        return SC.MAX_TARGETS + 1, n
     end
+end
+SC._PlateRank = PlateRank
+
+function SC.PickLock()
+    if not SC.char or SC.inCombat or InCombatLockdown() then return end
+    local best, bestRank, bestName
+    for i = 1, 40 do
+        local u = "nameplate" .. i
+        local r, n = PlateRank(u)
+        if r and (not bestRank or r < bestRank) then best, bestRank, bestName = u, r, n end
+    end
+    if SC.fastUnit and bestRank then
+        local r, n = PlateRank(SC.fastUnit)
+        if r and r <= bestRank then best, bestRank, bestName = SC.fastUnit, r, n end
+    end
+    if best and bestRank > SC.MAX_TARGETS then SC.lastQuestMob = bestName end
+    SC.SetFastUnit(best)
+end
+
+-- After "not in line of sight" on a key press: the mob you're on sits out, and
+-- the key moves to the next one in view (if there is one).
+function SC.BlockTarget()
+    local now = GetTime()
+    SC.targetBlocked = now + BLOCK_SECS
+    for i = 1, 40 do
+        local p = "nameplate" .. i
+        if SC.MaybeExists(p) and SC.True(UnitIsUnit("target", p)) then blocked[p] = now + BLOCK_SECS end
+    end
+    if SC.fastUnit and blocked[SC.fastUnit] then SC.SetFastUnit(nil) end
+    SC.PickLock()
+    SC.EvalTarget()
+end
+
+-- A unit token showing this mob right now, for its tooltip.
+function SC.UnitFor(name)
+    if not name then return nil end
+    local want = name:lower()
+    local function is(u)
+        local n = SC.MaybeExists(u) and SC.UnitNameSafe(u)
+        return n and n:lower() == want
+    end
+    if is("target") then return "target" end
+    if SC.fastUnit and is(SC.fastUnit) then return SC.fastUnit end
+    for i = 1, 40 do
+        if is("nameplate" .. i) then return "nameplate" .. i end
+    end
+    if is("mouseover") then return "mouseover" end
 end
 
 local function Check(unit)
     NoteNearby(unit)
-    pcall(CheckQuestPlate, unit)
     local name, mob, dead, spawn, tapDenied = SC.ReadUnit(unit)
     if not name then return end
     if SC.CapturePortrait then SC.CapturePortrait(name, unit) end
-    -- The target's alive nameplate: point the key straight at it.
-    if SC.IsActive(name) and unit:find("^nameplate%d+$") then
-        -- Alive and not tagged by someone else (yours or nobody's is fine).
-        if dead == false and tapDenied ~= true then
-            SC.SetFastUnit(unit)
-        elseif SC.fastUnit == unit then
-            SC.SetFastUnit(nil)
-        end
-    end
     if dead == true then
         local events = SC.History(name).events
         -- Exact when we saw this spawn alive (same UID, or the last event was it alive).
@@ -492,19 +532,28 @@ function SC.EvalTarget()
     if not SC.char then return end
     local actives = SC.MobsIn("attack")
     for _, m in ipairs(SC.MobsIn("interact")) do actives[#actives + 1] = m end
-    local on = false
+    local on, onName = false, nil
     if #actives > 0 and SC.MaybeExists("target") and not SC.True(UnitIsPlayer("target"))
         and SC.Bool(UnitIsDead("target")) == false
         and not (UnitIsTapDenied and SC.Bool(UnitIsTapDenied("target")) == true) then
         local n = SC.UnitNameSafe("target")
         for _, m in ipairs(actives) do
             if n then
-                if n:lower() == m.name:lower() then on = true end
+                if n:lower() == m.name:lower() then on = true; onName = onName or m.name end
             else
                 local f = follow[m.name]
-                if f and f.viaTarget then on = true end
+                if f and f.viaTarget then on = true; onName = onName or m.name end
             end
         end
+    end
+    -- Never swaps off a mob you're fighting. One you haven't hit yet gives way
+    -- to a higher-priority mob in view, or to any other when it's out of sight.
+    local fu = SC.fastUnit
+    if on and fu and not SC.inCombat and SC.Bool(UnitAffectingCombat("target")) ~= true
+        and not SC.True(UnitIsUnit("target", fu)) then
+        local fr = SC.RankOf(SC.UnitNameSafe(fu))
+        local tr = SC.RankOf(onName) or SC.MAX_TARGETS + 2
+        if (SC.targetBlocked and SC.targetBlocked > GetTime()) or (fr and fr < tr) then on = false end
     end
     if not on then SC.markDone = false end
     SC.SetOnMob(on)
@@ -515,6 +564,7 @@ SC.On("PLAYER_REGEN_ENABLED", function() SC.EvalTarget() end)
 -- Your own target change (not the key's) ends following through the target.
 SC.On("PLAYER_TARGET_CHANGED", function()
     local now = GetTime()
+    SC.targetBlocked = nil
     for name, f in pairs(follow) do
         if f.viaTarget and now - (SC.lastPress.key or 0) > 0.6 then
             f.viaTarget = nil
@@ -548,6 +598,8 @@ local function Scan()
     for unit in pairs(plates) do
         if not unit:find("^nameplate%d+$") then Check(unit) end
     end
+    SC.PickLock()
+    SC.EvalTarget()
 end
 
 SC.Scan = Scan
@@ -559,14 +611,17 @@ SC.Scan = Scan
 
 SC.On("NAME_PLATE_UNIT_ADDED", function(unit)
     plates[unit] = true
+    blocked[unit] = nil
     Check(unit)
+    SC.PickLock()
 end)
 
 -- Nameplates go away when the mob dies; read it once more on the way out.
 SC.On("NAME_PLATE_UNIT_REMOVED", function(unit)
     Check(unit)
     plates[unit] = nil
-    if SC.fastUnit == unit then SC.SetFastUnit(nil) end
+    blocked[unit] = nil
+    if SC.fastUnit == unit then SC.SetFastUnit(nil); SC.PickLock() end
 end)
 
 SC.On("PLAYER_TARGET_CHANGED", function() Check("target") end)

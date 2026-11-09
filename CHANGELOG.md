@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.21.0
+
+- **Priority**: the target list order is the priority. Arrows on each portrait move a mob up or down, and the number shows its place. With several in view, the nameplate lock goes for the highest one, and stays put between equal ones instead of hopping.
+- The key lets go of a mob you haven't hit yet when a higher-priority one comes into view. A mob you're fighting is never dropped.
+- **Line of sight**: when a press fails with "Target not in line of sight", that mob sits out for 8 seconds and the key moves to the next target in view. Fixes the key staying locked on a mob behind a wall.
+- Hovering a target's name shows the mob's own game tooltip when it's in view (target, nameplate or mouseover). Clicking still targets it.
+
 ## 0.20.2
 
 - No alerts of any kind for mobs that aren't targets in the main window. Killing a Recent mob (or one Auto Quest picked) no longer shows "You got X!". Sightings are still logged.

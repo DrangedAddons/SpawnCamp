@@ -126,6 +126,26 @@ function SC.IsActive(name)
     return SC.SlotOf(name) ~= nil
 end
 
+-- Priority for the key's lock: the slot (1 = highest), then Auto Quest mobs.
+function SC.RankOf(name)
+    if not name then return nil end
+    local s = SC.SlotOf(name)
+    if s then return s end
+    if SC.char.anyQuest and SC.IsQuestWanted and SC.IsQuestWanted(name) then return SC.MAX_TARGETS + 1 end
+end
+
+-- Swaps a target with the one above (delta -1) or below (+1).
+function SC.MoveTarget(slot, delta)
+    local list, j = SC.char.targets, slot + delta
+    if not (list[slot] and list[j]) then return end
+    list[slot], list[j] = list[j], list[slot]
+    if SC.char.logSlot == slot then SC.char.logSlot = j elseif SC.char.logSlot == j then SC.char.logSlot = slot end
+    SC.ApplyBindings()
+    if SC.PickLock then pcall(SC.PickLock) end
+    if SC.EvalTarget then SC.EvalTarget() end
+    SC.Refresh()
+end
+
 -- The targets in this mode. With "any quest mob" on, attack also gets the
 -- mobs your quests still need (stand-ins with quest = true, after your own
 -- targets), capped by SC.questCap so the key's macro stays short enough.
