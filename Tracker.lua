@@ -353,6 +353,23 @@ local blocked = {}       -- nameplate token -> GetTime() it ranks low until
 SC.blockedPlates = blocked
 local BLOCK_SECS = 8
 local LOS_PENALTY = 100
+local RANGE_PENALTY = 50
+
+-- Is the unit in range of your attack spell? nil when it can't be told
+-- (no spell set, custom macro, or the client won't say).
+function SC.InRange(unit)
+    local A = SC.char and SC.char.attack
+    local spell = A and (not A.macro or strtrim(A.macro) == "") and A.spell
+    if not spell or spell == "" then return nil end
+    local f = (C_Spell and C_Spell.IsSpellInRange) or IsSpellInRange
+    if not f then return nil end
+    local ok, r = pcall(f, spell, unit)
+    if not ok then return nil end
+    r = SC.Plain(r)
+    if r == true or r == 1 then return true end
+    if r == false or r == 0 then return false end
+    return nil
+end
 
 local function PlateRank(unit)
     if not SC.MaybeExists(unit) or SC.True(UnitIsPlayer(unit)) then return end
@@ -366,6 +383,7 @@ local function PlateRank(unit)
     end
     if not r then return end
     if blocked[unit] and blocked[unit] > GetTime() then r = r + LOS_PENALTY end
+    if SC.InRange(unit) == false then r = r + RANGE_PENALTY end
     return r, n
 end
 SC._PlateRank = PlateRank
@@ -382,7 +400,7 @@ function SC.PickLock()
         local r, n = PlateRank(SC.fastUnit)
         if r and r <= bestRank then best, bestRank, bestName = SC.fastUnit, r, n end
     end
-    if best and bestRank % LOS_PENALTY > SC.MAX_TARGETS then SC.lastQuestMob = bestName end
+    if best and bestRank % RANGE_PENALTY > SC.MAX_TARGETS then SC.lastQuestMob = bestName end
     SC.SetFastUnit(best)
 end
 
@@ -549,14 +567,15 @@ function SC.EvalTarget()
         end
     end
     -- Never swaps off a mob you're fighting. One you haven't hit yet gives way
-    -- to a mob that ranks higher: higher in the list, or in sight when this one
-    -- just failed with "not in line of sight".
+    -- to a mob that ranks higher: in range and sight when this one isn't, or
+    -- higher in the list with both reachable.
     local fu = SC.fastUnit
     if on and fu and not SC.inCombat and SC.Bool(UnitAffectingCombat("target")) ~= true
         and not SC.True(UnitIsUnit("target", fu)) then
         local fr = PlateRank(fu)
         local tr = SC.RankOf(onName) or SC.MAX_TARGETS + 2
         if SC.targetBlocked and SC.targetBlocked > GetTime() then tr = tr + LOS_PENALTY end
+        if SC.InRange("target") == false then tr = tr + RANGE_PENALTY end
         if fr and fr < tr then on = false end
     end
     if not on then SC.markDone = false end

@@ -657,7 +657,7 @@ local function BuildTargetBox(slot, quest)
 
     bx.portrait = CreateFrame("Frame", nil, T)
     bx.portrait:SetSize(52, 52)
-    bx.portrait:SetPoint("LEFT", 24, 0)
+    bx.portrait:SetPoint("LEFT", 30, 0)
 
     -- Right column: Clear, with Keep under it.
     bx.clear = Btn(T, "Clear", 58, 0, 0, function()
@@ -724,10 +724,10 @@ local function BuildTargetBox(slot, quest)
 
 
     if not quest then
-        -- Priority column at the left edge: up arrow, place number, down arrow.
+        -- Priority arrows at the left edge. Higher in the list = higher priority.
         local function Arrow(dir, delta, tip)
             local a = CreateFrame("Button", nil, T)
-            a:SetSize(16, 16)
+            a:SetSize(26, 26)
             a:SetNormalTexture("Interface\\Buttons\\Arrow-" .. dir .. "-Up")
             a:SetPushedTexture("Interface\\Buttons\\Arrow-" .. dir .. "-Down")
             a:SetDisabledTexture("Interface\\Buttons\\Arrow-" .. dir .. "-Up")
@@ -739,11 +739,9 @@ local function BuildTargetBox(slot, quest)
             return a
         end
         bx.up = Arrow("Up", -1, "Higher priority. With several targets in view, the key goes for the highest one.")
-        bx.up:SetPoint("TOPLEFT", T, "TOPLEFT", 5, -6)
+        bx.up:SetPoint("TOPLEFT", T, "TOPLEFT", 2, -4)
         bx.down = Arrow("Down", 1, "Lower priority. With several targets in view, the key goes for the highest one.")
-        bx.down:SetPoint("BOTTOMLEFT", T, "BOTTOMLEFT", 5, 6)
-        bx.prio = T:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        bx.prio:SetPoint("CENTER", T, "LEFT", 13, 0)
+        bx.down:SetPoint("BOTTOMLEFT", T, "BOTTOMLEFT", 2, 4)
     end
 
     if quest then
@@ -1371,7 +1369,7 @@ end
 
 local function RefreshBox(bx, m, slot)
     for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear, bx.keep }) do w:SetShown(m ~= nil) end
-    if not m then bx.up:Hide(); bx.down:Hide(); bx.prio:SetText(""); return end
+    if not m then bx.up:Hide(); bx.down:Hide(); return end
     PlacePortrait(m.name, bx.portrait)
     bx.name:SetText(m.name)
     local state, text = SC.Status(m.name)
@@ -1386,7 +1384,6 @@ local function RefreshBox(bx, m, slot)
     bx.down:SetShown(n > 1)
     bx.up:SetEnabled(slot > 1)
     bx.down:SetEnabled(slot < n)
-    bx.prio:SetText(n > 1 and ("|cffffd100" .. slot .. "|r") or "")
 end
 
 -- Lays out a box per target and the "add another" button; returns the y below.

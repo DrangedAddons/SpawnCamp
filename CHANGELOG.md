@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.21.2
+
+- Fixed the key finding nothing when your first target's nearest copy was a corpse. The name search found the corpse, skipped the searches for your other targets, then dropped it. Each search now drops a corpse before the next one runs.
+- Mobs out of range of your attack spell rank below the ones in range, like out-of-sight ones. A far-off higher-priority mob no longer pulls the key off one you can hit.
+- Bigger priority arrows; the place number is gone (the list order shows it).
+
 ## 0.21.1
 
 - Line of sight no longer benches a mob. A mob that just failed with "Target not in line of sight" ranks below the targets you can see for 8 seconds, and is still used when nothing else is in view.
