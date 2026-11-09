@@ -53,55 +53,6 @@ local interactBtn = NewSecure("SpawnCampInteract", true)
 interactBtn:SetAttribute("type", "interact")
 interactBtn:SetAttribute("unit", "target")
 
--- Raid marker. Every addon route is blocked on this client: SetRaidTarget
--- from addon code, /run in a macro the addon wrote (force-tainted), and the
--- secure "raidtarget" action (does nothing). A saved character macro runs as
--- your own, so the addon keeps one named SpawnCampMark holding
--- /run SetRaidTarget("target", <icon>) and this button runs it.
-local MARK_MACRO = "SpawnCampMark"
-local markBtn = NewSecure("SpawnCampMark", true)
-markBtn:SetAttribute("type", "macro")
-markBtn:SetAttribute("macro", MARK_MACRO)
-SC.markMacroOK = false
-
-SC.On("UPDATE_MACROS", function()
-    if SC.macrosLoaded then return end
-    SC.macrosLoaded = true
-    if SC.char then SC.ApplyBindings() end
-end)
--- Fallback in case UPDATE_MACROS came before this file loaded.
-SC.On("PLAYER_LOGIN", function()
-    C_Timer.After(5, function()
-        if SC.macrosLoaded then return end
-        SC.macrosLoaded = true
-        if SC.char then SC.ApplyBindings() end
-    end)
-end)
-
-local function EnsureMarkMacro()
-    SC.markMacroOK = false
-    if not (SC.char.markTarget and GetMacroIndexByName and CreateMacro and GetMacroInfo) then return end
-    -- Macros aren't loaded until UPDATE_MACROS; looking earlier would miss
-    -- the existing one and make a duplicate.
-    if not SC.macrosLoaded then return end
-    local body = '/run SetRaidTarget("target",' .. (SC.char.markIcon or 8) .. ')'
-    local i = GetMacroIndexByName(MARK_MACRO)
-    if i and i > 0 then
-        local _, _, cur = GetMacroInfo(i)
-        if strtrim(cur or "") ~= body and EditMacro then pcall(EditMacro, i, MARK_MACRO, nil, body) end
-        SC.markMacroOK = true
-        return
-    end
-    local ok, idx = pcall(CreateMacro, MARK_MACRO, "INV_MISC_QUESTIONMARK", body, true)
-    if ok and idx and idx > 0 then
-        SC.markMacroOK = true
-        SC.Print("made a character macro named SpawnCampMark for the raid marker. Leave it in place; you don't need it on a bar.")
-    elseif not SC.markMacroWarned then
-        SC.markMacroWarned = true
-        SC.Print("|cffff8040couldn't make the SpawnCampMark macro|r (character macro slots full?). Free one up and the marker will work.")
-    end
-end
-
 -- Runs after the secure action, so the macro's /targetexact has happened.
 -- Why a press didn't cast: the game's red error text (facing, range, line of
 -- sight...) right after a key press is echoed to chat, once per message every
@@ -123,11 +74,11 @@ keyBtn:HookScript("OnClick", function()
     if SC.lastPress.key and now - SC.lastPress.key < 0.1 then return end
     SC.lastPress.key = now
     SC.ranMacro = keyBtn:GetAttribute("macrotext") or ""
-    -- The marker line has run: take it out before combat freezes the macro.
-    if not SC.markDone and SC.ranMacro:find("/click SpawnCampMark", 1, true) then
+    -- The ping line has run: take it out so the next presses don't ping
+    -- again, before combat freezes the macro.
+    if not SC.markDone and SC.ranMacro:find("/ping ", 1, true) then
         SC.markDone = true
         SC.UpdateKeyMacro()
-        C_Timer.After(1.5, SC.CheckMark)
     end
     if SC.OnKeyPressed then
         local ok, err = pcall(SC.OnKeyPressed)
@@ -172,41 +123,22 @@ end
 SC.fastUnit = nil
 SC.onMob = false
 
--- Raid marker over the mob. Addons can't call SetRaidTarget on this client
--- (it raised "blocked" errors); the key's macro /clicks a secure raidtarget
--- button instead. The line goes in only until one press has run it
--- (SC.markDone), and not when the target already has that marker, in case the
--- action toggles a marker that's already there.
+-- Ping on the mob. Raid markers can't be set by an addon on this client by
+-- any route (direct call, /run in the macro, the secure raidtarget action, a
+-- saved macro run from a button), so the key pings it instead. /ping is a
+-- macro command, not a script. Once per mob: the line goes in until a press
+-- has run it (SC.markDone, reset when the key leaves the mob), and only out of
+-- combat, since combat freezes the macro and every press would ping.
 SC.markDone = false
-SC.markTries = 0
 
-local function TargetIcon()
-    if not GetRaidTargetIndex then return nil end
-    local ok, cur = pcall(GetRaidTargetIndex, "target")
-    return ok and SC.Plain(cur) or nil
-end
-
--- After a press that ran the marker line: if the mob still has no marker,
--- put the line back for the next press (out of combat, up to 3 tries).
-function SC.CheckMark()
-    if not (SC.char.markTarget and SC.markDone and SC.onMob) or InCombatLockdown() then return end
-    if TargetIcon() ~= nil then SC.markTries = 0; return end
-    if SC.markTries >= 3 then return end
-    SC.markTries = SC.markTries + 1
-    SC.markDone = false
-    SC.UpdateKeyMacro()
-end
-
-local function MarkLine(lines, unitKnown)
-    if not (SC.char.markTarget and SC.markMacroOK and unitKnown and not SC.markDone) then return end
-    local icon = SC.char.markIcon or 8
-    if SC.onMob and TargetIcon() == icon then return end
-    lines[#lines + 1] = "/click SpawnCampMark"
+local function PingLine(lines, at)
+    if not (SC.char.markTarget and C_Ping and not SC.inCombat and not SC.markDone) then return end
+    lines[#lines + 1] = "/ping " .. at .. " attack"
 end
 
 local function TalkAndAttack(lines, attack, talk, at)
     if #attack > 0 and at then
-        MarkLine(lines, not SC.inCombat)
+        PingLine(lines, at)
         local A = SC.char.attack
         if A.macro and strtrim(A.macro) ~= "" then
             lines[#lines + 1] = strtrim(A.macro)
@@ -326,7 +258,6 @@ function SC.ApplyBindings()
     end
     ClearOverrideBindings(owner)
     keyBtn:RegisterForClicks(ClickEdge())
-    EnsureMarkMacro()
     local text = SC.KeyMacro()
     keyBtn:SetAttribute("type", "macro")
     keyBtn:SetAttribute("macrotext", text)

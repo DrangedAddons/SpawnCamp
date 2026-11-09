@@ -1076,23 +1076,9 @@ local function BuildSettings(P)
     Text(P, "Early ding", 8, -124)
     ui.lead = Edit(P, 36, 66, -120, function(t) SC.char.lead = tonumber(t) or 0 end, true)
     Text(P, "seconds before the earliest respawn (0 = off)", 112, -124)
-    Check(P, "Put a marker on the target", 4, -144,
+    Check(P, "Ping the target", 4, -144,
         function() return SC.char.markTarget end, function(v) SC.char.markTarget = v; SC.ApplyBindings() end,
-        "Places a raid marker over the mob as soon as your key has it. Uses a character macro named SpawnCampMark, which the addon makes for you. In a raid you need lead or assist.")
-    local icon = CreateFrame("Button", nil, P)
-    icon:SetSize(22, 22)
-    icon:SetPoint("TOPLEFT", 200, -145)
-    icon.tex = icon:CreateTexture(nil, "ARTWORK")
-    icon.tex:SetAllPoints()
-    icon:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-    icon:SetScript("OnClick", function()
-        SC.char.markIcon = (SC.char.markIcon or 8) % 8 + 1
-        SC.ApplyBindings()
-        SC.Refresh()
-    end)
-    Tip(icon, "Marker", "Click to pick another marker.")
-    ui.markIcon = icon
-    Text(P, "click to change", 228, -150, "GameFontDisableSmall")
+        "Puts an Attack ping on the mob the first time your key casts at it. Out of combat only, once per mob. (Addons can't place raid markers on this client.)")
     Text(P, "Right-click Attack or Talk for their options.", 8, -172, "GameFontDisableSmall")
 end
 
@@ -1646,7 +1632,6 @@ function SC.RefreshWindow()
         ui.log:Hide()
     end
     SetEditText(ui.lead, tostring(SC.char.lead or 0))
-    ui.markIcon.tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_" .. (SC.char.markIcon or 8))
     RefreshRecent()
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
     RefreshPopups()

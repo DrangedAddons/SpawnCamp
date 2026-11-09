@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.0
+
+- The key pings the mob instead of marking it. Raid markers can't be set by an addon on this client by any route (direct call, `/run` in the key's macro, the secure marker action, a saved macro run from a button). The first press that casts at a mob adds `/ping [@target] attack` (out of combat, once per mob).
+- The setting is now **Ping the target**; the marker icon picker is gone.
+- SpawnCamp no longer makes the SpawnCampMark character macro. If 0.22.5 made one, you can delete it.
+
 ## 0.22.5
 
 - Raid marker, take four. The client blocks every way an addon can set a marker, and the secure marker action does nothing. A saved macro runs as your own, so SpawnCamp now makes a character macro named **SpawnCampMark** holding `/run SetRaidTarget("target", 8)` (your chosen icon) and the key runs it. It needs one free character macro slot; you don't need to put it on a bar.
