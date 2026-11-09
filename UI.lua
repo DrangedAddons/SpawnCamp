@@ -814,14 +814,43 @@ local function BuildTarget()
     Tip(ui.addAnother, "Another target", "Your key goes for the highest target in the list that's in view, alive and untagged (the arrows on each box's left edge change the order); each keeps its own Attack/Talk. Up to " .. SC.MAX_TARGETS .. ".")
 end
 
--- Clicking a target's name targets that mob in game. Targeting is protected,
--- so a secure button sits over each name. They're parented to UIParent and
+-- Clicking a target's name or portrait targets that mob in game. Targeting is
+-- protected, so a secure button sits over each. They're parented to UIParent and
 -- placed by screen position (a protected frame anchored to the window would
 -- make the window itself protected), and only moved or changed out of combat.
-local nameSecure = {}
+local nameSecure, portSecure = {}, {}
+
+local function NewTargetButton(name)
+    local b = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
+    b:RegisterForClicks("LeftButtonUp", "LeftButtonDown")
+    b:SetAttribute("type", "macro")
+    b:SetAttribute("macrotext", "")
+    b:SetFrameStrata("MEDIUM")
+    b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
+    b:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.15)
+    b:SetScript("OnEnter", function(self) SC.ShowMobTip(self, self.mobName, true) end)
+    b:SetScript("OnLeave", GameTooltip_Hide)
+    b:Hide()
+    return b
+end
+
+-- Puts b over region (screen coords), or hides it.
+local function Cover(b, region, name, w, h, dy)
+    local l, bottom = region:GetLeft(), region:GetBottom()
+    if not (name and l and bottom and region:IsVisible()) then b:Hide(); return end
+    b:SetAttribute("macrotext", "/targetexact " .. name)
+    b.mobName = name
+    local s = region:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    b:ClearAllPoints()
+    b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l * s, (bottom + (dy or 0)) * s)
+    b:SetSize(w * s, h * s)
+    b:SetFrameLevel(F:GetFrameLevel() + 30)
+    b:Show()
+end
 
 local function BuildNameSecure()
     for slot = 1, SC.MAX_TARGETS + 1 do
+        portSecure[slot] = NewTargetButton("SpawnCampTargetPortrait" .. slot)
         local b = CreateFrame("Button", "SpawnCampTargetName" .. slot, UIParent, "SecureActionButtonTemplate")
         b:RegisterForClicks("LeftButtonUp", "LeftButtonDown")
         b:SetAttribute("type", "macro")
@@ -847,6 +876,14 @@ local function PlaceNameSecure()
         end
         local fs = bx.name
         local l, bottom = fs:GetLeft(), fs:GetBottom()
+        local pb = portSecure[slot]
+        if pb then
+            if m and F:IsShown() and bx.frame:IsShown() then
+                Cover(pb, bx.portrait, m.name, bx.portrait:GetWidth(), bx.portrait:GetHeight())
+            else
+                pb:Hide()
+            end
+        end
         if not (b and m and F:IsShown() and bx.frame:IsShown() and fs:IsVisible() and l and bottom) then
             if b then b:Hide() end
         else
@@ -1575,7 +1612,10 @@ function SC.RefreshWindow()
     if not SC.char then return end
     if not SC.char.shown then
         if F then F:Hide(); HideSidePanels() end
-        if not InCombatLockdown() then for _, b in pairs(nameSecure) do b:Hide() end end
+        if not InCombatLockdown() then
+            for _, b in pairs(nameSecure) do b:Hide() end
+            for _, b in pairs(portSecure) do b:Hide() end
+        end
         return
     end
     if not F then Build() end

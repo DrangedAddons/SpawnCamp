@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.1
+
+- Clicking a target's portrait targets the mob in game, like clicking its name.
+
 ## 0.22.0
 
 - Hovering a target's portrait or name shows the mob's game tooltip. When the mob is in view it's the live tooltip. When it isn't, it's a copy of the tooltip from the last time you saw it (name and reaction colour, level and type, quest lines and so on), with how long ago that was. Copies for your targets are saved, so they survive a reload.
