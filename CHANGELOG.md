@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.3
+
+- The raid marker now goes on with `/run SetRaidTarget("target", 8)` (your chosen icon) at the end of the key's attack lines, the same line that works when typed in chat. It sets the marker without toggling, so it's in every attack press, in combat too. The hidden marker button is gone.
+
 ## 0.22.2
 
 - Fixed the raid marker never going on. The key's macro `/click`s a hidden marker button, and a macro click is an up-click, but the button only listened for down-clicks when "cast on key down" is on (the game's default). The marker and talk buttons now take either edge.

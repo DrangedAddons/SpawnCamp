@@ -53,13 +53,6 @@ local interactBtn = NewSecure("SpawnCampInteract", true)
 interactBtn:SetAttribute("type", "interact")
 interactBtn:SetAttribute("unit", "target")
 
--- Raid marker on the target through the secure "raidtarget" action (the macro
--- /clicks it). Addon code can't call SetRaidTarget here (it's blocked).
-local markBtn = NewSecure("SpawnCampMark", true)
-markBtn:SetAttribute("type", "raidtarget")
-markBtn:SetAttribute("unit", "target")
-markBtn:SetAttribute("action", 8)
-
 -- Runs after the secure action, so the macro's /targetexact has happened.
 -- Why a press didn't cast: the game's red error text (facing, range, line of
 -- sight...) right after a key press is echoed to chat, once per message every
@@ -81,12 +74,6 @@ keyBtn:HookScript("OnClick", function()
     if SC.lastPress.key and now - SC.lastPress.key < 0.1 then return end
     SC.lastPress.key = now
     SC.ranMacro = keyBtn:GetAttribute("macrotext") or ""
-    -- The marker line has run: take it out before combat freezes the macro.
-    if not SC.markDone and SC.ranMacro:find("/click SpawnCampMark", 1, true) then
-        SC.markDone = true
-        SC.UpdateKeyMacro()
-        C_Timer.After(1.5, SC.CheckMark)
-    end
     if SC.OnKeyPressed then
         local ok, err = pcall(SC.OnKeyPressed)
         if not ok then SC.Print("|cffff4040error|r " .. tostring(err)) end
@@ -130,41 +117,17 @@ end
 SC.fastUnit = nil
 SC.onMob = false
 
--- Raid marker over the mob. Addons can't call SetRaidTarget on this client
--- (it raised "blocked" errors); the key's macro /clicks a secure raidtarget
--- button instead. The line goes in only until one press has run it
--- (SC.markDone), and not when the target already has that marker, in case the
--- action toggles a marker that's already there.
-SC.markDone = false
-SC.markTries = 0
-
-local function TargetIcon()
-    if not GetRaidTargetIndex then return nil end
-    local ok, cur = pcall(GetRaidTargetIndex, "target")
-    return ok and SC.Plain(cur) or nil
-end
-
--- After a press that ran the marker line: if the mob still has no marker,
--- put the line back for the next press (out of combat, up to 3 tries).
-function SC.CheckMark()
-    if not (SC.char.markTarget and SC.markDone and SC.onMob) or InCombatLockdown() then return end
-    if TargetIcon() ~= nil then SC.markTries = 0; return end
-    if SC.markTries >= 3 then return end
-    SC.markTries = SC.markTries + 1
-    SC.markDone = false
-    SC.UpdateKeyMacro()
-end
-
-local function MarkLine(lines, unitKnown)
-    if not (SC.char.markTarget and unitKnown and not SC.markDone) then return end
-    local icon = SC.char.markIcon or 8
-    if SC.onMob and TargetIcon() == icon then return end
-    lines[#lines + 1] = "/click SpawnCampMark"
+-- Raid marker on whatever the key casts at. Addon code calling SetRaidTarget
+-- is blocked on this client, but a /run line in the key's macro runs from your
+-- keypress, the same as typing it. SetRaidTarget sets the marker (it doesn't
+-- toggle), so the line can stay in every press, in combat too.
+local function MarkLine(lines)
+    if not SC.char.markTarget then return end
+    lines[#lines + 1] = "/run SetRaidTarget(\"target\"," .. (SC.char.markIcon or 8) .. ")"
 end
 
 local function TalkAndAttack(lines, attack, talk, at)
     if #attack > 0 and at then
-        MarkLine(lines, not SC.inCombat)
         local A = SC.char.attack
         if A.macro and strtrim(A.macro) ~= "" then
             lines[#lines + 1] = strtrim(A.macro)
@@ -174,6 +137,7 @@ local function TalkAndAttack(lines, attack, talk, at)
             end
             lines[#lines + 1] = "/startattack " .. at
         end
+        MarkLine(lines)
     end
     if #talk > 0 then
         lines[#lines + 1] = "/click [help,nodead] SpawnCampInteract"
@@ -284,7 +248,6 @@ function SC.ApplyBindings()
     end
     ClearOverrideBindings(owner)
     keyBtn:RegisterForClicks(ClickEdge())
-    markBtn:SetAttribute("action", SC.char.markIcon or 8)
     local text = SC.KeyMacro()
     keyBtn:SetAttribute("type", "macro")
     keyBtn:SetAttribute("macrotext", text)

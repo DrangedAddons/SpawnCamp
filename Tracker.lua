@@ -628,7 +628,6 @@ function SC.EvalTarget()
         if SC.InRange("target") == false then tr = tr + RANGE_PENALTY end
         if fr and fr < tr then on = false end
     end
-    if not on then SC.markDone = false; SC.markTries = 0 end
     SC.SetOnMob(on)
 end
 
