@@ -768,6 +768,16 @@ local function BuildTargetBox(slot, quest)
     bx.nameArea = nameArea
 
     if not quest then
+        -- On a mob a search found: keep it and drop the search.
+        bx.lock = Btn(T, "Lock in", 64, 0, 0, function() local m = SC.Active(slot); if m then SC.LockIn(m.name) end end)
+        bx.lock:ClearAllPoints()
+        bx.lock:SetPoint("BOTTOMRIGHT", nameArea, "BOTTOMRIGHT", 0, 3)
+        bx.lock:SetHeight(20)
+        Tip(bx.lock, "Lock in", "This is the one. Keeps this mob and removes the search that found it, along with anything else that search added.")
+        bx.lock:Hide()
+    end
+
+    if not quest then
         -- Priority arrows at the left edge. Higher in the list = higher priority.
         local function Arrow(dir, delta, tip)
             local a = CreateFrame("Button", nil, T)
@@ -1499,16 +1509,23 @@ end
 
 local function RefreshBox(bx, m, slot)
     for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear, bx.keep }) do w:SetShown(m ~= nil) end
-    if not m then bx.up:Hide(); bx.down:Hide(); return end
+    if not m then bx.up:Hide(); bx.down:Hide(); bx.lock:Hide(); return end
     PlacePortrait(m.name, bx.portrait)
     bx.tipName = m.name
+    local search = SC.SearchOf(m.name)
+    bx.lock:SetShown(search ~= nil)
+    if search then
+        bx.status:SetPoint("RIGHT", bx.lock, "LEFT", -4, 0)
+    else
+        bx.status:SetPoint("RIGHT", bx.nameArea, "RIGHT", 0, 0)
+    end
     if m.partial then
         bx.name:SetText(m.name .. "  |cff999999(search)|r")
         local skipped = 0
         for _ in pairs(m.rejected or {}) do skipped = skipped + 1 end
         bx.status:SetText("|cffc0c0c0Adds any mob with this in its name|r" .. (skipped > 0 and ("  |cff808080(" .. skipped .. " skipped)|r") or ""))
     else
-        bx.name:SetText(m.name)
+        bx.name:SetText(m.name .. (search and ("  |cff999999(found by \"" .. search .. "\")|r") or ""))
         local state, text = SC.Status(m.name)
         bx.status:SetText(StatusColor(state) .. text .. "|r")
     end

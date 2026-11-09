@@ -386,6 +386,39 @@ function SC.FindPartials()
     for _, n in ipairs(SC.KnownNames()) do SC.MatchPartial(n) end
 end
 
+-- The search that found this mob, while that search is still around.
+function SC.SearchOf(name)
+    local m = SC.char.mobs[name]
+    local key = m and m.fromPartial
+    local s = key and SC.char.mobs[key]
+    return (s and s.partial) and key or nil
+end
+
+-- "That's the one": keeps this mob, removes its search and the other mobs
+-- that search added.
+function SC.LockIn(name)
+    local key = SC.SearchOf(name)
+    if not key then return end
+    local mobs, list = SC.char.mobs, SC.char.targets
+    for i = #list, 1, -1 do
+        local n = list[i]
+        if n == key or (n ~= name and mobs[n] and mobs[n].fromPartial == key) then table.remove(list, i) end
+    end
+    for _, m in pairs(mobs) do
+        if m.fromPartial == key then m.fromPartial = nil end
+    end
+    mobs[key] = nil
+    for i, n in ipairs(SC.char.order) do
+        if n == key then table.remove(SC.char.order, i); break end
+    end
+    if SC.char.selected == key then SC.char.selected = nil end
+    SC.fastUnit, SC.onMob = nil, false
+    SC.ApplyBindings()
+    if SC.PickLock then pcall(SC.PickLock) end
+    if SC.EvalTarget then pcall(SC.EvalTarget) end
+    SC.Refresh()
+end
+
 function SC.RemoveMob(name)
     local mobs = SC.char.mobs
     if not mobs[name] then return end

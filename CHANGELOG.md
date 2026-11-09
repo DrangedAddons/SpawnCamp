@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25.1
+
+- A mob a search found shows "(found by "bhag")" and a **Lock in** button. Lock in keeps that mob as a normal target and removes the search, along with anything else the search added.
+
 ## 0.25.0
 
 - The Auto Quest box has a **Show targets** button. It opens a list of the quest mobs Auto Quest is looking for, in the key's order, with progress, the quest, and whether each was seen nearby. Mobs past what fits in the key's macro are greyed out.
