@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.2
+
+- Fixed the key letting go of the right mob and grabbing it again while you spam. After a "line of sight" error the target could lose to its own nameplate (the client can't always say the two are the same mob), so the key cleared it and re-targeted it. A target now only gives way to a different, higher-priority mob, never to itself or another mob of the same name.
+- A dead-or-alive check the client won't answer for a moment no longer drops the key off the mob.
+- Adding or clearing a target re-checks your current target instead of resetting the key to searching.
+
 ## 0.25.1
 
 - A mob a search found shows "(found by "bhag")" and a **Lock in** button. Lock in keeps that mob as a normal target and removes the search, along with anything else the search added.

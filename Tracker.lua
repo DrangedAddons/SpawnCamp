@@ -603,31 +603,42 @@ function SC.EvalTarget()
     if not SC.char then return end
     local actives = SC.MobsIn("attack")
     for _, m in ipairs(SC.MobsIn("interact")) do actives[#actives + 1] = m end
+    -- Leaving the mob needs a plain answer: no target, dead, tagged by someone
+    -- else, or a name that isn't one of yours. A dead-or-alive read that comes
+    -- back unknown keeps the key where it was, so a flicker can't make it clear
+    -- a mob you're on (it also can't put the key on a mob it wasn't on).
     local on, onName = false, nil
-    if #actives > 0 and SC.MaybeExists("target") and not SC.True(UnitIsPlayer("target"))
-        and SC.Bool(UnitIsDead("target")) == false
-        and not (UnitIsTapDenied and SC.Bool(UnitIsTapDenied("target")) == true) then
-        local n = SC.UnitNameSafe("target")
-        for _, m in ipairs(actives) do
-            if n then
-                if n:lower() == m.name:lower() then on = true; onName = onName or m.name end
-            else
-                local f = follow[m.name]
-                if f and f.viaTarget then on = true; onName = onName or m.name end
+    if #actives > 0 and SC.MaybeExists("target") and not SC.True(UnitIsPlayer("target")) then
+        local dead = SC.Bool(UnitIsDead("target"))
+        local tapped = UnitIsTapDenied and SC.Bool(UnitIsTapDenied("target")) == true
+        if dead ~= true and not tapped then
+            local n = SC.UnitNameSafe("target")
+            for _, m in ipairs(actives) do
+                if n then
+                    if n:lower() == m.name:lower() then on = true; onName = onName or m.name end
+                else
+                    local f = follow[m.name]
+                    if f and f.viaTarget then on = true; onName = onName or m.name end
+                end
             end
+            if on and dead == nil and not SC.onMob then on = false end
         end
     end
     -- Never swaps off a mob you're fighting. One you haven't hit yet gives way
-    -- to a mob that ranks higher: in range and sight when this one isn't, or
-    -- higher in the list with both reachable.
+    -- only to a DIFFERENT mob that ranks higher (in range and sight when this
+    -- one isn't, or higher in the list). Never to itself or another of the
+    -- same name: the nameplate-vs-target check can't always tell them apart,
+    -- and swapping to "itself" made the key clear and re-take the same mob.
     local fu = SC.fastUnit
     if on and fu and not SC.inCombat and SC.Bool(UnitAffectingCombat("target")) ~= true
         and not SC.True(UnitIsUnit("target", fu)) then
-        local fr = PlateRank(fu)
-        local tr = SC.RankOf(onName) or SC.MAX_TARGETS + 2
-        if SC.targetBlocked and SC.targetBlocked > GetTime() then tr = tr + LOS_PENALTY end
-        if SC.InRange("target") == false then tr = tr + RANGE_PENALTY end
-        if fr and fr < tr then on = false end
+        local fr, fn = PlateRank(fu)
+        if fn and onName and fn:lower() ~= onName:lower() then
+            local tr = SC.RankOf(onName) or SC.MAX_TARGETS + 2
+            if SC.targetBlocked and SC.targetBlocked > GetTime() then tr = tr + LOS_PENALTY end
+            if SC.InRange("target") == false then tr = tr + RANGE_PENALTY end
+            if fr and fr < tr then on = false end
+        end
     end
     SC.SetOnMob(on)
 end

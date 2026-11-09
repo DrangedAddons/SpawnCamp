@@ -167,7 +167,7 @@ end
 function SC.SetActive(name, slot)
     if name and not SC.char.mobs[name] then return end
     local list = SC.char.targets
-    SC.fastUnit, SC.onMob = nil, false
+    SC.fastUnit = nil
     if not name then
         local gone = slot and list[slot]
         local gm = gone and SC.char.mobs[gone]
@@ -199,14 +199,16 @@ function SC.SetActive(name, slot)
         table.insert(SC.char.order, 1, name)
     end
     SC.ApplyBindings()
+    if SC.EvalTarget then pcall(SC.EvalTarget) end
     SC.Refresh()
 end
 
 -- Removes every target.
 function SC.ClearTargets()
     wipe(SC.char.targets)
-    SC.fastUnit, SC.onMob = nil, false
+    SC.fastUnit = nil
     SC.ApplyBindings()
+    if SC.EvalTarget then pcall(SC.EvalTarget) end
     SC.Refresh()
 end
 local function Fill(t, defaults)
@@ -374,7 +376,7 @@ function SC.MatchPartial(name)
         end
     end
     if changed then
-        SC.fastUnit, SC.onMob = nil, false
+        SC.fastUnit = nil
         SC.ApplyBindings()
         if SC.PickLock then pcall(SC.PickLock) end
         if SC.EvalTarget then pcall(SC.EvalTarget) end
@@ -412,7 +414,7 @@ function SC.LockIn(name)
         if n == key then table.remove(SC.char.order, i); break end
     end
     if SC.char.selected == key then SC.char.selected = nil end
-    SC.fastUnit, SC.onMob = nil, false
+    SC.fastUnit = nil
     SC.ApplyBindings()
     if SC.PickLock then pcall(SC.PickLock) end
     if SC.EvalTarget then pcall(SC.EvalTarget) end
