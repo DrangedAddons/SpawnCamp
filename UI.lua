@@ -52,6 +52,48 @@ local function Tip(frame, title, body)
     frame:SetScript("OnLeave", GameTooltip_Hide)
 end
 
+-- The mob's tooltip: the game's own when it's in view (target, nameplate,
+-- mouseover), else the copy from when it was last seen, else what's known.
+function SC.ShowMobTip(owner, name, click)
+    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    if not name then
+        GameTooltip:SetText("Any quest mob")
+        local w = SC.QuestWanted()
+        GameTooltip:AddLine(#w > 0 and table.concat(w, ", ") or "No quest mobs needed right now.", 1, 1, 1, true)
+        GameTooltip:Show()
+        return
+    end
+    local u = SC.UnitFor(name)
+    local tip = not u and SC.TipFor(name)
+    if u then
+        GameTooltip:SetUnit(u)
+    elseif tip then
+        for i, e in ipairs(tip.lines) do
+            if e[5] then
+                GameTooltip:AddDoubleLine(e[1], e[5], e[2], e[3], e[4], e[6], e[7], e[8])
+            else
+                GameTooltip:AddLine(e[1], e[2], e[3], e[4], i > 1)
+            end
+        end
+        GameTooltip:AddLine("Not in view. Last seen " .. SC.Clock(GetServerTime() - tip.t) .. " ago.", 0.6, 0.6, 0.6)
+    else
+        local info = SC.nearby[name]
+        local m = SC.char.mobs[name]
+        GameTooltip:AddLine(name, 1, 0.82, 0)
+        local level = info and info.level
+        local ctype = (info and info.ctype) or (m and m.ctype)
+        local cls = info and info.class
+        local parts = {}
+        if type(level) == "number" then parts[#parts + 1] = "Level " .. (level < 0 and "??" or level) end
+        if ctype then parts[#parts + 1] = ctype end
+        if cls and cls ~= "normal" and cls ~= "minus" then parts[#parts + 1] = "(" .. cls:gsub("elite", " Elite"):gsub("^%s+", ""):gsub("^%l", string.upper) .. ")" end
+        if #parts > 0 then GameTooltip:AddLine(table.concat(parts, " "), 1, 1, 1) end
+        GameTooltip:AddLine("Not in view. Its full tooltip shows here once you've seen it.", 0.6, 0.6, 0.6, true)
+    end
+    if click then GameTooltip:AddLine("Click to target it.", 0.25, 1, 0.25) end
+    GameTooltip:Show()
+end
+
 local function Safe(fn)
     return function(...)
         local ok, err = pcall(fn, ...)
@@ -658,6 +700,9 @@ local function BuildTargetBox(slot, quest)
     bx.portrait = CreateFrame("Frame", nil, T)
     bx.portrait:SetSize(52, 52)
     bx.portrait:SetPoint("LEFT", 30, 0)
+    bx.portrait:EnableMouse(true)
+    bx.portrait:SetScript("OnEnter", function(self) SC.ShowMobTip(self, bx.tipName) end)
+    bx.portrait:SetScript("OnLeave", GameTooltip_Hide)
 
     -- Right column: Clear, with Keep under it.
     bx.clear = Btn(T, "Clear", 58, 0, 0, function()
@@ -784,18 +829,7 @@ local function BuildNameSecure()
         b:SetFrameStrata("MEDIUM")
         b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
         b:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.15)
-        b:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            local u = SC.UnitFor(self.mobName)
-            if u then
-                GameTooltip:SetUnit(u)
-            else
-                GameTooltip:SetText(self.mobName or "?")
-                GameTooltip:AddLine("Not in view right now.", 0.7, 0.7, 0.7)
-            end
-            GameTooltip:AddLine("Click to target it.", 0.25, 1, 0.25)
-            GameTooltip:Show()
-        end)
+        b:SetScript("OnEnter", function(self) SC.ShowMobTip(self, self.mobName, true) end)
         b:SetScript("OnLeave", GameTooltip_Hide)
         b:Hide()
         nameSecure[slot] = b
@@ -1346,6 +1380,7 @@ local function RefreshQuestBox(bx)
     local info = name and SC.QuestInfo(name)
     -- No name = the generic quest icon, cached under its own key.
     PlacePortrait(name or QUEST_KEY, bx.portrait)
+    bx.tipName = name
     local tag = "|cffffd100Auto Quest|r"
     if name then
         bx.name:SetText(name)
@@ -1371,6 +1406,7 @@ local function RefreshBox(bx, m, slot)
     for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear, bx.keep }) do w:SetShown(m ~= nil) end
     if not m then bx.up:Hide(); bx.down:Hide(); return end
     PlacePortrait(m.name, bx.portrait)
+    bx.tipName = m.name
     bx.name:SetText(m.name)
     local state, text = SC.Status(m.name)
     bx.status:SetText(StatusColor(state) .. text .. "|r")

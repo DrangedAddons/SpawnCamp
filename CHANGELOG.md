@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.0
+
+- Hovering a target's portrait or name shows the mob's game tooltip. When the mob is in view it's the live tooltip. When it isn't, it's a copy of the tooltip from the last time you saw it (name and reaction colour, level and type, quest lines and so on), with how long ago that was. Copies for your targets are saved, so they survive a reload.
+- Before a mob has been seen at all, the tooltip shows its level, type and rank if Nearby knows them.
+
 ## 0.21.2
 
 - Fixed the key finding nothing when your first target's nearest copy was a corpse. The name search found the corpse, skipped the searches for your other targets, then dropped it. Each search now drops a corpse before the next one runs.

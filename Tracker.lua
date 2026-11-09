@@ -268,6 +268,51 @@ end
 SC.nearby = {}
 local NEARBY_KEEP = 180
 
+-- The game's own tooltip for a mob, copied line by line (text and colour) the
+-- last time it was in view, so its box can show it when it isn't. Your targets'
+-- copies are saved with their history; the rest last the session.
+SC.tips = {}
+
+local function TipColor(c)
+    if type(c) == "table" then
+        local r, g, b = SC.Plain(c.r), SC.Plain(c.g), SC.Plain(c.b)
+        if type(r) == "number" and type(g) == "number" and type(b) == "number" then return r, g, b end
+    end
+    return 1, 1, 1
+end
+
+function SC.CaptureTip(name, unit)
+    if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return end
+    local ok, data = pcall(C_TooltipInfo.GetUnit, unit)
+    if not ok or type(data) ~= "table" or type(data.lines) ~= "table" then return end
+    local out = {}
+    for _, ln in ipairs(data.lines) do
+        local l = SC.Plain(ln.leftText)
+        if type(l) == "string" and l ~= "" then
+            local e = { l, TipColor(ln.leftColor) }
+            local r = SC.Plain(ln.rightText)
+            if type(r) == "string" and r ~= "" then
+                e[5] = r
+                e[6], e[7], e[8] = TipColor(ln.rightColor)
+            end
+            out[#out + 1] = e
+        end
+    end
+    -- The first line is the mob's name; anything else isn't this mob's tooltip.
+    if #out == 0 or out[1][1]:lower() ~= name:lower() then return end
+    local tip = { lines = out, t = GetServerTime() }
+    SC.tips[name] = tip
+    if SC.char.mobs[name] then SC.History(name).tip = tip end
+end
+
+-- The saved copy, without creating a history entry.
+function SC.TipFor(name)
+    if not name then return nil end
+    if SC.tips[name] then return SC.tips[name] end
+    local r = SpawnCampDB and SpawnCampDB.realms and SpawnCampDB.realms[SC.Realm()]
+    return r and r[name] and r[name].tip or nil
+end
+
 local function NoteNearby(unit)
     -- Returns what happened, for Scan now's report:
     -- "ok", "none" (no unit), "player", "hidden" (name secret), "other" (pet etc.), "error".
@@ -290,6 +335,11 @@ local function NoteNearby(unit)
         if SC.UnitQuest and (not e.qt or e.t - e.qt > 3) then
             e.qt = e.t
             e.quest, e.questObjective = SC.UnitQuest(unit)
+        end
+        -- Tooltip copy for your targets and Auto Quest mobs, every few seconds.
+        if (not e.tt or e.t - e.tt > 3) and (SC.char.mobs[n] or (SC.char.anyQuest and SC.IsQuestWanted(n))) then
+            e.tt = e.t
+            SC.CaptureTip(n, unit)
         end
         SC.nearby[n] = e
         return "ok"
