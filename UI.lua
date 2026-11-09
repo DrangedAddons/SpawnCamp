@@ -1077,8 +1077,8 @@ local function BuildSettings(P)
     ui.lead = Edit(P, 36, 66, -120, function(t) SC.char.lead = tonumber(t) or 0 end, true)
     Text(P, "seconds before the earliest respawn (0 = off)", 112, -124)
     Check(P, "Put a marker on the target", 4, -144,
-        function() return SC.char.markTarget end, function(v) SC.char.markTarget = v end,
-        "Places a raid marker over the mob as soon as your key has it. Classic-era rules may only allow markers while you're in a party; in a raid you need lead or assist.")
+        function() return SC.char.markTarget end, function(v) SC.char.markTarget = v; SC.ApplyBindings() end,
+        "Places a raid marker over the mob as soon as your key has it. Uses a character macro named SpawnCampMark, which the addon makes for you. In a raid you need lead or assist.")
     local icon = CreateFrame("Button", nil, P)
     icon:SetSize(22, 22)
     icon:SetPoint("TOPLEFT", 200, -145)

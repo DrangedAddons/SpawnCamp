@@ -53,15 +53,54 @@ local interactBtn = NewSecure("SpawnCampInteract", true)
 interactBtn:SetAttribute("type", "interact")
 interactBtn:SetAttribute("unit", "target")
 
--- Raid marker on the target through the secure "raidtarget" action (the macro
--- /clicks it). Addon code can't call SetRaidTarget here (it's blocked).
+-- Raid marker. Every addon route is blocked on this client: SetRaidTarget
+-- from addon code, /run in a macro the addon wrote (force-tainted), and the
+-- secure "raidtarget" action (does nothing). A saved character macro runs as
+-- your own, so the addon keeps one named SpawnCampMark holding
+-- /run SetRaidTarget("target", <icon>) and this button runs it.
+local MARK_MACRO = "SpawnCampMark"
 local markBtn = NewSecure("SpawnCampMark", true)
-markBtn:SetAttribute("type", "raidtarget")
-markBtn:SetAttribute("unit", "target")
--- The icon goes in both "action" and "raidtarget": client versions differ on
--- which one the raidtarget action reads.
-markBtn:SetAttribute("action", 8)
-markBtn:SetAttribute("raidtarget", 8)
+markBtn:SetAttribute("type", "macro")
+markBtn:SetAttribute("macro", MARK_MACRO)
+SC.markMacroOK = false
+
+SC.On("UPDATE_MACROS", function()
+    if SC.macrosLoaded then return end
+    SC.macrosLoaded = true
+    if SC.char then SC.ApplyBindings() end
+end)
+-- Fallback in case UPDATE_MACROS came before this file loaded.
+SC.On("PLAYER_LOGIN", function()
+    C_Timer.After(5, function()
+        if SC.macrosLoaded then return end
+        SC.macrosLoaded = true
+        if SC.char then SC.ApplyBindings() end
+    end)
+end)
+
+local function EnsureMarkMacro()
+    SC.markMacroOK = false
+    if not (SC.char.markTarget and GetMacroIndexByName and CreateMacro and GetMacroInfo) then return end
+    -- Macros aren't loaded until UPDATE_MACROS; looking earlier would miss
+    -- the existing one and make a duplicate.
+    if not SC.macrosLoaded then return end
+    local body = '/run SetRaidTarget("target",' .. (SC.char.markIcon or 8) .. ')'
+    local i = GetMacroIndexByName(MARK_MACRO)
+    if i and i > 0 then
+        local _, _, cur = GetMacroInfo(i)
+        if strtrim(cur or "") ~= body and EditMacro then pcall(EditMacro, i, MARK_MACRO, nil, body) end
+        SC.markMacroOK = true
+        return
+    end
+    local ok, idx = pcall(CreateMacro, MARK_MACRO, "INV_MISC_QUESTIONMARK", body, true)
+    if ok and idx and idx > 0 then
+        SC.markMacroOK = true
+        SC.Print("made a character macro named SpawnCampMark for the raid marker. Leave it in place; you don't need it on a bar.")
+    elseif not SC.markMacroWarned then
+        SC.markMacroWarned = true
+        SC.Print("|cffff8040couldn't make the SpawnCampMark macro|r (character macro slots full?). Free one up and the marker will work.")
+    end
+end
 
 -- Runs after the secure action, so the macro's /targetexact has happened.
 -- Why a press didn't cast: the game's red error text (facing, range, line of
@@ -159,7 +198,7 @@ function SC.CheckMark()
 end
 
 local function MarkLine(lines, unitKnown)
-    if not (SC.char.markTarget and unitKnown and not SC.markDone) then return end
+    if not (SC.char.markTarget and SC.markMacroOK and unitKnown and not SC.markDone) then return end
     local icon = SC.char.markIcon or 8
     if SC.onMob and TargetIcon() == icon then return end
     lines[#lines + 1] = "/click SpawnCampMark"
@@ -287,8 +326,7 @@ function SC.ApplyBindings()
     end
     ClearOverrideBindings(owner)
     keyBtn:RegisterForClicks(ClickEdge())
-    markBtn:SetAttribute("action", SC.char.markIcon or 8)
-    markBtn:SetAttribute("raidtarget", SC.char.markIcon or 8)
+    EnsureMarkMacro()
     local text = SC.KeyMacro()
     keyBtn:SetAttribute("type", "macro")
     keyBtn:SetAttribute("macrotext", text)

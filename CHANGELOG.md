@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.5
+
+- Raid marker, take four. The client blocks every way an addon can set a marker, and the secure marker action does nothing. A saved macro runs as your own, so SpawnCamp now makes a character macro named **SpawnCampMark** holding `/run SetRaidTarget("target", 8)` (your chosen icon) and the key runs it. It needs one free character macro slot; you don't need to put it on a bar.
+
 ## 0.22.4
 
 - Took out the `/run SetRaidTarget` line from 0.22.3. The game runs `/run` lines in an addon's macro as addon code, so it was blocked (the "ForceTaint_Strong" popup).
