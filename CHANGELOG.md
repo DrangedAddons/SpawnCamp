@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25.0
+
+- The Auto Quest box has a **Show targets** button. It opens a list of the quest mobs Auto Quest is looking for, in the key's order, with progress, the quest, and whether each was seen nearby. Mobs past what fits in the key's macro are greyed out.
+
 ## 0.24.0
 
 - Typed names can be part of a name. A name the addon already knows (nearby, quests, history, Recent) is matched ignoring capitals and stored as the game spells it, so "young panther" becomes Young Panther.

@@ -474,10 +474,10 @@ end
 -- Attack and Talk options (right-click popups)
 ------------------------------------------------------------------------------
 
-local AP, TP, N, RP, Q
+local AP, TP, N, RP, Q, AQ
 
 local function HideSidePanels(except)
-    for _, p in ipairs({ AP, TP, N, RP, Q }) do
+    for _, p in ipairs({ AP, TP, N, RP, Q, AQ }) do
         if p and p ~= except then p:Hide() end
     end
 end
@@ -791,6 +791,11 @@ local function BuildTargetBox(slot, quest)
     if quest then
         bx.talk:Hide()
         bx.keep:Hide()
+        bx.show = Btn(T, "Show targets", 92, 0, 0, function() SC.ToggleAutoTargets() end)
+        bx.show:ClearAllPoints()
+        bx.show:SetPoint("TOPRIGHT", bx.clear, "BOTTOMRIGHT", 0, -4)
+        bx.show:SetHeight(20)
+        Tip(bx.show, "Show targets", "Lists the quest mobs Auto Quest is looking for.")
         -- Gold "!" on the portrait: this box's mob is picked by the key.
         bx.badge = T:CreateTexture(nil, "OVERLAY", nil, 7)
         bx.badge:SetSize(20, 20)
@@ -1291,6 +1296,76 @@ function SC.ToggleQuests()
     SC.RefreshQuests()
 end
 
+-- Auto Quest's targets: the mobs the key is looking for, in its order.
+local AQ_ROWS = 12
+
+local function RefreshAutoTargets()
+    if not (AQ and AQ:IsShown()) then return end
+    if not SC.char.anyQuest then AQ:Hide(); return end
+    local list = SC.QuestWanted()
+    local cap = SC.questCap or #list
+    AQ.offset = math.max(0, math.min(AQ.offset or 0, #list - AQ_ROWS))
+    for i = 1, AQ_ROWS do
+        local r = AQ.rows[i]
+        local idx = i + AQ.offset
+        local name = list[idx]
+        if name then
+            local info = SC.QuestInfo(name)
+            local near = SC.nearby and SC.nearby[name]
+            r.name:SetText((idx > cap and "|cff808080" or "|cffffffff") .. name .. "|r")
+            local bits = {}
+            if info and info.have and info.need then bits[#bits + 1] = "|cffffd100" .. info.have .. "/" .. info.need .. "|r" end
+            if info and type(info.quest) == "string" then bits[#bits + 1] = "|cffc0c0c0" .. info.quest .. "|r" end
+            if near and near.t and GetTime() - near.t < 30 then bits[#bits + 1] = "|cff40ff40nearby|r" end
+            if idx > cap then bits[#bits + 1] = "|cff808080not on the key (macro full)|r" end
+            r.info:SetText(table.concat(bits, "  "))
+            r:Show()
+        else
+            r:Hide()
+        end
+    end
+    AQ.empty:SetShown(#list == 0)
+    AQ.count:SetText(#list > AQ_ROWS and (#list .. " mobs, scroll for more") or "")
+end
+
+local function BuildAutoTargets()
+    AQ = Popup("SpawnCampAutoTargets", 380, 60 + AQ_ROWS * 18, "Auto Quest targets")
+    AQ.count = Text(AQ, "", 8, -30 - AQ_ROWS * 18 - 4)
+    AQ.empty = Text(AQ, "No quest mobs needed right now.\n\nKill objectives in your quest log show up\nhere, and item-drop mobs once you've seen\nthem nearby.", 8, -32)
+    AQ.rows = {}
+    for i = 1, AQ_ROWS do
+        local r = CreateFrame("Frame", nil, AQ)
+        r:SetSize(364, 17)
+        r:SetPoint("TOPLEFT", 8, -30 - (i - 1) * 18)
+        r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        r.name:SetPoint("LEFT", 2, 0)
+        r.name:SetWidth(150)
+        r.name:SetJustifyH("LEFT")
+        r.name:SetWordWrap(false)
+        r.info = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        r.info:SetPoint("LEFT", r.name, "RIGHT", 4, 0)
+        r.info:SetPoint("RIGHT", 0, 0)
+        r.info:SetJustifyH("LEFT")
+        r.info:SetWordWrap(false)
+        r:EnableMouseWheel(true)
+        r:SetScript("OnMouseWheel", function(_, d)
+            AQ.offset = (AQ.offset or 0) - d
+            RefreshAutoTargets()
+        end)
+        AQ.rows[i] = r
+    end
+    AQ:SetScript("OnShow", function()
+        SC.ScanNearby()
+        RefreshAutoTargets()
+    end)
+end
+
+function SC.ToggleAutoTargets()
+    if not F then return end
+    ShowBeside(AQ)
+    RefreshAutoTargets()
+end
+
 ------------------------------------------------------------------------------
 -- Build
 ------------------------------------------------------------------------------
@@ -1322,6 +1397,7 @@ local function Build()
     BuildTalkPopup()
     BuildNearby()
     BuildQuests()
+    BuildAutoTargets()
     BuildLog()
     ui.panels = {}
     for id, build in pairs({ settings = BuildSettings }) do
@@ -1636,6 +1712,7 @@ function SC.RefreshWindow()
     end
     SetEditText(ui.lead, tostring(SC.char.lead or 0))
     RefreshRecent()
+    RefreshAutoTargets()
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
     RefreshPopups()
 
