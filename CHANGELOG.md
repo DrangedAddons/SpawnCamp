@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25.3
+
+- The minimap button's tooltip shows only how to use it (click to open, drag to move). The list of mobs and their status is gone.
+
 ## 0.25.2
 
 - Fixed the key letting go of the right mob and grabbing it again while you spam. After a "line of sight" error the target could lose to its own nameplate (the client can't always say the two are the same mob), so the key cleared it and re-targeted it. A target now only gives way to a different, higher-priority mob, never to itself or another mob of the same name.

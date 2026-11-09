@@ -15,13 +15,6 @@ SC.On("PLAYER_LOGIN", function()
         OnClick = function() SC.ToggleWindow() end,
         OnTooltipShow = function(tt)
             tt:AddLine("SpawnCamp")
-            for _, n in ipairs(SC.char.order) do
-                local m = SC.char.mobs[n]
-                if m and m.hunting then
-                    local state, text = SC.Status(n)
-                    tt:AddDoubleLine(n, SC.StatusColor(state) .. text .. "|r", 1, 1, 1)
-                end
-            end
             tt:AddLine("|cffffd100Click|r to open", 1, 1, 1)
             tt:AddLine("|cffffd100Drag|r to move this button", 1, 1, 1)
         end,
