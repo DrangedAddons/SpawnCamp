@@ -346,24 +346,27 @@ end
 
 -- The lock: the key points at the alive, untagged nameplate of the
 -- highest-priority mob in view (your targets in list order, then Auto Quest
--- mobs). On a tie the current plate stays, so equal mobs don't hop. Plates that
--- just failed with "not in line of sight" sit out for a few seconds.
-local blocked = {}       -- nameplate token -> GetTime() it's skipped until
+-- mobs). On a tie the current plate stays, so equal mobs don't hop. A plate
+-- that just failed with "not in line of sight" ranks below every mob you can
+-- see for a few seconds; it's still used when nothing else is around.
+local blocked = {}       -- nameplate token -> GetTime() it ranks low until
 SC.blockedPlates = blocked
 local BLOCK_SECS = 8
+local LOS_PENALTY = 100
 
 local function PlateRank(unit)
     if not SC.MaybeExists(unit) or SC.True(UnitIsPlayer(unit)) then return end
-    if blocked[unit] and blocked[unit] > GetTime() then return end
     if SC.Bool(UnitIsDead(unit)) ~= false then return end
     if UnitIsTapDenied and SC.Bool(UnitIsTapDenied(unit)) == true then return end
     local n = SC.UnitNameSafe(unit)
     if not n then return end
-    local slot = SC.SlotOf(n)
-    if slot then return slot, n end
-    if SC.char.anyQuest and SC.IsQuestWanted(n) and SC.Bool(UnitCanAttack("player", unit)) ~= false then
-        return SC.MAX_TARGETS + 1, n
+    local r = SC.SlotOf(n)
+    if not r and SC.char.anyQuest and SC.IsQuestWanted(n) and SC.Bool(UnitCanAttack("player", unit)) ~= false then
+        r = SC.MAX_TARGETS + 1
     end
+    if not r then return end
+    if blocked[unit] and blocked[unit] > GetTime() then r = r + LOS_PENALTY end
+    return r, n
 end
 SC._PlateRank = PlateRank
 
@@ -379,12 +382,12 @@ function SC.PickLock()
         local r, n = PlateRank(SC.fastUnit)
         if r and r <= bestRank then best, bestRank, bestName = SC.fastUnit, r, n end
     end
-    if best and bestRank > SC.MAX_TARGETS then SC.lastQuestMob = bestName end
+    if best and bestRank % LOS_PENALTY > SC.MAX_TARGETS then SC.lastQuestMob = bestName end
     SC.SetFastUnit(best)
 end
 
--- After "not in line of sight" on a key press: the mob you're on sits out, and
--- the key moves to the next one in view (if there is one).
+-- After "not in line of sight" on a key press: the mob you're on ranks below
+-- the ones you can see, so the key moves to one of those if there is one.
 function SC.BlockTarget()
     local now = GetTime()
     SC.targetBlocked = now + BLOCK_SECS
@@ -392,7 +395,6 @@ function SC.BlockTarget()
         local p = "nameplate" .. i
         if SC.MaybeExists(p) and SC.True(UnitIsUnit("target", p)) then blocked[p] = now + BLOCK_SECS end
     end
-    if SC.fastUnit and blocked[SC.fastUnit] then SC.SetFastUnit(nil) end
     SC.PickLock()
     SC.EvalTarget()
 end
@@ -547,13 +549,15 @@ function SC.EvalTarget()
         end
     end
     -- Never swaps off a mob you're fighting. One you haven't hit yet gives way
-    -- to a higher-priority mob in view, or to any other when it's out of sight.
+    -- to a mob that ranks higher: higher in the list, or in sight when this one
+    -- just failed with "not in line of sight".
     local fu = SC.fastUnit
     if on and fu and not SC.inCombat and SC.Bool(UnitAffectingCombat("target")) ~= true
         and not SC.True(UnitIsUnit("target", fu)) then
-        local fr = SC.RankOf(SC.UnitNameSafe(fu))
+        local fr = PlateRank(fu)
         local tr = SC.RankOf(onName) or SC.MAX_TARGETS + 2
-        if (SC.targetBlocked and SC.targetBlocked > GetTime()) or (fr and fr < tr) then on = false end
+        if SC.targetBlocked and SC.targetBlocked > GetTime() then tr = tr + LOS_PENALTY end
+        if fr and fr < tr then on = false end
     end
     if not on then SC.markDone = false end
     SC.SetOnMob(on)

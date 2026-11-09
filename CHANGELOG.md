@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.21.1
+
+- Line of sight no longer benches a mob. A mob that just failed with "Target not in line of sight" ranks below the targets you can see for 8 seconds, and is still used when nothing else is in view.
+- Priority arrows moved to their own column on the left edge of each box: up arrow, place number, down arrow. At the top or bottom of the list the arrow is greyed out instead of hidden.
+
 ## 0.21.0
 
 - **Priority**: the target list order is the priority. Arrows on each portrait move a mob up or down, and the number shows its place. With several in view, the nameplate lock goes for the highest one, and stays put between equal ones instead of hopping.

@@ -657,7 +657,7 @@ local function BuildTargetBox(slot, quest)
 
     bx.portrait = CreateFrame("Frame", nil, T)
     bx.portrait:SetSize(52, 52)
-    bx.portrait:SetPoint("LEFT", 6, 0)
+    bx.portrait:SetPoint("LEFT", 24, 0)
 
     -- Right column: Clear, with Keep under it.
     bx.clear = Btn(T, "Clear", 58, 0, 0, function()
@@ -724,24 +724,26 @@ local function BuildTargetBox(slot, quest)
 
 
     if not quest then
-        -- Priority arrows down the portrait's left edge, with 2+ targets.
+        -- Priority column at the left edge: up arrow, place number, down arrow.
         local function Arrow(dir, delta, tip)
             local a = CreateFrame("Button", nil, T)
-            a:SetSize(18, 18)
-            a:SetFrameLevel(bx.portrait:GetFrameLevel() + 5)
-            a:SetNormalTexture("Interface\\Buttons\\UI-ScrollBar-Scroll" .. dir .. "Button-Up")
-            a:SetPushedTexture("Interface\\Buttons\\UI-ScrollBar-Scroll" .. dir .. "Button-Down")
-            a:SetHighlightTexture("Interface\\Buttons\\UI-ScrollBar-Scroll" .. dir .. "Button-Highlight", "ADD")
+            a:SetSize(16, 16)
+            a:SetNormalTexture("Interface\\Buttons\\Arrow-" .. dir .. "-Up")
+            a:SetPushedTexture("Interface\\Buttons\\Arrow-" .. dir .. "-Down")
+            a:SetDisabledTexture("Interface\\Buttons\\Arrow-" .. dir .. "-Up")
+            a:GetDisabledTexture():SetDesaturated(true)
+            a:GetDisabledTexture():SetAlpha(0.3)
+            a:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
             a:SetScript("OnClick", function() SC.MoveTarget(slot, delta) end)
             Tip(a, "Priority", tip)
             return a
         end
-        bx.up = Arrow("Up", -1, "Moves this mob up. With several targets in view, the key goes for the highest one, and drops one you haven't hit yet when a higher one shows up.")
-        bx.up:SetPoint("TOPLEFT", bx.portrait, "TOPLEFT", -4, 4)
-        bx.down = Arrow("Down", 1, "Moves this mob down. With several targets in view, the key goes for the highest one.")
-        bx.down:SetPoint("BOTTOMLEFT", bx.portrait, "BOTTOMLEFT", -4, -4)
-        bx.prio = T:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        bx.prio:SetPoint("TOPRIGHT", bx.portrait, "TOPRIGHT", 2, 2)
+        bx.up = Arrow("Up", -1, "Higher priority. With several targets in view, the key goes for the highest one.")
+        bx.up:SetPoint("TOPLEFT", T, "TOPLEFT", 5, -6)
+        bx.down = Arrow("Down", 1, "Lower priority. With several targets in view, the key goes for the highest one.")
+        bx.down:SetPoint("BOTTOMLEFT", T, "BOTTOMLEFT", 5, 6)
+        bx.prio = T:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        bx.prio:SetPoint("CENTER", T, "LEFT", 13, 0)
     end
 
     if quest then
@@ -766,7 +768,7 @@ local function BuildTarget()
         SC.Refresh()
         if ui.addName then ui.addName:SetFocus() end
     end)
-    Tip(ui.addAnother, "Another target", "Your key goes for the highest target in the list that's in view, alive and untagged (arrows on the portrait change the order); each keeps its own Attack/Talk. Up to " .. SC.MAX_TARGETS .. ".")
+    Tip(ui.addAnother, "Another target", "Your key goes for the highest target in the list that's in view, alive and untagged (the arrows on each box's left edge change the order); each keeps its own Attack/Talk. Up to " .. SC.MAX_TARGETS .. ".")
 end
 
 -- Clicking a target's name targets that mob in game. Targeting is protected,
@@ -1380,8 +1382,10 @@ local function RefreshBox(bx, m, slot)
     SetPressed(bx.attack, m.mode == "attack")
     SetPressed(bx.talk, m.mode == "interact")
     local n = #SC.Targets()
-    bx.up:SetShown(n > 1 and slot > 1)
-    bx.down:SetShown(n > 1 and slot < n)
+    bx.up:SetShown(n > 1)
+    bx.down:SetShown(n > 1)
+    bx.up:SetEnabled(slot > 1)
+    bx.down:SetEnabled(slot < n)
     bx.prio:SetText(n > 1 and ("|cffffd100" .. slot .. "|r") or "")
 end
 
