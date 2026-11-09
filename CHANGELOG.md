@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.4
+
+- Took out the `/run SetRaidTarget` line from 0.22.3. The game runs `/run` lines in an addon's macro as addon code, so it was blocked (the "ForceTaint_Strong" popup).
+- Back to the hidden marker button. It now carries the icon in both the `action` and `raidtarget` attributes, since client versions differ on which one the marker action reads.
+
 ## 0.22.3
 
 - The raid marker now goes on with `/run SetRaidTarget("target", 8)` (your chosen icon) at the end of the key's attack lines, the same line that works when typed in chat. It sets the marker without toggling, so it's in every attack press, in combat too. The hidden marker button is gone.
