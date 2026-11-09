@@ -1076,10 +1076,7 @@ local function BuildSettings(P)
     Text(P, "Early ding", 8, -124)
     ui.lead = Edit(P, 36, 66, -120, function(t) SC.char.lead = tonumber(t) or 0 end, true)
     Text(P, "seconds before the earliest respawn (0 = off)", 112, -124)
-    Check(P, "Ping the target", 4, -144,
-        function() return SC.char.markTarget end, function(v) SC.char.markTarget = v; SC.ApplyBindings() end,
-        "Puts an Attack ping on the mob the first time your key casts at it. Out of combat only, once per mob. (Addons can't place raid markers on this client.)")
-    Text(P, "Right-click Attack or Talk for their options.", 8, -172, "GameFontDisableSmall")
+    Text(P, "Right-click Attack or Talk for their options.", 8, -150, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------

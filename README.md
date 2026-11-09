@@ -33,7 +33,6 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
   - Sharing with **Party**, **Raid** and **Guild**.
   - **Alert when a mob spawns** (loud).
   - **Respawn dings** (soft), with how early the first one comes.
-  - **Ping the target**: the first press that casts at a mob also puts an Attack ping on it (out of combat, once per mob). Addons can't place raid markers on this client.
   - Show mobs you've already killed, sound, lock window, log on the right.
 
 Hostile mobs start on the sword and friendly ones on the bubble.

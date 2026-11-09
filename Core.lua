@@ -67,8 +67,6 @@ SC.CHAR_DEFAULTS = {
         reward = 1,       -- reward choice when a quest offers several (0 = you pick)
     },
     anyQuest = false,     -- the key also goes for any mob your quests still need
-    markTarget = true,    -- raid marker on the mob once the key has it
-    markIcon = 8,         -- 1 star ... 8 skull
     alertSpawn = true,    -- loud alert when a watched mob is seen alive
     alarm = true,         -- soft dings: early warning, window open, average reached
     lead = 60,            -- early warning, seconds before the earliest expected respawn

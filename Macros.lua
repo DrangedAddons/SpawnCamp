@@ -74,12 +74,6 @@ keyBtn:HookScript("OnClick", function()
     if SC.lastPress.key and now - SC.lastPress.key < 0.1 then return end
     SC.lastPress.key = now
     SC.ranMacro = keyBtn:GetAttribute("macrotext") or ""
-    -- The ping line has run: take it out so the next presses don't ping
-    -- again, before combat freezes the macro.
-    if not SC.markDone and SC.ranMacro:find("/ping ", 1, true) then
-        SC.markDone = true
-        SC.UpdateKeyMacro()
-    end
     if SC.OnKeyPressed then
         local ok, err = pcall(SC.OnKeyPressed)
         if not ok then SC.Print("|cffff4040error|r " .. tostring(err)) end
@@ -123,22 +117,8 @@ end
 SC.fastUnit = nil
 SC.onMob = false
 
--- Ping on the mob. Raid markers can't be set by an addon on this client by
--- any route (direct call, /run in the macro, the secure raidtarget action, a
--- saved macro run from a button), so the key pings it instead. /ping is a
--- macro command, not a script. Once per mob: the line goes in until a press
--- has run it (SC.markDone, reset when the key leaves the mob), and only out of
--- combat, since combat freezes the macro and every press would ping.
-SC.markDone = false
-
-local function PingLine(lines, at)
-    if not (SC.char.markTarget and C_Ping and not SC.inCombat and not SC.markDone) then return end
-    lines[#lines + 1] = "/ping " .. at .. " attack"
-end
-
 local function TalkAndAttack(lines, attack, talk, at)
     if #attack > 0 and at then
-        PingLine(lines, at)
         local A = SC.char.attack
         if A.macro and strtrim(A.macro) ~= "" then
             lines[#lines + 1] = strtrim(A.macro)

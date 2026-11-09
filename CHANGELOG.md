@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.1
+
+- Removed pinging and marking. Neither works from an addon on this client. The setting is gone.
+
 ## 0.23.0
 
 - The key pings the mob instead of marking it. Raid markers can't be set by an addon on this client by any route (direct call, `/run` in the key's macro, the secure marker action, a saved macro run from a button). The first press that casts at a mob adds `/ping [@target] attack` (out of combat, once per mob).
