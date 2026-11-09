@@ -27,13 +27,14 @@ local function ClickEdge()
     return down and "AnyDown" or "AnyUp"
 end
 
-local function NewSecure(name)
+local function NewSecure(name, bothEdges)
     local b = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
     b:SetSize(1, 1)
     b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -10, -10)
     b:SetAlpha(0)
     b:EnableMouse(false)
-    b:RegisterForClicks(ClickEdge())
+    b.bothEdges = bothEdges
+    if bothEdges then b:RegisterForClicks("AnyUp", "AnyDown") else b:RegisterForClicks(ClickEdge()) end
     b:Show()
     return b
 end
@@ -44,14 +45,17 @@ end
 -- chat window is one to handle.
 SC.lastPress = {}
 
+-- Buttons the key's macro /clicks listen on both edges: a macro /click sends
+-- an up-click, which a down-only button (cast on key down, the default)
+-- ignores. One /click is one edge, so it still fires once.
 local keyBtn = NewSecure("SpawnCampKey")
-local interactBtn = NewSecure("SpawnCampInteract")
+local interactBtn = NewSecure("SpawnCampInteract", true)
 interactBtn:SetAttribute("type", "interact")
 interactBtn:SetAttribute("unit", "target")
 
 -- Raid marker on the target through the secure "raidtarget" action (the macro
 -- /clicks it). Addon code can't call SetRaidTarget here (it's blocked).
-local markBtn = NewSecure("SpawnCampMark")
+local markBtn = NewSecure("SpawnCampMark", true)
 markBtn:SetAttribute("type", "raidtarget")
 markBtn:SetAttribute("unit", "target")
 markBtn:SetAttribute("action", 8)
@@ -81,6 +85,7 @@ keyBtn:HookScript("OnClick", function()
     if not SC.markDone and SC.ranMacro:find("/click SpawnCampMark", 1, true) then
         SC.markDone = true
         SC.UpdateKeyMacro()
+        C_Timer.After(1.5, SC.CheckMark)
     end
     if SC.OnKeyPressed then
         local ok, err = pcall(SC.OnKeyPressed)
@@ -131,14 +136,29 @@ SC.onMob = false
 -- (SC.markDone), and not when the target already has that marker, in case the
 -- action toggles a marker that's already there.
 SC.markDone = false
+SC.markTries = 0
+
+local function TargetIcon()
+    if not GetRaidTargetIndex then return nil end
+    local ok, cur = pcall(GetRaidTargetIndex, "target")
+    return ok and SC.Plain(cur) or nil
+end
+
+-- After a press that ran the marker line: if the mob still has no marker,
+-- put the line back for the next press (out of combat, up to 3 tries).
+function SC.CheckMark()
+    if not (SC.char.markTarget and SC.markDone and SC.onMob) or InCombatLockdown() then return end
+    if TargetIcon() ~= nil then SC.markTries = 0; return end
+    if SC.markTries >= 3 then return end
+    SC.markTries = SC.markTries + 1
+    SC.markDone = false
+    SC.UpdateKeyMacro()
+end
 
 local function MarkLine(lines, unitKnown)
     if not (SC.char.markTarget and unitKnown and not SC.markDone) then return end
     local icon = SC.char.markIcon or 8
-    if SC.onMob and GetRaidTargetIndex then
-        local ok, cur = pcall(GetRaidTargetIndex, "target")
-        if ok and SC.Plain(cur) == icon then return end
-    end
+    if SC.onMob and TargetIcon() == icon then return end
     lines[#lines + 1] = "/click SpawnCampMark"
 end
 
@@ -264,8 +284,6 @@ function SC.ApplyBindings()
     end
     ClearOverrideBindings(owner)
     keyBtn:RegisterForClicks(ClickEdge())
-    interactBtn:RegisterForClicks(ClickEdge())
-    markBtn:RegisterForClicks(ClickEdge())
     markBtn:SetAttribute("action", SC.char.markIcon or 8)
     local text = SC.KeyMacro()
     keyBtn:SetAttribute("type", "macro")

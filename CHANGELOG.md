@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.2
+
+- Fixed the raid marker never going on. The key's macro `/click`s a hidden marker button, and a macro click is an up-click, but the button only listened for down-clicks when "cast on key down" is on (the game's default). The marker and talk buttons now take either edge.
+- If a mob still has no marker 1.5 s after the press that marked it, the marker line goes back in for the next press (out of combat, up to 3 tries).
+
 ## 0.22.1
 
 - Clicking a target's portrait targets the mob in game, like clicking its name.
