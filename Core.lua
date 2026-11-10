@@ -58,7 +58,7 @@ SC.CHAR_DEFAULTS = {
     key = "",             -- the one SpawnCamp key, for every mob with a sword or bubble
     attack = {
         spell = "",       -- instant spell; empty = auto attack only
-        macro = "",       -- optional custom attack lines, replacing the spell lines
+        macroName = "",   -- a saved macro (from /m) to run instead of the spell
     },
     interact = {
         autoQuest = true, -- hand in finished quests, accept new and follow-up ones
@@ -621,6 +621,12 @@ SC.On("ADDON_LOADED", function(name)
         if SC.char.key == "" and k ~= "" then SC.char.key = k end
     end
     A.key, I.key, I.how = nil, nil, nil
+    -- 0.26: typed macro lines became a pick from your saved macros.
+    if type(A.macro) == "string" and strtrim(A.macro) ~= "" then
+        A.oldMacro = A.macro
+        SC.Print("your typed attack macro was kept in the saved file but isn't used any more. Make it in /m and pick it under Attack options > Macro.")
+    end
+    A.macro = nil
     -- 0.7: one "share" box became party/raid/guild; reward 0 (ask) became 1 (first).
     if SC.char.share == false then
         SC.char.shareParty, SC.char.shareRaid, SC.char.shareGuild = false, false, false

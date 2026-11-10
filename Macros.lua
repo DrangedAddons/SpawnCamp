@@ -53,20 +53,35 @@ local interactBtn = NewSecure("SpawnCampInteract", true)
 interactBtn:SetAttribute("type", "interact")
 interactBtn:SetAttribute("unit", "target")
 
--- Runs after the secure action, so the macro's /targetexact has happened.
--- Why a press didn't cast: the game's red error text (facing, range, line of
--- sight...) right after a key press is echoed to chat, once per message every
--- few seconds, so a "slow" cast can be traced to its cause.
-local lastErr, lastErrAt = nil, 0
+-- A "line of sight" error right after a key press makes the key look past
+-- that mob for a few seconds. Other errors (range, cooldown, busy) are left to
+-- the game's own red text.
 SC.On("UI_ERROR_MESSAGE", function(_, msg)
     msg = SC.Plain(msg)
-    if not msg or not SC.lastPress.key or GetTime() - SC.lastPress.key > 0.5 then return end
+    if type(msg) ~= "string" or not SC.lastPress.key or GetTime() - SC.lastPress.key > 0.5 then return end
     if (SPELL_FAILED_LINE_OF_SIGHT and msg == SPELL_FAILED_LINE_OF_SIGHT) or msg:lower():find("line of sight", 1, true) then
         if SC.BlockTarget then pcall(SC.BlockTarget) end
     end
-    if msg == lastErr and GetTime() - lastErrAt < 4 then return end
-    lastErr, lastErrAt = msg, GetTime()
-    SC.Print("|cffff8040key press didn't cast:|r " .. msg)
+end)
+
+-- The saved macro picked under Attack options, read fresh every time the key
+-- is built, so edits made in /m apply without coming back here. nil when
+-- none is picked or it's gone.
+function SC.AttackMacroBody()
+    local name = SC.char and SC.char.attack.macroName
+    if not name or name == "" or not (GetMacroIndexByName and GetMacroInfo) then return nil end
+    local i = GetMacroIndexByName(name)
+    if not i or i == 0 then return nil end
+    local _, _, body = GetMacroInfo(i)
+    body = type(body) == "string" and strtrim(body) or ""
+    if body == "" then return nil end
+    return body
+end
+
+SC.On("UPDATE_MACROS", function()
+    if not SC.char then return end
+    SC.ApplyBindings()
+    SC.Refresh()
 end)
 
 keyBtn:HookScript("OnClick", function()
@@ -120,8 +135,9 @@ SC.onMob = false
 local function TalkAndAttack(lines, attack, talk, at)
     if #attack > 0 and at then
         local A = SC.char.attack
-        if A.macro and strtrim(A.macro) ~= "" then
-            lines[#lines + 1] = strtrim(A.macro)
+        local body = SC.AttackMacroBody()
+        if body then
+            lines[#lines + 1] = body
         else
             if A.spell and A.spell ~= "" then
                 lines[#lines + 1] = "/cast " .. at .. " " .. A.spell

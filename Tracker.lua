@@ -410,7 +410,7 @@ local RANGE_PENALTY = 50
 -- (no spell set, custom macro, or the client won't say).
 function SC.InRange(unit)
     local A = SC.char and SC.char.attack
-    local spell = A and (not A.macro or strtrim(A.macro) == "") and A.spell
+    local spell = A and not SC.AttackMacroBody() and A.spell
     if not spell or spell == "" then return nil end
     local f = (C_Spell and C_Spell.IsSpellInRange) or IsSpellInRange
     if not f then return nil end

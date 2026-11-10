@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.26.0
+
+- No more "key press didn't cast" lines in chat (out of range, not ready, another action in progress). The game's red text already says it. A line-of-sight error still makes the key look past that mob for a few seconds.
+- Attack options: **Choose spell** lists your spellbook with icons and a filter box. **Show all ranks** off gives one line per spell, cast at your highest rank. On lists each rank, so you can pick a lower one. Dragging a spell onto the icon still works.
+- Attack options: **Choose macro** lists your saved macros (/m) in place of the typed macro box. The key reads the macro each time it's rebuilt, so edits in /m apply without coming back here. If the macro is deleted or empty, the spell is used.
+- A typed attack macro from an older version is kept in the saved file (attack.oldMacro) but no longer used. Chat says so once.
+
 ## 0.25.3
 
 - The minimap button's tooltip shows only how to use it (click to open, drag to move). The list of mobs and their status is gone.

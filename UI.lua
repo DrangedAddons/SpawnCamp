@@ -228,10 +228,74 @@ local function TakeDroppedSpell()
     if not n then return end
     ClearCursor()
     SC.char.attack.spell = n
-    ui.spell:ClearFocus()
-    ui.spell:SetText(n)
     SC.ApplyBindings()
     SC.Refresh()
+end
+
+local function SpellIcon(name)
+    if not name or name == "" then return nil end
+    local ok, t
+    if C_Spell and C_Spell.GetSpellTexture then ok, t = pcall(C_Spell.GetSpellTexture, name) end
+    if (not ok or not t) and GetSpellTexture then ok, t = pcall(GetSpellTexture, name) end
+    return ok and t or nil
+end
+
+-- Your spellbook: { {name, sub, icon} } for spells you can cast (no passives,
+-- nothing you haven't learned). Retail-style C_SpellBook first, the older
+-- spellbook calls if that's missing.
+function SC.PlayerSpells()
+    local out = {}
+    local function add(name, sub, icon)
+        name, sub = SC.Plain(name), SC.Plain(sub)
+        if type(name) ~= "string" or name == "" then return end
+        out[#out + 1] = { name = name, sub = type(sub) == "string" and sub or "", icon = SC.Plain(icon) }
+    end
+    pcall(function()
+        if C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines and C_SpellBook.GetSpellBookItemInfo then
+            local bank = Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player or 0
+            local SPELL = Enum and Enum.SpellBookItemType and Enum.SpellBookItemType.Spell
+            for l = 1, C_SpellBook.GetNumSpellBookSkillLines() or 0 do
+                local li = C_SpellBook.GetSpellBookSkillLineInfo(l)
+                if li and not li.shouldHide and not li.offSpecID then
+                    for i = li.itemIndexOffset + 1, li.itemIndexOffset + li.numSpellBookItems do
+                        local it = C_SpellBook.GetSpellBookItemInfo(i, bank)
+                        if it and (SPELL == nil or it.itemType == SPELL) and not it.isPassive and not it.isOffSpec then
+                            add(it.name, it.subName, it.iconID)
+                        end
+                    end
+                end
+            end
+        elseif GetNumSpellTabs and GetSpellTabInfo then
+            local BOOK = BOOKTYPE_SPELL or "spell"
+            for t = 1, GetNumSpellTabs() do
+                local _, _, offset, num = GetSpellTabInfo(t)
+                for i = offset + 1, offset + num do
+                    local kind = GetSpellBookItemInfo and GetSpellBookItemInfo(i, BOOK)
+                    local passive = IsPassiveSpell and IsPassiveSpell(i, BOOK)
+                    if (kind == nil or kind == "SPELL") and not passive then
+                        local name, sub = GetSpellBookItemName(i, BOOK)
+                        add(name, sub, GetSpellBookItemTexture and GetSpellBookItemTexture(i, BOOK))
+                    end
+                end
+            end
+        end
+    end)
+    return out
+end
+
+-- Your saved macros (account, then character).
+function SC.SavedMacros()
+    local out = {}
+    if not (GetNumMacros and GetMacroInfo) then return out end
+    local na, nc = GetNumMacros()
+    local maxA = type(MAX_ACCOUNT_MACROS) == "number" and MAX_ACCOUNT_MACROS or 120
+    local function add(i, where)
+        local name, icon, body = GetMacroInfo(i)
+        if name then out[#out + 1] = { name = name, icon = icon, body = body, where = where } end
+    end
+    for i = 1, na or 0 do add(i, "account") end
+    for i = maxA + 1, maxA + (nc or 0) do add(i, "character") end
+    return out
 end
 
 ------------------------------------------------------------------------------
@@ -475,6 +539,7 @@ end
 ------------------------------------------------------------------------------
 
 local AP, TP, N, RP, Q, AQ
+local CH   -- the list chooser beside the Attack options
 
 local function HideSidePanels(except)
     for _, p in ipairs({ AP, TP, N, RP, Q, AQ }) do
@@ -517,7 +582,8 @@ end
 SC.On("GLOBAL_MOUSE_DOWN", function()
     if ClickKeepsOpen() then return end
     for _, p in ipairs({ AP, TP }) do
-        if p and p:IsShown() and not p:IsMouseOver() and not (p.opener and p.opener:IsMouseOver()) then
+        if p and p:IsShown() and not p:IsMouseOver() and not (p.opener and p.opener:IsMouseOver())
+            and not (CH and CH:IsShown() and CH:IsMouseOver()) then
             p:Hide()
             closedAt = GetTime()
         end
@@ -531,20 +597,179 @@ local function Wrapped(parent, text, x, y, w)
     return fs
 end
 
+------------------------------------------------------------------------------
+-- Chooser: a list with icons and a text filter, beside the Attack options.
+------------------------------------------------------------------------------
+
+local CH_ROWS, CH_H = 14, 22
+
+local function RefreshChooser()
+    if not (CH and CH:IsShown() and CH.items) then return end
+    local all = CH.items()
+    local f = CH.filterText or ""
+    local list = {}
+    for _, it in ipairs(all) do
+        if f == "" or it.text:lower():find(f, 1, true) or (it.sub and it.sub:lower():find(f, 1, true)) then
+            list[#list + 1] = it
+        end
+    end
+    CH.offset = math.max(0, math.min(CH.offset or 0, #list - CH_ROWS))
+    for i = 1, CH_ROWS do
+        local r, it = CH.rows[i], list[i + CH.offset]
+        if it then
+            r.item = it
+            r.icon:SetTexture(it.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+            r.icon:SetShown(not it.noIcon)
+            r.text:SetText(it.text .. (it.sub and it.sub ~= "" and ("  |cff999999" .. it.sub .. "|r") or ""))
+            r.sel:SetShown(it.selected and true or false)
+            r:Show()
+        else
+            r.item = nil
+            r:Hide()
+        end
+    end
+    CH.count:SetText(#list > CH_ROWS and (#list .. " found, scroll for more") or (#list == 0 and "Nothing matches." or ""))
+end
+SC.RefreshChooser = RefreshChooser
+
+local function BuildChooser()
+    CH = Popup("SpawnCampChooser", 300, 96 + CH_ROWS * CH_H, "")
+    CH.title = Text(CH, "", 10, -10, "GameFontNormal")
+    CH.filter = Edit(CH, 160, 8, -32, function(t) CH.filterText = strtrim(t):lower(); CH.offset = 0; RefreshChooser() end)
+    local hint = CH.filter:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    hint:SetPoint("LEFT", 2, 0)
+    hint:SetText("type to filter")
+    local function showHint() hint:SetShown(not CH.filter:HasFocus() and (CH.filter:GetText() or "") == "") end
+    CH.filter:HookScript("OnEditFocusGained", showHint)
+    CH.filter:HookScript("OnEditFocusLost", showHint)
+    CH.filter:HookScript("OnTextChanged", showHint)
+    CH.ranks = Check(CH, "Show all ranks", 182, -30,
+        function() return SC.char.showRanks end,
+        function(v) SC.char.showRanks = v; CH.offset = 0 end,
+        "Off: one line per spell, cast at your highest rank. On: every rank you know, so you can pick a lower one.")
+    CH.rows = {}
+    for i = 1, CH_ROWS do
+        local r = CreateFrame("Button", nil, CH)
+        r:SetSize(284, CH_H - 1)
+        r:SetPoint("TOPLEFT", 8, -58 - (i - 1) * CH_H)
+        r:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+        r.sel = r:CreateTexture(nil, "BACKGROUND")
+        r.sel:SetAllPoints()
+        r.sel:SetColorTexture(1, 0.82, 0, 0.15)
+        r.icon = r:CreateTexture(nil, "ARTWORK")
+        r.icon:SetSize(CH_H - 3, CH_H - 3)
+        r.icon:SetPoint("LEFT", 2, 0)
+        r.text = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        r.text:SetPoint("LEFT", r.icon, "RIGHT", 6, 0)
+        r.text:SetPoint("RIGHT", -4, 0)
+        r.text:SetJustifyH("LEFT")
+        r.text:SetWordWrap(false)
+        r:SetScript("OnClick", Safe(function(self)
+            if self.item and CH.onPick then
+                CH.onPick(self.item)
+                CH:Hide()
+                SC.ApplyBindings()
+                SC.Refresh()
+            end
+        end))
+        r:SetScript("OnEnter", function(self)
+            if not (self.item and self.item.tip) then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(self.item.text)
+            GameTooltip:AddLine(self.item.tip, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        r:SetScript("OnLeave", GameTooltip_Hide)
+        r:EnableMouseWheel(true)
+        r:SetScript("OnMouseWheel", function(_, d) CH.offset = (CH.offset or 0) - d; RefreshChooser() end)
+        CH.rows[i] = r
+    end
+    CH.count = Text(CH, "", 10, -62 - CH_ROWS * CH_H, "GameFontDisableSmall")
+end
+
+local function OpenChooser(title, items, onPick, ranks)
+    if CH:IsShown() and CH.title:GetText() == title then CH:Hide(); return end
+    CH.title:SetText(title)
+    CH.items, CH.onPick = items, onPick
+    CH.ranks:SetShown(ranks and true or false)
+    CH.filterText, CH.offset = "", 0
+    CH.filter:SetText("")
+    CH:ClearAllPoints()
+    CH:SetPoint("TOPLEFT", AP, "TOPRIGHT", 2, 0)
+    CH:Show()
+    CH.ranks:SetChecked(SC.char.showRanks and true or false)
+    RefreshChooser()
+end
+
+-- Spell lines for the chooser. Ranks hidden: one line per spell (the key
+-- casts it by name, which uses your highest rank).
+local function SpellItems()
+    local A = SC.char.attack
+    local out = { { text = "None", sub = "auto attack only", noIcon = true, value = "", selected = A.spell == "" } }
+    local spells, seen = SC.PlayerSpells(), {}
+    local showRanks = SC.char.showRanks
+    for i = #spells, 1, -1 do
+        local s = spells[i]
+        local ranked = s.sub:find("^[Rr]ank") ~= nil
+        if showRanks or not seen[s.name] then
+            seen[s.name] = true
+            local value = (showRanks and ranked) and (s.name .. "(" .. s.sub .. ")") or s.name
+            table.insert(out, 2, { text = s.name, sub = (showRanks or not ranked) and s.sub or "", icon = s.icon,
+                value = value, selected = A.spell == value })
+        end
+    end
+    -- Ranks hidden: the highest rank came last in the book, so it's the one kept.
+    return out
+end
+
+local function MacroItems()
+    local A = SC.char.attack
+    local out = { { text = "None", sub = "use the spell", noIcon = true, value = "", selected = (A.macroName or "") == "" } }
+    for _, m in ipairs(SC.SavedMacros()) do
+        out[#out + 1] = { text = m.name, sub = m.where, icon = m.icon, value = m.name, tip = m.body,
+            selected = A.macroName == m.name }
+    end
+    return out
+end
+
 local function BuildAttackPopup()
     local A = SC.char.attack
-    AP = Popup("SpawnCampAttackOptions", 380, 212, "Attack  |T" .. SWORD .. ":14|t")
-    Text(AP, "Spell", 12, -40)
-    ui.spell = Edit(AP, 200, 46, -36, function(t)
-        A.spell = strtrim(t)
-        SC.ApplyBindings()
-    end)
-    ui.spell:SetScript("OnReceiveDrag", TakeDroppedSpell)
-    ui.spell:HookScript("OnMouseDown", TakeDroppedSpell)
-    Wrapped(AP, "Drag a spell here from your spellbook, or type its name. Empty = auto attack only.", 12, -62, 356)
-    ui.spellNote = Text(AP, "", 12, -90)
-    Wrapped(AP, "Or your own macro lines. They replace the spell and run after the mob is targeted.", 12, -110, 356)
-    ui.macroEdit = BigEdit(AP, 356, 62, 12, -138, 800, function(t) A.macro = t end)
+    AP = Popup("SpawnCampAttackOptions", 380, 196, "Attack  |T" .. SWORD .. ":14|t")
+    AP:HookScript("OnHide", function() if CH then CH:Hide() end end)
+    local function Slot(y, label)
+        Text(AP, label, 12, y - 6)
+        local s = CreateFrame("Button", nil, AP)
+        s:SetSize(206, 26)
+        s:SetPoint("TOPLEFT", 56, y)
+        s.icon = s:CreateTexture(nil, "ARTWORK")
+        s.icon:SetSize(24, 24)
+        s.icon:SetPoint("LEFT", 0, 0)
+        s.text = s:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        s.text:SetPoint("LEFT", s.icon, "RIGHT", 6, 0)
+        s.text:SetPoint("RIGHT", 0, 0)
+        s.text:SetJustifyH("LEFT")
+        s.text:SetWordWrap(false)
+        return s
+    end
+    ui.spellSlot = Slot(-34, "Spell")
+    ui.spellSlot:RegisterForDrag("LeftButton")
+    ui.spellSlot:SetScript("OnReceiveDrag", TakeDroppedSpell)
+    local pickSpell = function()
+        OpenChooser("Choose a spell", SpellItems, function(it) A.spell = it.value end, true)
+    end
+    ui.spellSlot:SetScript("OnClick", Safe(function()
+        if GetCursorInfo and GetCursorInfo() then TakeDroppedSpell() else pickSpell() end
+    end))
+    Tip(Btn(AP, "Choose spell", 100, 268, -36, pickSpell), "Choose spell", "Lists your spells to pick from, with a filter.")
+    Wrapped(AP, "Or drag a spell from your spellbook onto the icon. None = auto attack only.", 12, -66, 356)
+    ui.spellNote = Text(AP, "", 12, -84)
+
+    ui.macroSlot = Slot(-110, "Macro")
+    Tip(Btn(AP, "Choose macro", 100, 268, -112, function()
+        OpenChooser("Choose a macro", MacroItems, function(it) A.macroName = it.value end)
+    end), "Choose macro", "Lists your saved macros (/m).")
+    Wrapped(AP, "A saved macro from /m runs in place of the spell, after the mob is targeted. Edit it in /m and the key picks up the change.", 12, -142, 356)
+    ui.macroNote = Text(AP, "", 12, -172)
 end
 
 local function BuildTalkPopup()
@@ -1404,6 +1629,7 @@ local function Build()
     BuildNameSecure()
     BuildRecent()
     BuildAttackPopup()
+    BuildChooser()
     BuildTalkPopup()
     BuildNearby()
     BuildQuests()
@@ -1672,10 +1898,27 @@ end
 
 local function RefreshPopups()
     local A, I = SC.char.attack, SC.char.interact
-    SetEditText(ui.spell, A.spell)
+    ui.spellSlot.icon:SetTexture(SpellIcon(A.spell) or "Interface\\Icons\\INV_Misc_QuestionMark")
+    ui.spellSlot.icon:SetDesaturated(A.spell == "")
+    ui.spellSlot.text:SetText(A.spell ~= "" and A.spell or "|cff808080None|r")
+    local macroBody = SC.AttackMacroBody()
+    local mi = A.macroName ~= "" and GetMacroIndexByName and GetMacroIndexByName(A.macroName) or 0
+    local micon = mi and mi > 0 and select(2, GetMacroInfo(mi))
+    ui.macroSlot.icon:SetTexture(micon or "Interface\\Icons\\INV_Misc_QuestionMark")
+    ui.macroSlot.icon:SetDesaturated(not micon)
+    ui.macroSlot.text:SetText(A.macroName ~= "" and A.macroName or "|cff808080None|r")
+    if A.macroName == "" then
+        ui.macroNote:SetText("")
+    elseif not mi or mi == 0 then
+        ui.macroNote:SetText("|cffff6060Not in your macros any more. The spell is used.|r")
+    elseif not macroBody then
+        ui.macroNote:SetText("|cffff6060That macro is empty. The spell is used.|r")
+    else
+        ui.macroNote:SetText("|cff40ff40Used instead of the spell.|r")
+    end
     local sname, cast = SpellInfo(A.spell)
-    if strtrim(A.macro or "") ~= "" then
-        ui.spellNote:SetText("|cffffd100Your macro lines are used instead of the spell.|r")
+    if macroBody then
+        ui.spellNote:SetText("|cffffd100Your macro is used instead of the spell.|r")
     elseif A.spell == "" then
         ui.spellNote:SetText("|cffccccccNo spell: the key starts auto attack.|r")
     elseif not sname then
@@ -1685,7 +1928,6 @@ local function RefreshPopups()
     else
         ui.spellNote:SetText("|cff40ff40Instant cast.|r")
     end
-    SetEditText(ui.macroEdit, A.macro)
     SetEditText(ui.prefer, I.prefer)
     SetEditText(ui.reward, (I.reward or 0) > 0 and tostring(I.reward) or "")
 end
