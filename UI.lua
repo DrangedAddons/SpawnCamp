@@ -645,7 +645,7 @@ local function BuildChooser()
     CH.filter:HookScript("OnTextChanged", showHint)
     CH.ranks = Check(CH, "Show all ranks", 182, -30,
         function() return SC.char.showRanks end,
-        function(v) SC.char.showRanks = v; CH.offset = 0 end,
+        function(v) SC.char.showRanks = v; CH.offset = 0; RefreshChooser() end,
         "Off: one line per spell, cast at your highest rank. On: every rank you know, so you can pick a lower one.")
     CH.rows = {}
     for i = 1, CH_ROWS do
@@ -707,12 +707,17 @@ local function SpellItems()
     local A = SC.char.attack
     local out = { { text = "None", sub = "auto attack only", noIcon = true, value = "", selected = A.spell == "" } }
     local spells, seen = SC.PlayerSpells(), {}
-    local showRanks = SC.char.showRanks
+    local showRanks = SC.char.showRanks and true or false
+    local function clean(t)
+        return strtrim((t or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")):lower()
+    end
     for i = #spells, 1, -1 do
         local s = spells[i]
-        local ranked = s.sub:find("^[Rr]ank") ~= nil
-        if showRanks or not seen[s.name] then
-            seen[s.name] = true
+        local sub = clean(s.sub)
+        local ranked = sub:find("rank", 1, true) ~= nil or sub:match("^%d+$") ~= nil
+        local key = clean(s.name)
+        if showRanks or not seen[key] then
+            seen[key] = true
             local value = (showRanks and ranked) and (s.name .. "(" .. s.sub .. ")") or s.name
             table.insert(out, 2, { text = s.name, sub = (showRanks or not ranked) and s.sub or "", icon = s.icon,
                 value = value, selected = A.spell == value })
@@ -721,6 +726,8 @@ local function SpellItems()
     -- Ranks hidden: the highest rank came last in the book, so it's the one kept.
     return out
 end
+
+SC._SpellItems = SpellItems
 
 local function MacroItems()
     local A = SC.char.attack
@@ -1898,10 +1905,15 @@ end
 
 local function RefreshPopups()
     local A, I = SC.char.attack, SC.char.interact
-    ui.spellSlot.icon:SetTexture(SpellIcon(A.spell) or "Interface\\Icons\\INV_Misc_QuestionMark")
-    ui.spellSlot.icon:SetDesaturated(A.spell == "")
-    ui.spellSlot.text:SetText(A.spell ~= "" and A.spell or "|cff808080None|r")
     local macroBody = SC.AttackMacroBody()
+    ui.spellSlot.icon:SetTexture(SpellIcon(A.spell) or "Interface\\Icons\\INV_Misc_QuestionMark")
+    ui.spellSlot.icon:SetDesaturated(A.spell == "" or macroBody ~= nil)
+    ui.spellSlot:SetAlpha(macroBody and 0.4 or 1)
+    if macroBody then
+        ui.spellSlot.text:SetText("|cff808080" .. (A.spell ~= "" and A.spell or "None") .. "  (not used)|r")
+    else
+        ui.spellSlot.text:SetText(A.spell ~= "" and A.spell or "|cff808080None|r")
+    end
     local mi = A.macroName ~= "" and GetMacroIndexByName and GetMacroIndexByName(A.macroName) or 0
     local micon = mi and mi > 0 and select(2, GetMacroInfo(mi))
     ui.macroSlot.icon:SetTexture(micon or "Interface\\Icons\\INV_Misc_QuestionMark")
@@ -1914,11 +1926,11 @@ local function RefreshPopups()
     elseif not macroBody then
         ui.macroNote:SetText("|cffff6060That macro is empty. The spell is used.|r")
     else
-        ui.macroNote:SetText("|cff40ff40Used instead of the spell.|r")
+        ui.macroNote:SetText("|cff40ff40In use. The spell above is ignored while a macro is picked.|r")
     end
     local sname, cast = SpellInfo(A.spell)
     if macroBody then
-        ui.spellNote:SetText("|cffffd100Your macro is used instead of the spell.|r")
+        ui.spellNote:SetText("|cffff9933Not used: the macro below always wins. Set Macro to None to use the spell.|r")
     elseif A.spell == "" then
         ui.spellNote:SetText("|cffccccccNo spell: the key starts auto attack.|r")
     elseif not sname then

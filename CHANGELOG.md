@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.26.1
+
+- Fixed **Show all ranks** not changing the open spell list. Ticking or unticking it now rebuilds the list straight away. Rank and duplicate-name matching also ignores colour codes, spacing and capitals.
+- With a macro picked, the Spell row is dimmed and marked "(not used)", with a note that the macro always wins. Set Macro to None to use the spell again.
+
 ## 0.26.0
 
 - No more "key press didn't cast" lines in chat (out of range, not ready, another action in progress). The game's red text already says it. A line-of-sight error still makes the key look past that mob for a few seconds.
