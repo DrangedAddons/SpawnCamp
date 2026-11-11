@@ -1,7 +1,8 @@
--- Rare pop-up. No list. A rare is found two ways:
+-- Rare pop-up. No list. A rare is found three ways:
 --   vignette   the minimap star the game shows for a rare, from further out
 --              than nameplates (C_VignetteInfo; only if Forever has them).
 --   nameplate  UnitClassification "rare" / "rareelite", within nameplate range.
+--   group      the same check on what your party or raid members have targeted.
 -- Whichever comes first announces it and adds a target box at the top (silver
 -- frame). The box puts it on the key, so the key's name search targets it once
 -- it's in reach. Clearing that box stops it popping up again this session.
@@ -115,6 +116,44 @@ function SC.ScanVignettes()
         end
     end
 end
+
+------------------------------------------------------------------------------
+-- Group members' targets
+------------------------------------------------------------------------------
+
+-- A party or raid member's target. unit = "party1", "raid7", ...
+local function CheckGroupTarget(unit)
+    if not SC.char or SC.True(UnitIsUnit(unit, "player")) then return end
+    local t = unit .. "target"
+    if not SC.MaybeExists(t) or SC.True(UnitIsPlayer(t)) then return end
+    local cls = SC.Plain(UnitClassification(t))
+    if not IS_RARE[cls] then return end
+    if SC.Bool(UnitIsDead(t)) == true or SC.Bool(UnitCanAttack("player", t)) == false then return end
+    local name = SC.UnitNameSafe(t)
+    if not name then return end
+    local m = SC.char.mobs[name]
+    if m then m.rare = cls end
+    local who = SC.Plain(UnitName(unit))
+    Found(name, cls, SC.Plain(UnitCreatureType(t)), type(who) == "string" and ("(" .. who .. "'s target)") or nil, "spotted")
+end
+
+function SC.ScanGroupTargets()
+    if not (IsInGroup and IsInGroup()) then return end
+    local raid = IsInRaid and IsInRaid()
+    local n = raid and (GetNumGroupMembers() or 0) or 4
+    for i = 1, n do
+        local u = (raid and "raid" or "party") .. i
+        if SC.MaybeExists(u) then pcall(CheckGroupTarget, u) end
+    end
+end
+
+SC.On("UNIT_TARGET", function(unit)
+    unit = SC.Plain(unit)
+    if type(unit) == "string" and (unit:find("^party%d") or unit:find("^raid%d")) then pcall(CheckGroupTarget, unit) end
+end)
+SC.On("GROUP_ROSTER_UPDATE", function() SC.ScanGroupTargets() end)
+-- UNIT_TARGET doesn't fire for members out of range of you; a slow sweep catches those.
+C_Timer.NewTicker(3, function() if SC.char then SC.ScanGroupTargets() end end)
 
 for _, ev in ipairs({ "VIGNETTE_MINIMAP_UPDATED", "VIGNETTES_UPDATED" }) do
     if SC.EventValid(ev) then SC.On(ev, function() SC.ScanVignettes() end) end

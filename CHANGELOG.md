@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.30.0
+
+- Rares your party or raid members have targeted pop up too: "Rare spotted: Lupos  (Bob's target)", with the silver box added. They don't need to be near you. Checked whenever a member changes target, and every 3 seconds for members too far away for that to fire.
+
 ## 0.29.0
 
 - Rares are also found from their minimap vignette (the star the game shows for a rare), which reaches further than nameplates. The alert says "Rare spotted: <name>" with a rough distance and direction (e.g. "~150 yd NE"), and the silver box is added straight away. Your key's name search targets it once it's in reach. The nameplate check stays quiet for a rare already announced.
