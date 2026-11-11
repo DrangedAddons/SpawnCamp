@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.31.1
+
+- The small line under a target's ETA no longer spills over the Ignore and Attack buttons. It's shorter ("Avg 5:00", "No avg yet", "0:25 over avg") and is cut off at its column's width. Hover the ETA for what it means.
+
 ## 0.31.0
 
 - **Ignore** on a rare's box: takes it off your key and adds it to the ignored rares, so it never pops up or alerts again, from any source (vignette, nameplate, group target).

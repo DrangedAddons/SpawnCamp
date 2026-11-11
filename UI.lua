@@ -918,7 +918,7 @@ end
 
 -- Target boxes, one per slot, left to right:
 --   [portrait] Name               ETA 0:15        [sword] [bubble]  [Clear]
---              dead 0:05, ...     Avg respawn 0:20                  Keep [x]
+--              dead 0:05, ...     Avg 0:20                          Keep [x]
 
 -- quest = the Auto Quest box: same look, but the key picks the mob.
 local function BuildTargetBox(slot, quest)
@@ -978,11 +978,13 @@ local function BuildTargetBox(slot, quest)
     bx.eta:SetPoint("TOP", 0, -6)
     bx.avg = eta:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     bx.avg:SetPoint("BOTTOM", 0, 8)
+    bx.avg:SetWidth(92)
+    bx.avg:SetWordWrap(false)
     eta:EnableMouse(true)
     if quest then
         Tip(eta, "Quest progress", "Kills (or items) done out of how many the quest needs. With several quest mobs, how many kinds are still needed.")
     else
-    Tip(eta, "Respawn ETA", "Avg respawn: how long this mob usually takes to come back after it dies (from the log). ETA counts down to that from its last death. At zero you get a soft ding, whether or not it has shown.")
+    Tip(eta, "Respawn ETA", "Avg: how long this mob usually takes to come back after it dies (from the log). ETA counts down to that from its last death. At zero you get a soft ding, whether or not it has shown.")
     end
     bx.etaBox = eta
 

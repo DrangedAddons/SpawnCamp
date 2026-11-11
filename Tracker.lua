@@ -184,12 +184,12 @@ function SC.ETA(name)
     local events = SC.History(name).events
     local last = events[#events]
     local _, avg = SC.Stats(name)
-    local avgText = avg and ("Avg respawn " .. SC.Clock(avg)) or "Avg respawn: not known yet"
+    local avgText = avg and ("Avg " .. SC.Clock(avg)) or "No avg yet"
     if last and last.k == "A" then return "UP", avgText, "|cff40ff40" end
     if not (last and avg) then return "ETA --:--", avgText, "|cff999999" end
     local left = avg - (GetServerTime() - last.t)
     if left > 0 then return "ETA " .. SC.Clock(left), avgText, "|cffffd100" end
-    return "DUE", avgText .. ", " .. SC.Clock(-left) .. " over", "|cffff8040"
+    return "DUE", SC.Clock(-left) .. " over avg", "|cffff8040"
 end
 
 ------------------------------------------------------------------------------
