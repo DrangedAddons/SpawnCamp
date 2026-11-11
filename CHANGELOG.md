@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.31.0
+
+- **Ignore** on a rare's box: takes it off your key and adds it to the ignored rares, so it never pops up or alerts again, from any source (vignette, nameplate, group target).
+- **Ignored rares** in the gear settings lists them. **Remove** gives a rare its pop-up back. The box at the top adds a name by hand, to ignore a rare before you meet it. Names match without caring about capitals. The list is per character.
+
 ## 0.30.0
 
 - Rares your party or raid members have targeted pop up too: "Rare spotted: Lupos  (Bob's target)", with the silver box added. They don't need to be near you. Checked whenever a member changes target, and every 3 seconds for members too far away for that to fire.

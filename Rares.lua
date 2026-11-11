@@ -23,8 +23,36 @@ end
 
 -- Adds the rare as target 1, opens the window and alerts. where = extra text
 -- for the alert (direction and distance from a vignette), or nil.
+-- The ignore list: rares that never pop up or alert. Keyed by lower-case name.
+function SC.IsRareIgnored(name)
+    return SC.char and type(name) == "string" and SC.char.rareIgnore[name:lower()] ~= nil
+end
+
+function SC.IgnoreRare(name)
+    name = strtrim(name or "")
+    if name == "" then return end
+    SC.char.rareIgnore[name:lower()] = name
+    local slot = SC.SlotOf(name)
+    if slot then SC.SetActive(nil, slot) else SC.Refresh() end
+end
+
+function SC.UnignoreRare(name)
+    if type(name) ~= "string" then return end
+    SC.char.rareIgnore[name:lower()] = nil
+    SC.rareDismissed[name] = nil
+    SC.Refresh()
+end
+
+-- Ignored names, sorted, as they were added.
+function SC.IgnoredRares()
+    local out = {}
+    for _, n in pairs(SC.char.rareIgnore) do out[#out + 1] = n end
+    table.sort(out, function(a, b) return a:lower() < b:lower() end)
+    return out
+end
+
 local function Found(name, cls, ctype, where, how)
-    if not SC.char.rareAlert or SC.IsActive(name) or SC.rareDismissed[name] then return end
+    if not SC.char.rareAlert or SC.IsActive(name) or SC.rareDismissed[name] or SC.IsRareIgnored(name) then return end
     local now = GetTime()
     if alerted[name] and now - alerted[name] < ALERT_AGAIN then return end
     alerted[name] = now

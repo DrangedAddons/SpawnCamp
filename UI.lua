@@ -538,11 +538,11 @@ end
 -- Attack and Talk options (right-click popups)
 ------------------------------------------------------------------------------
 
-local AP, TP, N, RP, Q, AQ
+local AP, TP, N, RP, Q, AQ, IG
 local CH   -- the list chooser beside the Attack options
 
 local function HideSidePanels(except)
-    for _, p in ipairs({ AP, TP, N, RP, Q, AQ }) do
+    for _, p in ipairs({ AP, TP, N, RP, Q, AQ, IG }) do
         if p and p ~= except then p:Hide() end
     end
 end
@@ -1026,6 +1026,13 @@ local function BuildTargetBox(slot, quest)
         bx.lock:SetHeight(20)
         Tip(bx.lock, "Lock in", "This is the one. Keeps this mob and removes the search that found it, along with anything else that search added.")
         bx.lock:Hide()
+        bx.ignore = Btn(T, "Ignore", 58, 0, 0, function()
+            local m = SC.Active(slot)
+            if m then SC.IgnoreRare(m.name) end
+        end)
+        bx.ignore:SetHeight(20)
+        Tip(bx.ignore, "Ignore this rare", "Takes it off your key and adds it to the ignored rares, so it never pops up or alerts again. Review the list in the gear settings.")
+        bx.ignore:Hide()
     end
 
     if not quest then
@@ -1341,6 +1348,8 @@ local function BuildSettings(P)
     Check(P, "Pop up rares", 4, -120,
         function() return SC.char.rareAlert end, function(v) SC.char.rareAlert = v end,
         "When a rare's nameplate shows, it's added as a target at the top (silver frame) with a loud alert. Clear its box and it won't pop up again until you log in again. While SilverDragon is loaded the box still pops up but the alert is left to SilverDragon.")
+    Tip(Btn(P, "Ignored rares", 100, 240, -119, function() SC.ToggleIgnoredRares() end),
+        "Ignored rares", "The rares you've ignored. Remove one to get its pop-up back, or type a name to ignore it ahead of time.")
     Text(P, "Early ding", 8, -148)
     ui.lead = Edit(P, 36, 66, -144, function(t) SC.char.lead = tonumber(t) or 0 end, true)
     Text(P, "seconds before the earliest respawn (0 = off)", 112, -148)
@@ -1631,6 +1640,81 @@ function SC.ToggleAutoTargets()
 end
 
 ------------------------------------------------------------------------------
+-- Ignored rares
+------------------------------------------------------------------------------
+
+local IG_ROWS = 12
+
+local function RefreshIgnored()
+    if not (IG and IG:IsShown()) then return end
+    local list = SC.IgnoredRares()
+    IG.offset = math.max(0, math.min(IG.offset or 0, #list - IG_ROWS))
+    for i, r in ipairs(IG.rows) do
+        local n = list[i + IG.offset]
+        if n then
+            r.mobName = n
+            r.name:SetText(n)
+            r:Show()
+        else
+            r.mobName = nil
+            r:Hide()
+        end
+    end
+    IG.empty:SetShown(#list == 0)
+    IG.count:SetText(#list > IG_ROWS and (#list .. " rares, scroll for more") or "")
+end
+
+local function BuildIgnored()
+    IG = Popup("SpawnCampIgnoredRares", 300, 96 + IG_ROWS * 18, "Ignored rares")
+    IG.add = Edit(IG, 196, 4, -30, function() end)
+    local function add()
+        local n = strtrim(IG.add:GetText() or "")
+        if n ~= "" then SC.IgnoreRare(n) end
+        IG.add:SetText("")
+        IG.add:ClearFocus()
+        RefreshIgnored()
+    end
+    IG.add:SetScript("OnEnterPressed", add)
+    Tip(Btn(IG, "Add", 50, 212, -29, add), "Add", "Type a rare's exact name to stop it popping up or alerting.")
+    local top = -58
+    IG.empty = Text(IG, "No ignored rares.\n\nClick Ignore on a rare's box, or type\na name above.", 8, top - 2)
+    IG.count = Text(IG, "", 8, top - IG_ROWS * 18 - 6)
+    IG.rows = {}
+    for i = 1, IG_ROWS do
+        local r = CreateFrame("Frame", nil, IG)
+        r:SetSize(284, 17)
+        r:SetPoint("TOPLEFT", 8, top - (i - 1) * 18)
+        r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        r.name:SetPoint("LEFT", 2, 0)
+        r.name:SetPoint("RIGHT", -60, 0)
+        r.name:SetJustifyH("LEFT")
+        r.name:SetWordWrap(false)
+        r.remove = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
+        r.remove:SetSize(56, 17)
+        r.remove:SetPoint("RIGHT", 0, 0)
+        r.remove:SetText("Remove")
+        r.remove:SetScript("OnClick", Safe(function()
+            if r.mobName then SC.UnignoreRare(r.mobName) end
+            RefreshIgnored()
+        end))
+        Tip(r.remove, "Remove", "Takes it off the list, so it pops up and alerts again.")
+        r:EnableMouseWheel(true)
+        r:SetScript("OnMouseWheel", function(_, d)
+            IG.offset = (IG.offset or 0) - d
+            RefreshIgnored()
+        end)
+        IG.rows[i] = r
+    end
+    IG:SetScript("OnShow", RefreshIgnored)
+end
+
+function SC.ToggleIgnoredRares()
+    if not F then return end
+    ShowBeside(IG)
+    RefreshIgnored()
+end
+
+------------------------------------------------------------------------------
 -- Build
 ------------------------------------------------------------------------------
 
@@ -1663,6 +1747,7 @@ local function Build()
     BuildNearby()
     BuildQuests()
     BuildAutoTargets()
+    BuildIgnored()
     BuildLog()
     ui.panels = {}
     for id, build in pairs({ settings = BuildSettings }) do
@@ -1768,13 +1853,21 @@ local function RefreshBox(bx, m, slot)
     bx.silver:SetShown(rare and true or false)
     bx.silverGlow:SetShown(rare and true or false)
     if rare then bx.frame:SetBackdropBorderColor(0.86, 0.9, 1, 1) else bx.frame:SetBackdropBorderColor(1, 0.82, 0, 0.6) end
+    bx.ignore:SetShown(rare and true or false)
     if not m then bx.up:Hide(); bx.down:Hide(); bx.lock:Hide(); return end
     PlacePortrait(m.name, bx.portrait)
     bx.tipName = m.name
     local search = SC.SearchOf(m.name)
     bx.lock:SetShown(search ~= nil)
+    bx.ignore:ClearAllPoints()
     if search then
-        bx.status:SetPoint("RIGHT", bx.lock, "LEFT", -4, 0)
+        bx.ignore:SetPoint("RIGHT", bx.lock, "LEFT", -4, 0)
+    else
+        bx.ignore:SetPoint("BOTTOMRIGHT", bx.nameArea, "BOTTOMRIGHT", 0, 3)
+    end
+    local leftmost = (rare and bx.ignore) or (search and bx.lock)
+    if leftmost then
+        bx.status:SetPoint("RIGHT", leftmost, "LEFT", -4, 0)
     else
         bx.status:SetPoint("RIGHT", bx.nameArea, "RIGHT", 0, 0)
     end
@@ -2012,6 +2105,7 @@ function SC.RefreshWindow()
     SetEditText(ui.lead, tostring(SC.char.lead or 0))
     RefreshRecent()
     RefreshAutoTargets()
+    RefreshIgnored()
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
     RefreshPopups()
 

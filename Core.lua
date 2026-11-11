@@ -70,6 +70,7 @@ SC.CHAR_DEFAULTS = {
     alertSpawn = true,    -- loud alert when a watched mob is seen alive
     alarm = true,         -- soft dings: early warning, window open, average reached
     rareAlert = true,     -- a rare's nameplate adds it as a target box (silver) with an alert
+    rareIgnore = {},      -- lower-case rare name -> name as shown; never pops up or alerts
     lead = 60,            -- early warning, seconds before the earliest expected respawn
     shareParty = true,    -- send and receive sightings with your party
     shareRaid = true,     -- ... your raid
