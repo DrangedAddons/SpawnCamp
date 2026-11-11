@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.27.0
+
+- **Rares** button (next to Auto Quest): the rares in your zone, nearest first, with **Use** to put one on your key. Hover a row for its level, spawn points, when you last saw it and the vanilla respawn timer.
+- Three sources, kept apart. Forever-only rares come from SilverDragon's Forever zone files (used with permission). Rares you see on Forever are saved by themselves, with where you were. The vanilla 1.12 list (vmangos) is a grey reference that's marked "vanilla data" until someone sees that rare on Forever. If its nameplate isn't rare here, it's marked "not rare here". **Show vanilla rares** off hides the grey ones.
+- **Alert when a rare shows**: a raid-warning alert when a rare's nameplate comes into view, once every 5 minutes per rare. It stays quiet while SilverDragon is loaded, so you don't get two alerts, and for mobs already on your key.
+
 ## 0.26.1
 
 - Fixed **Show all ranks** not changing the open spell list. Ticking or unticking it now rebuilds the list straight away. Rank and duplicate-name matching also ignores colour codes, spacing and capitals.

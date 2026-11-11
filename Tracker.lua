@@ -343,6 +343,7 @@ local function NoteNearby(unit)
         end
         SC.nearby[n] = e
         if SC.MatchPartial then SC.MatchPartial(n) end
+        if SC.NoteRare then SC.NoteRare(n, e) end
         return "ok"
     end)
     if not ok then
