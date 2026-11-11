@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.28.0
+
+- Rares pop up as a target. When a rare or rare elite nameplate comes into view, it's added at the top of your targets in a box with an ornate silver frame and a "Rare" / "Rare Elite" tag, the window opens, and a loud alert goes off. The key goes for it first.
+- Clear on a rare's box stops that rare popping up again until you next log in. A rare you killed pops up again when it respawns.
+- No rare list any more. The game marks rares on their nameplates (rare / rare elite), so nothing else is needed. The Rares button, the vanilla and SilverDragon data and the build script from 0.27.0 are gone.
+- The switch is **Pop up rares** in the gear settings (on by default). With SilverDragon loaded the box still pops up, and the alert is left to SilverDragon.
+- Detection range is nameplate range: up to 60 yards with nameplate distance at its maximum, plus any rare you target or mouse over.
+
 ## 0.27.0
 
 - **Rares** button (next to Auto Quest): the rares in your zone, nearest first, with **Use** to put one on your key. Hover a row for its level, spawn points, when you last saw it and the vanilla respawn timer.

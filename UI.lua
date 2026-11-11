@@ -23,7 +23,7 @@ local recentOffset, histOffset = 0, 0
 local RECENT_ROWS, HIST_ROWS = 14, 14
 local RECENT_H = 22
 local W = 520
-local PANEL_H = { settings = 192 }
+local PANEL_H = { settings = 216 }
 local capturing     -- { settings = table with .key, button = key button } while setting a key
 
 -- The game's sword and chat cursors, tinted gold on the buttons.
@@ -538,11 +538,11 @@ end
 -- Attack and Talk options (right-click popups)
 ------------------------------------------------------------------------------
 
-local AP, TP, N, RP, Q, AQ, RA
+local AP, TP, N, RP, Q, AQ
 local CH   -- the list chooser beside the Attack options
 
 local function HideSidePanels(except)
-    for _, p in ipairs({ AP, TP, N, RP, Q, AQ, RA }) do
+    for _, p in ipairs({ AP, TP, N, RP, Q, AQ }) do
         if p and p ~= except then p:Hide() end
     end
 end
@@ -903,8 +903,6 @@ local function BuildPicker()
     Tip(Btn(T, "Quest", 56, 160, -36, function() SC.ToggleQuests() end),
         "Quest", "Mobs your current quests want: kill objectives from your quest log, plus mobs nearby that your quests need (item drops too).")
     ui.autoQuest = Btn(T, "Auto Quest", 92, 218, -36, function() SC.SetAnyQuest(not SC.char.anyQuest) end)
-    Tip(Btn(T, "Rares", 56, 312, -36, function() SC.ToggleRares() end),
-        "Rares", "Rares in your zone: Forever ones, ones you've seen here, and (grey) the vanilla list. Use puts one on your key.")
     Tip(ui.autoQuest, "Auto Quest", "On, your key goes for any mob your quests still need, alive and not tagged by someone else, after your own targets. Finished objectives drop off by themselves.")
 
     ui.pickCancel = CreateFrame("Button", nil, T, "UIPanelCloseButton")
@@ -940,7 +938,10 @@ local function BuildTargetBox(slot, quest)
 
     -- Right column: Clear, with Keep under it.
     bx.clear = Btn(T, "Clear", 58, 0, 0, function()
-        if quest then SC.SetAnyQuest(false) else SC.SetActive(nil, slot) end
+        if quest then SC.SetAnyQuest(false); return end
+        local m = SC.Active(slot)
+        if m and m.rareAuto and SC.rareDismissed then SC.rareDismissed[m.name] = true end
+        SC.SetActive(nil, slot)
     end)
     bx.clear:ClearAllPoints()
     bx.clear:SetPoint("TOPRIGHT", -6, -8)
@@ -1000,6 +1001,22 @@ local function BuildTargetBox(slot, quest)
     bx.status:SetJustifyH("LEFT")
     bx.status:SetWordWrap(false)
     bx.nameArea = nameArea
+
+    if not quest then
+        -- Rares get an ornate silver frame over the box.
+        bx.silver = CreateFrame("Frame", nil, T, "BackdropTemplate")
+        bx.silver:SetPoint("TOPLEFT", -5, 5)
+        bx.silver:SetPoint("BOTTOMRIGHT", 5, -5)
+        bx.silver:SetFrameLevel(T:GetFrameLevel() + 6)
+        bx.silver:SetBackdrop({ edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 20 })
+        bx.silver:SetBackdropBorderColor(0.86, 0.9, 1, 1)
+        bx.silverGlow = T:CreateTexture(nil, "BACKGROUND", nil, 1)
+        bx.silverGlow:SetPoint("TOPLEFT", 3, -3)
+        bx.silverGlow:SetPoint("BOTTOMRIGHT", -3, 3)
+        bx.silverGlow:SetColorTexture(0.75, 0.8, 0.95, 0.08)
+        bx.silver:Hide()
+        bx.silverGlow:Hide()
+    end
 
     if not quest then
         -- On a mob a search found: keep it and drop the search.
@@ -1321,10 +1338,13 @@ local function BuildSettings(P)
     Check(P, "Respawn dings", 240, -96,
         function() return SC.char.alarm end, function(v) SC.char.alarm = v end,
         "Soft ding: a set time before the earliest respawn, when the respawn window opens, and when the average respawn time is reached.")
-    Text(P, "Early ding", 8, -124)
-    ui.lead = Edit(P, 36, 66, -120, function(t) SC.char.lead = tonumber(t) or 0 end, true)
-    Text(P, "seconds before the earliest respawn (0 = off)", 112, -124)
-    Text(P, "Right-click Attack or Talk for their options.", 8, -150, "GameFontDisableSmall")
+    Check(P, "Pop up rares", 4, -120,
+        function() return SC.char.rareAlert end, function(v) SC.char.rareAlert = v end,
+        "When a rare's nameplate shows, it's added as a target at the top (silver frame) with a loud alert. Clear its box and it won't pop up again until you log in again. While SilverDragon is loaded the box still pops up but the alert is left to SilverDragon.")
+    Text(P, "Early ding", 8, -148)
+    ui.lead = Edit(P, 36, 66, -144, function(t) SC.char.lead = tonumber(t) or 0 end, true)
+    Text(P, "seconds before the earliest respawn (0 = off)", 112, -148)
+    Text(P, "Right-click Attack or Talk for their options.", 8, -174, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------
@@ -1611,179 +1631,6 @@ function SC.ToggleAutoTargets()
 end
 
 ------------------------------------------------------------------------------
--- Rares in your zone
-------------------------------------------------------------------------------
-
-local RARE_ROWS = 14
-
-local function Span(lo, hi)
-    local function h(s)
-        if s >= 3600 then
-            if s % 3600 == 0 then return string.format("%dh", s / 3600) end
-            return string.format("%.1fh", s / 3600)
-        end
-        return string.format("%dm", math.floor(s / 60 + 0.5))
-    end
-    if not lo then return nil end
-    if not hi or hi == lo then return h(lo) end
-    return h(lo) .. "-" .. h(hi)
-end
-
-local function RareTip(owner, item)
-    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-    GameTooltip:AddLine(item.name, 1, 0.82, 0)
-    if item.minLevel then
-        local lv = item.minLevel == item.maxLevel and tostring(item.minLevel) or (item.minLevel .. "-" .. item.maxLevel)
-        GameTooltip:AddLine("Level " .. lv .. (item.elite and " rare elite" or " rare"), 1, 1, 1)
-    end
-    if item.forever then
-        GameTooltip:AddLine("Forever rare (SilverDragon data).", 0.25, 1, 0.25)
-    elseif item.foreverOnly then
-        GameTooltip:AddLine("Seen on Forever. Not in the vanilla list.", 0.25, 1, 0.25)
-    elseif item.vanilla then
-        GameTooltip:AddLine("Vanilla data only. Not seen on Forever yet, so it may not exist here.", 0.6, 0.6, 0.6, true)
-    end
-    if item.notRare then
-        GameTooltip:AddLine("Seen on Forever, but its nameplate isn't rare here.", 1, 0.5, 0.25, true)
-    end
-    if item.seen and item.seen.t then
-        local s = item.seen
-        GameTooltip:AddLine("Last seen " .. SC.Clock(GetServerTime() - s.t) .. " ago"
-            .. (s.x and string.format(" near %.1f, %.1f", s.x * 100, s.y * 100) or "")
-            .. " (" .. (s.n or 1) .. "x)", 0.8, 0.8, 0.8)
-    end
-    local spawns, path = {}, 0
-    for _, p in ipairs(item.points) do
-        if p.spawn ~= false then
-            if #spawns < 8 then spawns[#spawns + 1] = string.format("%.1f, %.1f", p.x * 100, p.y * 100) end
-        else
-            path = path + 1
-        end
-    end
-    if #spawns > 0 then
-        GameTooltip:AddLine("Spawns at: " .. table.concat(spawns, "   "), 1, 1, 1, true)
-    end
-    if path > 0 then GameTooltip:AddLine("Patrols (" .. path .. " points along its path)", 0.8, 0.8, 0.8) end
-    if item.respawn then
-        local span = Span(item.respawn[1], item.respawn[2])
-        if span then GameTooltip:AddLine("Vanilla respawn timer: " .. span .. " (Forever may differ)", 0.6, 0.6, 0.6, true) end
-    end
-    GameTooltip:Show()
-end
-
-local function RefreshRares()
-    if not (RA and RA:IsShown()) then return end
-    local list, zoneName = SC.RaresHere()
-    RA.title:SetText("Rares" .. (zoneName and (": " .. zoneName) or ""))
-    RA.offset = math.max(0, math.min(RA.offset or 0, #list - RARE_ROWS))
-    local now = GetTime()
-    for i, r in ipairs(RA.rows) do
-        local item = list[i + RA.offset]
-        if item then
-            local grey = item.vanilla or item.notRare
-            r.name:SetText((grey and "|cff909090" or "|cffffffff") .. item.name .. "|r")
-            local bits = {}
-            if item.minLevel then
-                bits[#bits + 1] = (item.minLevel == item.maxLevel and tostring(item.minLevel) or (item.minLevel .. "-" .. item.maxLevel))
-                    .. (item.elite and "+" or "")
-            end
-            if item.dist then bits[#bits + 1] = string.format("%d yd", item.dist) end
-            local near = SC.nearby and SC.nearby[item.name]
-            if near and now - near.t < 30 then
-                bits[#bits + 1] = near.dead and "|cff999999dead nearby|r" or "|cff40ff40nearby|r"
-            elseif item.notRare then
-                bits[#bits + 1] = "|cffff8040not rare here|r"
-            elseif item.vanilla then
-                bits[#bits + 1] = "|cff808080vanilla data|r"
-            elseif item.seen and item.seen.t then
-                bits[#bits + 1] = "|cffc0c0c0seen " .. SC.Clock(GetServerTime() - item.seen.t) .. " ago|r"
-            elseif item.forever then
-                bits[#bits + 1] = "|cff40c0ffForever|r"
-            end
-            r.info:SetText(table.concat(bits, "  "))
-            local current = SC.IsActive(item.name)
-            r.use:SetShown(not current)
-            r.current:SetShown(current)
-            r.item = item
-            r:Show()
-        else
-            r.item = nil
-            r:Hide()
-        end
-    end
-    RA.empty:SetShown(#list == 0)
-    RA.empty:SetText(SC.RareZone() and "No rares known for this zone.\n\nRares you see here are added by themselves."
-        or "Can't tell which zone you're in.")
-    local bits = {}
-    if #list > RARE_ROWS then bits[#bits + 1] = #list .. " rares, scroll for more" end
-    if SC.SilverDragonOn() and SC.char.rareAlert then bits[#bits + 1] = "|cff999999alerts off: SilverDragon is loaded|r" end
-    RA.count:SetText(table.concat(bits, "   "))
-end
-
-local function BuildRares()
-    RA = Popup("SpawnCampRares", 340, 104 + RARE_ROWS * 18, "")
-    RA.title = Text(RA, "Rares", 10, -10, "GameFontNormal")
-    Check(RA, "Alert when a rare shows", 6, -28,
-        function() return SC.char.rareAlert end, function(v) SC.char.rareAlert = v end,
-        "Raid-warning alert when a rare's nameplate shows. Stays quiet while SilverDragon is loaded, so you don't get two alerts.")
-    Check(RA, "Show vanilla rares", 180, -28,
-        function() return SC.char.rareShowVanilla end, function(v) SC.char.rareShowVanilla = v; RA.offset = 0 end,
-        "Includes rares from the vanilla 1.12 list that haven't been seen on Forever yet (grey). Unticked, the list only has Forever rares and ones you've seen here.")
-    local top = -56
-    RA.count = Text(RA, "", 8, top - RARE_ROWS * 18 - 6)
-    RA.empty = Text(RA, "", 8, top - 2)
-    RA.rows = {}
-    for i = 1, RARE_ROWS do
-        local r = CreateFrame("Frame", nil, RA)
-        r:SetSize(324, 17)
-        r:SetPoint("TOPLEFT", 8, top - (i - 1) * 18)
-        r:EnableMouse(true)
-        r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        r.name:SetPoint("LEFT", 2, 0)
-        r.name:SetWidth(150)
-        r.name:SetJustifyH("LEFT")
-        r.name:SetWordWrap(false)
-        r.info = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        r.info:SetPoint("LEFT", r.name, "RIGHT", 4, 0)
-        r.info:SetPoint("RIGHT", -52, 0)
-        r.info:SetJustifyH("LEFT")
-        r.info:SetWordWrap(false)
-        r.use = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
-        r.use:SetSize(46, 17)
-        r.use:SetPoint("RIGHT", 0, 0)
-        r.use:SetText("Use")
-        r.use:SetScript("OnClick", Safe(function()
-            local item = r.item
-            if not item then return end
-            if SC.char.mobs[item.name] then SC.SetActive(item.name) else SC.AddMob(item.name, "attack") end
-            RefreshRares()
-        end))
-        Tip(r.use, "Use this rare", "Makes it your target, so your key looks for it by exact name.")
-        r.current = r:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        r.current:SetPoint("RIGHT", -4, 0)
-        r.current:SetText("target")
-        r:SetScript("OnEnter", function(self) if self.item then RareTip(self, self.item) end end)
-        r:SetScript("OnLeave", GameTooltip_Hide)
-        r:EnableMouseWheel(true)
-        r:SetScript("OnMouseWheel", function(_, d)
-            RA.offset = (RA.offset or 0) - d
-            RefreshRares()
-        end)
-        RA.rows[i] = r
-    end
-    RA:SetScript("OnShow", function()
-        SC.ScanNearby()
-        RefreshRares()
-    end)
-end
-
-function SC.ToggleRares()
-    if not F then return end
-    ShowBeside(RA)
-    RefreshRares()
-end
-
-------------------------------------------------------------------------------
 -- Build
 ------------------------------------------------------------------------------
 
@@ -1816,7 +1663,6 @@ local function Build()
     BuildNearby()
     BuildQuests()
     BuildAutoTargets()
-    BuildRares()
     BuildLog()
     ui.panels = {}
     for id, build in pairs({ settings = BuildSettings }) do
@@ -1918,6 +1764,10 @@ end
 
 local function RefreshBox(bx, m, slot)
     for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear, bx.keep }) do w:SetShown(m ~= nil) end
+    local rare = m and SC.IsRareClass and SC.IsRareClass(m.rare)
+    bx.silver:SetShown(rare and true or false)
+    bx.silverGlow:SetShown(rare and true or false)
+    if rare then bx.frame:SetBackdropBorderColor(0.86, 0.9, 1, 1) else bx.frame:SetBackdropBorderColor(1, 0.82, 0, 0.6) end
     if not m then bx.up:Hide(); bx.down:Hide(); bx.lock:Hide(); return end
     PlacePortrait(m.name, bx.portrait)
     bx.tipName = m.name
@@ -1934,7 +1784,9 @@ local function RefreshBox(bx, m, slot)
         for _ in pairs(m.rejected or {}) do skipped = skipped + 1 end
         bx.status:SetText("|cffc0c0c0Adds any mob with this in its name|r" .. (skipped > 0 and ("  |cff808080(" .. skipped .. " skipped)|r") or ""))
     else
-        bx.name:SetText(m.name .. (search and ("  |cff999999(found by \"" .. search .. "\")|r") or ""))
+        local tag = rare and ("  |cffd8e0ff" .. (m.rare == "rareelite" and "Rare Elite" or "Rare") .. "|r") or ""
+        bx.name:SetText((rare and "|cffeef2ff" or "") .. m.name .. (rare and "|r" or "") .. tag
+            .. (search and ("  |cff999999(found by \"" .. search .. "\")|r") or ""))
         local state, text = SC.Status(m.name)
         bx.status:SetText(StatusColor(state) .. text .. "|r")
     end
@@ -2160,7 +2012,6 @@ function SC.RefreshWindow()
     SetEditText(ui.lead, tostring(SC.char.lead or 0))
     RefreshRecent()
     RefreshAutoTargets()
-    RefreshRares()
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
     RefreshPopups()
 

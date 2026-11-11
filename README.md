@@ -14,7 +14,7 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
               [+ Add another target]  -> opens a blank box:
               +----------------------------------------------------------------+
               | New target [ type or paste a mob name ] [Add]               [x] |
-              | [My Target] [Nearby] [Quest] [Auto Quest] [Rares]                |
+              | [My Target] [Nearby] [Quest] [Auto Quest]                        |
               +----------------------------------------------------------------+
 ```
 
@@ -28,16 +28,13 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
 - **Recent** (small link in the header): a pop-out listing every mob you've targeted, with **Use** to pick one again and **x** to remove it.
 - **Nearby**: a pop-out of mobs around you, with **Use**.
 - **Quest**: a pop-out of mobs your current quests want: kill objectives from your quest log, and mobs seen nearby that your quests need (item drops too), with **Use**.
-- **Rares**: a pop-out of the rares in your zone, nearest first, with **Use**. Hover a row for its level, spawn points, your last sighting and the vanilla respawn timer. Where the list comes from:
-  - **Forever rares** from SilverDragon's Forever zone files (Kemayo, used with permission).
-  - **Seen here**: every rare nameplate you see is saved (account-wide) with where you were, including rares no list has.
-  - **Vanilla data** (grey) from the vmangos 1.12 world database. It's a reference only and may not exist on Forever. Once you see it here it turns white; if its nameplate isn't rare here it says "not rare here". Untick **Show vanilla rares** to hide the grey ones.
-  - **Alert when a rare shows** (on by default): a loud alert when a rare's nameplate comes into view. Off while SilverDragon is loaded, so you don't get it twice.
+- **Rares**: when a rare or rare elite nameplate comes into view, it's added at the top of your targets in a box with a silver frame, the window opens and a loud alert goes off. Clear its box and it won't pop up again until you next log in. No list is involved: the game marks rares on their nameplates. Range is nameplate range (up to 60 yards), or any rare you target or mouse over. **Pop up rares** in the gear settings turns it off. While SilverDragon is loaded the box still pops up but SilverDragon does the alerting.
 - **Auto Quest**: your key goes for any mob your quests still need, after your own targets, without adding each one. It gets its own box like a target's: the mob it's on (or the only one left), the quest and your progress (3/10), or "Any quest mob" with the count. **Clear** on that box turns Auto Quest off.
 - **Portrait**: the mob's real portrait once it has been seen (targeted, on a nameplate, moused over). Before that, an icon for its creature type, or a sword or scroll if that isn't known yet.
 - **Gear**:
   - Sharing with **Party**, **Raid** and **Guild**.
   - **Alert when a mob spawns** (loud).
+  - **Pop up rares**: a rare's nameplate adds it as a silver target box.
   - **Respawn dings** (soft), with how early the first one comes.
   - Show mobs you've already killed, sound, lock window, log on the right.
 
