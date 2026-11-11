@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.29.0
+
+- Rares are also found from their minimap vignette (the star the game shows for a rare), which reaches further than nameplates. The alert says "Rare spotted: <name>" with a rough distance and direction (e.g. "~150 yd NE"), and the silver box is added straight away. Your key's name search targets it once it's in reach. The nameplate check stays quiet for a rare already announced.
+- Treasure vignettes and ones not on your minimap are skipped.
+- `/spc vignettes` lists what the game gives addons right now, to check whether Forever shows rare vignettes in a zone. Without them, rares are found by nameplate as before.
+
 ## 0.28.0
 
 - Rares pop up as a target. When a rare or rare elite nameplate comes into view, it's added at the top of your targets in a box with an ornate silver frame and a "Rare" / "Rare Elite" tag, the window opens, and a loud alert goes off. The key goes for it first.

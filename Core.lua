@@ -709,6 +709,7 @@ local function Help()
     print("  /spawncamp up [name] - log a spawn now")
     print("  /spawncamp probe - print and save what the addon can read (target, mouseover, a nameplate)")
     print("  /spawncamp key - the key's mode, its macro, and the last presses")
+    print("  /spawncamp vignettes - list the minimap vignettes (rare stars) the game gives addons")
 end
 
 local function MobArg(rest)
@@ -748,6 +749,8 @@ SlashCmdList.SPAWNCAMP = function(msg)
         for _, line in ipairs(SpawnCampDB.keyLog or {}) do print("  " .. line) end
     elseif cmd == "debug" or cmd == "probe" then
         SC.Debug()
+    elseif cmd == "vignettes" then
+        if SC.VignetteReport then SC.VignetteReport() end
     else
         Help()
     end
