@@ -920,6 +920,33 @@ end
 --   [portrait] Name               ETA 0:15        [sword] [bubble]  [Clear]
 --              dead 0:05, ...     Avg 0:20                          Keep [x]
 
+-- The game's rare dragon art. On Forever's target frame (58 px portrait) the
+-- silver dragon sits at its own size with its top-right corner 34 px right of
+-- and 12 px above the portrait's top-right. Same here, scaled to our portrait
+-- and mirrored. Returns false when the client doesn't have the art.
+local RARE_DRAGONS = {
+    "UI-HUD-UnitFrame-Target-PortraitOn-Boss-Rare-Silver-Winged",
+    "UI-HUD-UnitFrame-Target-PortraitOn-Boss-Rare-Silver",
+}
+local function PlaceRareDragon(tex, portrait)
+    if not (C_Texture and C_Texture.GetAtlasInfo) then return false end
+    for _, atlas in ipairs(RARE_DRAGONS) do
+        local ok, info = pcall(C_Texture.GetAtlasInfo, atlas)
+        if ok and info and info.file and info.width then
+            local w = portrait:GetWidth()
+            if type(w) ~= "number" or w <= 0 then w = 52 end
+            local s = w / 58
+            tex:SetTexture(info.file)
+            tex:SetTexCoord(info.rightTexCoord, info.leftTexCoord, info.topTexCoord, info.bottomTexCoord)
+            tex:SetSize(info.width * s, info.height * s)
+            tex:ClearAllPoints()
+            tex:SetPoint("TOPLEFT", portrait, "TOPLEFT", -34 * s, 12 * s)
+            return true
+        end
+    end
+    return false
+end
+
 -- quest = the Auto Quest box: same look, but the key picks the mob.
 local function BuildTargetBox(slot, quest)
     local bx = { quest = quest }
@@ -1016,6 +1043,10 @@ local function BuildTargetBox(slot, quest)
         bx.silverGlow:SetPoint("TOPLEFT", 3, -3)
         bx.silverGlow:SetPoint("BOTTOMRIGHT", -3, 3)
         bx.silverGlow:SetColorTexture(0.75, 0.8, 0.95, 0.08)
+        -- The game's winged silver rare dragon around the portrait, mirrored so
+        -- the wings spread left (out of the box) instead of over the name.
+        bx.dragon = bx.silver:CreateTexture(nil, "OVERLAY")
+        bx.dragonOK = PlaceRareDragon(bx.dragon, bx.portrait)
         bx.silver:Hide()
         bx.silverGlow:Hide()
     end
@@ -1350,6 +1381,8 @@ local function BuildSettings(P)
     Check(P, "Pop up rares", 4, -120,
         function() return SC.char.rareAlert end, function(v) SC.char.rareAlert = v end,
         "When a rare's nameplate shows, it's added as a target at the top (silver frame) with a loud alert. Clear its box and it won't pop up again until you log in again. While SilverDragon is loaded the box still pops up but the alert is left to SilverDragon.")
+    Tip(Btn(P, "Test rare", 74, 344, -119, function() SC.TestRare() end),
+        "Test rare", "Adds a pretend rare elite at the top of your targets, with the alert, so you can see how a rare looks. Clear or Ignore removes it. It's never saved.")
     Tip(Btn(P, "Ignored rares", 100, 240, -119, function() SC.ToggleIgnoredRares() end),
         "Ignored rares", "The rares you've ignored. Remove one to get its pop-up back, or type a name to ignore it ahead of time.")
     Text(P, "Early ding", 8, -148)
@@ -1879,7 +1912,7 @@ local function RefreshBox(bx, m, slot)
         for _ in pairs(m.rejected or {}) do skipped = skipped + 1 end
         bx.status:SetText("|cffc0c0c0Adds any mob with this in its name|r" .. (skipped > 0 and ("  |cff808080(" .. skipped .. " skipped)|r") or ""))
     else
-        local tag = rare and ("  |cffd8e0ff" .. (m.rare == "rareelite" and "Rare Elite" or "Rare") .. "|r") or ""
+        local tag = rare and ("  |A:nameplates-icon-elite-silver:16:16|a|cffd8e0ff" .. (m.rare == "rareelite" and "Rare Elite" or "Rare") .. "|r") or ""
         bx.name:SetText((rare and "|cffeef2ff" or "") .. m.name .. (rare and "|r" or "") .. tag
             .. (search and ("  |cff999999(found by \"" .. search .. "\")|r") or ""))
         local state, text = SC.Status(m.name)

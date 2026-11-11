@@ -182,6 +182,12 @@ function SC.SetActive(name, slot)
             gm.fromPartial = nil
         end
         if slot and list[slot] then table.remove(list, slot) end
+        if gm and gm.test then
+            SC.char.mobs[gone] = nil
+            for i, n in ipairs(SC.char.order) do
+                if n == gone then table.remove(SC.char.order, i); break end
+            end
+        end
     elseif not SC.SlotOf(name) then
         if slot and list[slot] then
             list[slot] = name
@@ -207,6 +213,10 @@ end
 
 -- Removes every target.
 function SC.ClearTargets()
+    for i = #SC.char.targets, 1, -1 do
+        local m = SC.char.mobs[SC.char.targets[i]]
+        if m and m.test then SC.SetActive(nil, i) end
+    end
     wipe(SC.char.targets)
     SC.fastUnit = nil
     SC.ApplyBindings()
@@ -611,6 +621,10 @@ SC.On("ADDON_LOADED", function(name)
     Fill(SpawnCampCharDB, SC.CHAR_DEFAULTS)
     SC.char = SpawnCampCharDB
     SC.db = SpawnCampDB
+    -- A test rare left over from a /reload goes.
+    for n, m in pairs(SC.char.mobs) do
+        if m.test then SC.char.mobs[n] = nil end
+    end
     -- Drop order entries whose mob is gone, add mobs missing from the order.
     local seen, order = {}, {}
     for _, n in ipairs(SC.char.order) do

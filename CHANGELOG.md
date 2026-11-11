@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.32.0
+
+- Rare boxes carry the game's winged silver rare dragon around the portrait (the art Forever's target frame uses), mirrored so the wings spread out of the box, plus the small silver dragon badge before "Rare" / "Rare Elite".
+- **Test rare** in the gear settings, next to Ignored rares: adds a pretend rare elite at the top of your targets with the alert, so you can see how it looks. Clear or Ignore removes it, and it's never saved or put on the ignore list.
+
 ## 0.31.1
 
 - The small line under a target's ETA no longer spills over the Ignore and Attack buttons. It's shorter ("Avg 5:00", "No avg yet", "0:25 over avg") and is cut off at its column's width. Hover the ETA for what it means.

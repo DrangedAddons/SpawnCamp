@@ -31,7 +31,7 @@ end
 function SC.IgnoreRare(name)
     name = strtrim(name or "")
     if name == "" then return end
-    SC.char.rareIgnore[name:lower()] = name
+    if name ~= SC.TEST_RARE then SC.char.rareIgnore[name:lower()] = name end
     local slot = SC.SlotOf(name)
     if slot then SC.SetActive(nil, slot) else SC.Refresh() end
 end
@@ -76,6 +76,28 @@ local function Found(name, cls, ctype, where, how)
     if not SC.SilverDragonOn() then
         SC.Alert((cls == "rareelite" and "Rare elite " or "Rare ") .. how .. ": " .. name .. (where and ("  " .. where) or ""))
     end
+    SC.Refresh()
+end
+
+-- Settings > Test rare: a pretend rare elite at the top, with the alert.
+SC.TEST_RARE = "Test Rare (SpawnCamp)"
+function SC.TestRare()
+    local name = SC.TEST_RARE
+    if #SC.Targets() >= SC.MAX_TARGETS and not SC.IsActive(name) then
+        SC.Print("that's " .. SC.MAX_TARGETS .. " targets already. Clear one first.")
+        return
+    end
+    local m = SC.AddMob(name, "attack")
+    if not m then return end
+    m.rare, m.rareAuto, m.test, m.ctype = "rareelite", true, true, "Dragonkin"
+    local list = SC.char.targets
+    for i, n in ipairs(list) do
+        if n == name then table.remove(list, i); break end
+    end
+    table.insert(list, 1, name)
+    SC.ApplyBindings()
+    SC.char.shown = true
+    SC.Alert("Rare elite spotted: " .. name .. "  (test)")
     SC.Refresh()
 end
 
