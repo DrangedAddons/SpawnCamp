@@ -52,6 +52,10 @@ local keyBtn = NewSecure("SpawnCampKey")
 local interactBtn = NewSecure("SpawnCampInteract", true)
 interactBtn:SetAttribute("type", "interact")
 interactBtn:SetAttribute("unit", "target")
+-- A macro /click is an up-click, and with "cast on key down" on the secure
+-- template only acts on the down edge, so the click did nothing. Act on the
+-- up edge regardless of that setting; one /click still runs it once.
+interactBtn:SetAttribute("useOnKeyDown", false)
 
 -- A "line of sight" error right after a key press makes the key look past
 -- that mob for a few seconds. Other errors (range, cooldown, busy) are left to

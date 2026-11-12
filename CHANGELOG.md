@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.32.1
+
+- Fixed Talk doing nothing when you press the key. With "cast on key down" on (the game default) the game ignored the key's click on its talk button. The talk button now acts on that click whatever the setting.
+
 ## 0.32.0
 
 - Rare boxes carry the game's winged silver rare dragon around the portrait (the art Forever's target frame uses), mirrored so the wings spread out of the box, plus the small silver dragon badge before "Rare" / "Rare Elite".
