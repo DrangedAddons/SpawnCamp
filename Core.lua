@@ -271,6 +271,15 @@ end
 -- the key itself. Every mob seen whose name contains the text is added as a
 -- target of its own (fromPartial), right under the search. Clearing one of
 -- those tells the search to skip that name from then on.
+-- A name the game has shown: a sighting in the log or a saved tooltip. Looking
+-- a name up makes an empty log entry, so an entry alone doesn't count (that
+-- turned a typed search like "owl" into an exact name nothing matches).
+function SC.WasSeen(name)
+    local r = SpawnCampDB and SpawnCampDB.realms and SpawnCampDB.realms[SC.Realm()]
+    local h = r and r[name]
+    return h ~= nil and ((h.events and #h.events > 0) or h.tip ~= nil)
+end
+
 function SC.KnownNames()
     local out, seen = {}, {}
     local function add(n)
@@ -282,8 +291,7 @@ function SC.KnownNames()
         if ok then for _, r in ipairs(list) do add(r.name) end end
     end
     local r = SpawnCampDB and SpawnCampDB.realms and SpawnCampDB.realms[SC.Realm()]
-    for n in pairs(r or {}) do add(n) end
-    for n, m in pairs(SC.char.mobs) do if not m.partial then add(n) end end
+    for n in pairs(r or {}) do if SC.WasSeen(n) then add(n) end end
     return out
 end
 
@@ -651,6 +659,14 @@ SC.On("ADDON_LOADED", function(name)
     if not I.rewardV then
         if I.reward == 0 then I.reward = 1 end
         I.rewardV = 2
+    end
+    -- 0.32.3: lower-case names never seen in game were typed searches saved as
+    -- exact names (see SC.WasSeen). Game NPC names start with a capital.
+    for n, m in pairs(SC.char.mobs) do
+        if not m.partial and not m.test and n:find("^%l") and not SC.WasSeen(n) then
+            m.partial, m.rejected = true, m.rejected or {}
+            SC.Print("\"" .. n .. "\" is a search again: it adds every mob seen with that in its name.")
+        end
     end
     for n, m in pairs(SC.char.mobs) do
         m.name = n

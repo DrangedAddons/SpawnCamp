@@ -1843,6 +1843,9 @@ local function RefreshKey()
     elseif not m and quests == 0 then
         ui.keyNote:SetText(SC.char.anyQuest and "|cff999999Does nothing: no quest mobs needed.|r"
             or "|cff999999Does nothing: no target.|r")
+    elseif SC.KeyMacro() == "" then
+        -- Only searches on the list, none matched yet: the key has nothing to target.
+        ui.keyNote:SetText("|cff999999Waiting: no mob seen yet whose name contains your search. Nameplates on (V).|r")
     else
         local state, text = SC.KeyState()
         local color = (state == "on" or state == "lock") and "|cff40ff40" or "|cffffd100"

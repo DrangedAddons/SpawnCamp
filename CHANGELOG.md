@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.32.3
+
+- Fixed typed searches (like "owl") sometimes being saved as an exact name the second time you typed them, so the key looked for a mob literally called "owl" and did nothing. Only names the game has actually shown (a sighting or a saved tooltip) are matched to their spelling now.
+- Searches saved that way are turned back into searches on login, with a line in chat saying so.
+- When your only targets are searches that haven't matched a mob yet, the line next to the key says it's waiting instead of "Searching".
+
 ## 0.32.2
 
 - Talk works by binding: once the key has your Talk NPC targeted, it becomes the game's own Interact with Target key, and the next press talks. Forever doesn't run the old talk button from the key's macro (0.32.1 didn't fix it). The line next to the key says "On target: next press talks". Change target and the key goes back to finding the NPC.
