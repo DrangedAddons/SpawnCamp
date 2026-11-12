@@ -895,7 +895,7 @@ local function BuildPicker()
     end
     ui.addName:SetScript("OnEnterPressed", addTyped)
     ui.addName:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    Tip(Btn(T, "Add", 44, 326, -8, addTyped), "Add", "Adds the typed name to your targets. Part of a name works too: it becomes a search, and every mob seen with that in its name is added as its own target. Clear a wrong one and the search skips it from then on.")
+    Tip(Btn(T, "Add", 44, 326, -8, addTyped), "Add", "Adds a search for the typed text: any mob with it in its name, capitals don't matter (\"owl\" finds Vicious Owlbeast). Your key looks for it straight away, and every mob seen that matches is added as its own target. Clear a wrong one and the search skips it from then on.")
     Tip(Btn(T, "My Target", 84, 8, -36, function() SC.AddTarget(); SC.Refresh() end),
         "My Target", "Adds the mob you have targeted in game to your targets: Attack if hostile, Talk if friendly.")
     Tip(Btn(T, "Nearby", 64, 94, -36, function() SC.ToggleNearby() end),
@@ -1843,9 +1843,6 @@ local function RefreshKey()
     elseif not m and quests == 0 then
         ui.keyNote:SetText(SC.char.anyQuest and "|cff999999Does nothing: no quest mobs needed.|r"
             or "|cff999999Does nothing: no target.|r")
-    elseif SC.KeyMacro() == "" then
-        -- Only searches on the list, none matched yet: the key has nothing to target.
-        ui.keyNote:SetText("|cff999999Waiting: no mob seen yet whose name contains your search. Nameplates on (V).|r")
     else
         local state, text = SC.KeyState()
         local color = (state == "on" or state == "lock") and "|cff40ff40" or "|cffffd100"

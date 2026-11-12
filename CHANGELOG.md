@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.0
+
+- Typed names are always a wildcard search now, even a full name: any mob with that text in its name, capitals ignored. Typing a name the addon has seen no longer turns it into an exact name.
+- Searches are on the key. After your exact targets, the key tries `/target <text>` (the game's own part-of-a-name match), so it looks for "owl" straight away instead of waiting for a matching nameplate. A mob it finds is added under the search and found by exact name from then on.
+- A search no longer turns into a single mob when a name matching it with different capitals shows up; that mob is added under the search like any other match.
+
 ## 0.32.3
 
 - Fixed typed searches (like "owl") sometimes being saved as an exact name the second time you typed them, so the key looked for a mob literally called "owl" and did nothing. Only names the game has actually shown (a sighting or a saved tooltip) are matched to their spelling now.

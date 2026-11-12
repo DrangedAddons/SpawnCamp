@@ -265,12 +265,12 @@ function SC.AddMob(name, mode)
     return mobs[name]
 end
 
--- Typed names. A name the addon already knows (nearby, quests, history,
--- Recent) is matched ignoring case and stored as the game spells it. Anything
--- else goes in as typed and unconfirmed (m.partial): a search that isn't on
--- the key itself. Every mob seen whose name contains the text is added as a
--- target of its own (fromPartial), right under the search. Clearing one of
--- those tells the search to skip that name from then on.
+-- Typed names are always wildcard searches (m.partial). The key looks for a
+-- search with "/target <text>" after its exact names. Every mob seen whose
+-- name contains the text is added as a target of its own (fromPartial), right
+-- under the search. Clearing one of those tells the search to skip that name
+-- from then on.
+
 -- A name the game has shown: a sighting in the log or a saved tooltip. Looking
 -- a name up makes an empty log entry, so an entry alone doesn't count (that
 -- turned a typed search like "owl" into an exact name nothing matches).
@@ -305,14 +305,14 @@ end
 function SC.AddTyped(text)
     text = strtrim(text or "")
     if text == "" then return end
-    local low = text:lower()
-    for _, n in ipairs(SC.KnownNames()) do
-        if n:lower() == low then return SC.AddMob(n) end
-    end
+    -- Always a wildcard search, even for a full name: every mob whose name
+    -- contains the text is found.
     local mobs = SC.char.mobs
     if not mobs[text] then
         mobs[text] = { name = text, partial = true, rejected = {} }
         Fill(mobs[text], SC.MOB_DEFAULTS)
+    elseif not mobs[text].partial then
+        mobs[text].partial, mobs[text].rejected = true, mobs[text].rejected or {}
     end
     SC.SetActive(text)
     SC.FindPartials()
@@ -323,29 +323,6 @@ local function Replace(list, old, new)
     for i, n in ipairs(list) do
         if n == old then list[i] = new; return i end
     end
-end
-
--- The search's own name turned up with different capitals: it becomes that mob.
-local function Settle(key, name)
-    local mobs = SC.char.mobs
-    local m = mobs[key]
-    mobs[key] = nil
-    if mobs[name] then
-        local slot = SC.SlotOf(key)
-        if slot then
-            if SC.SlotOf(name) then table.remove(SC.char.targets, slot) else SC.char.targets[slot] = name end
-        end
-        for i, n in ipairs(SC.char.order) do
-            if n == key then table.remove(SC.char.order, i); break end
-        end
-    else
-        m.name, m.partial, m.rejected = name, nil, nil
-        mobs[name] = m
-        Replace(SC.char.targets, key, name)
-        Replace(SC.char.order, key, name)
-    end
-    mobs[name].hunting = true
-    if SC.char.selected == key then SC.char.selected = name end
 end
 
 -- A found mob goes on the key right under its search.
@@ -389,11 +366,7 @@ function SC.MatchPartial(name)
     local changed = false
     for _, key in ipairs(hits) do
         if SC.IsActive(name) then break end
-        if low == key:lower() then
-            Settle(key, name); changed = true
-        elseif AddFound(key, name) then
-            changed = true
-        end
+        if AddFound(key, name) then changed = true end
     end
     if changed then
         SC.fastUnit = nil

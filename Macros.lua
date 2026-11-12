@@ -169,7 +169,9 @@ end
 
 function SC.BuildKeyMacro()
     local attack, talk = SC.MobsIn("attack"), SC.MobsIn("interact")
-    if #attack + #talk == 0 then return "" end
+    local anySearch = false
+    for _, m in ipairs(SC.Actives()) do if m.partial then anySearch = true end end
+    if #attack + #talk == 0 and not anySearch then return "" end
     local all = {}
     for _, x in ipairs(attack) do all[#all + 1] = x end
     for _, x in ipairs(talk) do all[#all + 1] = x end
@@ -178,9 +180,23 @@ function SC.BuildKeyMacro()
     -- the rest only if the earlier ones found nothing. With clearDead, a corpse
     -- found by one search is dropped before the next, so a dead mob higher up
     -- doesn't hide the live ones below it.
+    -- Wildcard searches come last, as "/target <text>": the game's own
+    -- part-of-a-name match, nearest first. A mob it finds is added as its own
+    -- target by the nameplate scan, and from then on found by exact name.
+    local searches = {}
+    for _, m in ipairs(SC.Actives()) do
+        if m.partial then searches[#searches + 1] = m.name end
+    end
     local function Search(firstCond, clearDead)
-        for i, x in ipairs(all) do
-            lines[#lines + 1] = ((i == 1 and not firstCond) and "/targetexact " or "/targetexact [noexists] ") .. x.name
+        local n = 0
+        for _, x in ipairs(all) do
+            n = n + 1
+            lines[#lines + 1] = ((n == 1 and not firstCond) and "/targetexact " or "/targetexact [noexists] ") .. x.name
+            if clearDead then lines[#lines + 1] = "/cleartarget [dead]" end
+        end
+        for _, text in ipairs(searches) do
+            n = n + 1
+            lines[#lines + 1] = ((n == 1 and not firstCond) and "/target " or "/target [noexists] ") .. text
             if clearDead then lines[#lines + 1] = "/cleartarget [dead]" end
         end
     end
