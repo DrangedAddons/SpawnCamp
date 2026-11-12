@@ -213,6 +213,7 @@ end
 
 -- Which state the key is in, for the line next to it.
 function SC.KeyState()
+    if SC.onMob and SC.talkBound then return "on", "On target: next press talks" end
     if SC.onMob then return "on", "On target: won't swap" end
     if SC.fastUnit then return "lock", "Locked on its nameplate" end
     if InCombatLockdown() then return "off", "In combat: searching by name (no cast)" end
@@ -232,9 +233,14 @@ end
 
 function SC.SetOnMob(v)
     v = v and true or false
-    if v == SC.onMob or InCombatLockdown() then return end
+    if InCombatLockdown() then return end
+    if v == SC.onMob then
+        -- Same state, but the target may have changed side (bubble vs sword).
+        if (v and SC.TalkBinding()) ~= SC.talkBound then SC.ApplyBindings() end
+        return
+    end
     SC.onMob = v
-    SC.UpdateKeyMacro()
+    SC.ApplyBindings()
 end
 
 -- PLAYER_REGEN_DISABLED runs just before lockdown: last chance to drop the
@@ -250,6 +256,27 @@ SC.On("PLAYER_REGEN_ENABLED", function()
     SC.UpdateKeyMacro()
 end)
 
+-- On a Talk NPC: the key becomes the game's own "Interact with Target"
+-- binding. Forever doesn't run the secure button's interact action from a
+-- macro /click (the click arrives, nothing happens), but the binding works.
+-- True when the key is on its target and that target is a friendly NPC with a
+-- bubble (by name, or with the name hidden, any friendly target the key holds).
+function SC.TalkBinding()
+    if not SC.onMob then return false end
+    local talk = SC.MobsIn("interact")
+    if #talk == 0 or not SC.MaybeExists("target") or SC.True(UnitIsPlayer("target")) then return false end
+    if SC.Bool(UnitCanAttack("player", "target")) ~= false then return false end
+    if SC.Bool(UnitIsDead("target")) == true then return false end
+    local n = SC.UnitNameSafe("target")
+    if not n then return true end
+    for _, m in ipairs(talk) do
+        if m.name:lower() == n:lower() then return true end
+    end
+    return false
+end
+
+SC.talkBound = false
+
 function SC.ApplyBindings()
     if not SC.char then return end
     if InCombatLockdown() then
@@ -261,8 +288,15 @@ function SC.ApplyBindings()
     local text = SC.KeyMacro()
     keyBtn:SetAttribute("type", "macro")
     keyBtn:SetAttribute("macrotext", text)
+    SC.talkBound = false
     if SC.char.key ~= "" and text ~= "" then
-        SetOverrideBindingClick(owner, true, SC.char.key, "SpawnCampKey", "LeftButton")
+        if SC.TalkBinding() then
+            SetOverrideBinding(owner, true, SC.char.key, "INTERACTTARGET")
+            SC.talkBound = true
+            SC.lastPress.interact = GetTime()
+        else
+            SetOverrideBindingClick(owner, true, SC.char.key, "SpawnCampKey", "LeftButton")
+        end
     end
 end
 

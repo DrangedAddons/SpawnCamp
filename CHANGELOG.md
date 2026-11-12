@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.32.2
+
+- Talk works by binding: once the key has your Talk NPC targeted, it becomes the game's own Interact with Target key, and the next press talks. Forever doesn't run the old talk button from the key's macro (0.32.1 didn't fix it). The line next to the key says "On target: next press talks". Change target and the key goes back to finding the NPC.
+
 ## 0.32.1
 
 - Fixed Talk doing nothing when you press the key. With "cast on key down" on (the game default) the game ignored the key's click on its talk button. The talk button now acts on that click whatever the setting.
