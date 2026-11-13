@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.38.4
+
+- Fixed the key targeting a mob but never attacking it when you have a lot of targets (Auto Quest easily adds 8). The game only runs the first 255 characters of the key's macro, and a long target list pushed the cast and attack lines past that. The key now always keeps your spell, attack and talk lines, plus as many searches as fit, highest priority first.
+- `/spc key` shows the macro's length and how many of the lowest searches were left out.
+
 ## 0.38.3
 
 - `/spc key` now shows, for each press, which click edge ran and what the game did in the next second: casts sent, done or failed, and any red error text. This is to find out why the key can target a mob and still not cast.

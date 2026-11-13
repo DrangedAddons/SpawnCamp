@@ -754,7 +754,10 @@ SlashCmdList.SPAWNCAMP = function(msg)
         SC.Refresh()
     elseif cmd == "key" then
         SC.Print("key mode: " .. select(2, SC.KeyState()))
-        print("  macro: " .. (SC.KeyMacro():gsub("\n", " ; ")))
+        local text = SC.KeyMacro()
+        print(string.format("  macro (%d of %d characters%s): %s", #text, SC.MACRO_MAX,
+            (SC.keyDropped or 0) > 0 and (", " .. SC.keyDropped .. " lowest searches left out") or "",
+            (text:gsub("\n", " ; "))))
         for _, line in ipairs(SpawnCampDB.keyLog or {}) do print("  " .. line) end
     elseif cmd == "debug" or cmd == "probe" then
         SC.Debug()

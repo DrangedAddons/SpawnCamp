@@ -178,8 +178,11 @@ local function TalkAndAttack(lines, attack, talk, at)
     end
 end
 
--- The game's limit on a secure macro's text is 1023 characters.
-local MACRO_MAX = 1000
+-- The game runs only the first 255 characters of a secure button's macro
+-- text, like a macro in /m. Past that, lines are dropped without an error:
+-- a long target list ate the /cast line, so the key targeted but never cast.
+local MACRO_MAX = 255
+SC.MACRO_MAX = MACRO_MAX
 
 function SC.KeyMacro()
     SC.questCap = 8
@@ -199,7 +202,10 @@ function SC.BuildKeyMacro()
     local all = {}
     for _, x in ipairs(attack) do all[#all + 1] = x end
     for _, x in ipairs(talk) do all[#all + 1] = x end
-    local lines = {}
+    -- Built as three parts so the limit only ever costs search lines: the
+    -- opening lines, one search per target, and the cast/attack/talk lines.
+    -- The searches run in priority order, so the lowest ones are dropped.
+    local head, units, tail = {}, {}, {}
     -- Name search for every target in priority order: the first unconditional,
     -- the rest only if the earlier ones found nothing. With clearDead, a corpse
     -- found by one search is dropped before the next, so a dead mob higher up
@@ -213,30 +219,31 @@ function SC.BuildKeyMacro()
     end
     local function Search(firstCond, clearDead)
         local n = 0
+        local function unit(line)
+            units[#units + 1] = clearDead and (line .. "\n/cleartarget [dead]") or line
+        end
         for _, x in ipairs(all) do
             n = n + 1
-            lines[#lines + 1] = ((n == 1 and not firstCond) and "/targetexact " or "/targetexact [noexists] ") .. x.name
-            if clearDead then lines[#lines + 1] = "/cleartarget [dead]" end
+            unit(((n == 1 and not firstCond) and "/targetexact " or "/targetexact [noexists] ") .. x.name)
         end
         for _, text in ipairs(searches) do
             n = n + 1
-            lines[#lines + 1] = ((n == 1 and not firstCond) and "/target " or "/target [noexists] ") .. text
-            if clearDead then lines[#lines + 1] = "/cleartarget [dead]" end
+            unit(((n == 1 and not firstCond) and "/target " or "/target [noexists] ") .. text)
         end
     end
     if SC.onMob then
         Search(true)
-        TalkAndAttack(lines, attack, talk, "[@target,harm,nodead]")
+        TalkAndAttack(tail, attack, talk, "[@target,harm,nodead]")
     elseif SC.fastUnit then
         -- The exact unit first; the name search backs it up in case the client
         -- won't target a nameplate token. Your target isn't the mob here, so
         -- clearing first loses nothing.
         -- The cast goes at that exact unit (checked alive and not tagged by
         -- someone else), never at whatever the name search found.
-        lines[#lines + 1] = "/cleartarget"
-        lines[#lines + 1] = "/target " .. SC.fastUnit
+        head[#head + 1] = "/cleartarget"
+        head[#head + 1] = "/target " .. SC.fastUnit
         Search(true, true)
-        TalkAndAttack(lines, attack, talk, "[@" .. SC.fastUnit .. ",harm,nodead]")
+        TalkAndAttack(tail, attack, talk, "[@" .. SC.fastUnit .. ",harm,nodead]")
     else
         -- Search only, no cast: the search can't tell a mob someone else tagged
         -- from a free one, and casting at it would cost the global cooldown. Once
@@ -244,10 +251,28 @@ function SC.BuildKeyMacro()
         -- and the next press casts.
         -- In combat the macro is frozen and can't switch to "on target", so it
         -- casts at what it finds (the old behaviour).
-        lines[#lines + 1] = "/cleartarget"
+        head[#head + 1] = "/cleartarget"
         Search(false, true)
-        TalkAndAttack(lines, attack, talk, SC.inCombat and "[@target,harm,nodead]" or nil)
+        TalkAndAttack(tail, attack, talk, SC.inCombat and "[@target,harm,nodead]" or nil)
     end
+    -- Opening lines and the first search always go in; then as many searches
+    -- as still leave room for the cast/attack/talk lines.
+    local lines = {}
+    for _, l in ipairs(head) do lines[#lines + 1] = l end
+    local tailText = table.concat(tail, "\n")
+    local used = #table.concat(head, "\n")
+    SC.keyDropped = 0
+    for i, u in ipairs(units) do
+        local cost = #u + 1
+        if i == 1 or used + cost + (#tailText > 0 and #tailText + 1 or 0) <= MACRO_MAX then
+            lines[#lines + 1] = u
+            used = used + cost
+        else
+            SC.keyDropped = #units - i + 1
+            break
+        end
+    end
+    for _, l in ipairs(tail) do lines[#lines + 1] = l end
     return table.concat(lines, "\n")
 end
 
