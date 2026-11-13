@@ -3,7 +3,7 @@
 --   [icon] SpawnCamp                              [Recent] [Log] [gear] [x]
 --   [  R  ]  * On target                                          [Unassign]
 --            Attack - Vicious Owlbeast - won't swap
---   [ Add a mob or search... ] [Add] [My Target] [Nearby] [Quest] [Auto Quest]
+--   [ Add a mob or search...       ] [My Target] [Nearby] [Quest] [Auto Quest]
 --   TARGETS  2 / 8
 --   | (portrait) Vicious Owlbeast [KEY]   DUE        [sword] [bubble] [Clear]
 --   |            dead 4:59                3:03 over avg               Keep [x]
@@ -998,7 +998,7 @@ end
 local BOX_H = 58   -- height of a target card
 
 -- The add bar: one row, always open under the key bar.
---   [ Add a mob or search... ] [Add] [My Target] [Nearby] [Quest] [Auto Quest]
+--   [ Add a mob or search...       ] [My Target] [Nearby] [Quest] [Auto Quest]
 local function BuildPicker()
     local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
     T:SetHeight(32)

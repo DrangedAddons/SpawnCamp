@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.38.1
+
+- Removed the Add button from the add bar. Pressing Enter in the name box does the same thing, and the box is wider. Its tooltip now explains how searches work.
+
 ## 0.38.0
 
 - Rebuilt on the DrangedAddons house UI kit, so SpawnCamp looks like the other DrangedAddons addons and matches EllesmereUI. The window, the log and every side panel use the kit's frame, buttons and EllesmereUI's font.
