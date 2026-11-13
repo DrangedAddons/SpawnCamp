@@ -1,19 +1,18 @@
 -- SpawnCamp window. Always on screen:
 --
---   [icon] SpawnCamp                                         [gear] [x]
---   Key [ F ] [Clear]                       works on your target below
---   [ type or paste a mob name ] [Add] [My Target] [Nearby] [Recent] [Quest]
---   TARGET
---   (portrait) Mechanized Sentry            [Attack] [Talk] [Clear]
---              dead 2:05, due in 2:55
---   RECENT
---   (p) Other Mob      up, seen 0:12 ago                          [x]
+--   [icon] SpawnCamp                              [Recent] [Log] [gear] [x]
+--   [  R  ]  * On target                                          [Unassign]
+--            Attack - Vicious Owlbeast - won't swap
+--   [ Add a mob or search... ] [Add] [My Target] [Nearby] [Quest] [Auto Quest]
+--   TARGETS  2 / 8
+--   | (portrait) Vicious Owlbeast [KEY]   DUE        [sword] [bubble] [Clear]
+--   |            dead 4:59                3:03 over avg               Keep [x]
 --
--- The key works on the selected target only; with none it does nothing.
--- Attack / Talk are a pressed/raised pair; right-click either for its options.
--- Click a Recent mob to make it the target, right-click it (or click the
--- target's name) for its respawn log, which opens beside the window. The gear
--- holds general settings.
+-- The key works on the targets, top first; with none it does nothing. The
+-- card the key is on is marked KEY. Sword / bubble are a pressed/raised pair;
+-- right-click either for its options. Recent, the log, the settings and the
+-- other lists open beside the window. The skin (modern flat or classic red
+-- and gold) is the only look option.
 
 local ADDON, SC = ...
 
@@ -23,7 +22,7 @@ local recentOffset, histOffset = 0, 0
 local RECENT_ROWS, HIST_ROWS = 14, 14
 local RECENT_H = 22
 local W = 520
-local PANEL_H = { settings = 244 }
+local PANEL_H = { settings = 244 }   -- settings panel height
 local capturing     -- { settings = table with .key, button = key button } while setting a key
 
 -- The game's sword and chat cursors, tinted gold on the buttons.
@@ -109,11 +108,6 @@ end
 
 local THEME = "classic"
 local function Modern() return THEME == "modern" end
--- The window layout: "modern" (key bar, add bar always open, compact cards,
--- settings beside the window) since 0.37. The older layout's code paths are
--- still here behind ModernLayout() but can't be picked any more.
-local LAYOUT = "modern"
-local function ModernLayout() return LAYOUT == "modern" end
 
 -- Modern palette.
 local C = {
@@ -474,7 +468,7 @@ local function KeyButton(parent, x, y, settings)
         end
         if InCombatLockdown() then SC.Print("set the key out of combat"); return end
         capturing = { settings = settings, button = self }
-        self:SetText(ModernLayout() and "|cffffd100Press...|r" or "|cffffd100Press a key or wheel...|r")
+        self:SetText("|cffffd100Press...|r")
         self:EnableKeyboard(true)
         if self.SetPropagateKeyboardInput then self:SetPropagateKeyboardInput(false) end
     end)
@@ -597,7 +591,7 @@ end
 -- Clicking the pressed one does nothing. Right-click opens its options.
 ------------------------------------------------------------------------------
 
-local MODE_SIZE = 46
+local MODE_SIZE = 38
 
 local function Gradient(tex, top, bottom)
     tex:SetColorTexture(1, 1, 1, 1)
@@ -608,7 +602,7 @@ end
 
 local function ModeButton(parent, icon, onLeft, onRight, title, body)
     local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
-    local size = ModernLayout() and 38 or MODE_SIZE
+    local size = MODE_SIZE
     b:SetSize(size, size)
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     local edge = Modern() and 1 or 3
@@ -986,106 +980,72 @@ local function BuildTop()
     gear:SetPoint("RIGHT", close, "LEFT", -2, 0)
     gear:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
     gear:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-    gear:SetScript("OnClick", function()
-        if ui.settingsPopup then ShowBeside(ui.settingsPopup); return end
-        SC.char.panel = SC.char.panel ~= "settings" and "settings" or nil
-        SC.Refresh()
-    end)
+    gear:SetScript("OnClick", function() ShowBeside(ui.settingsPopup) end)
     ui.gear = gear
     Tip(gear, "Settings", "Sharing, alerts, sound, the list and the log side.")
 
-    ui.logToggle = CreateFrame("Button", nil, F, "UIPanelButtonTemplate")
-    ui.logToggle:SetSize(52, 18)
-    ui.logToggle:SetPoint("RIGHT", gear, "LEFT", -6, 0)
-    ui.logToggle:SetScript("OnClick", function()
+    -- Header tools as icons: Recent, Log, Settings.
+    local logIcon = IconButton(F, "Interface\\Icons\\INV_Misc_Book_09", 16, function()
         SC.char.logOpen = not SC.char.logOpen
         SC.Refresh()
     end)
-    Tip(ui.logToggle, "Log", "Opens or closes the target's log: respawn times and every sighting.")
+    logIcon:SetPoint("RIGHT", gear, "LEFT", -8, 0)
+    Tip(logIcon, "Log", "Opens or closes the target's log: respawn times and every sighting.")
+    ui.logIcon = logIcon
+    local recentIcon = IconButton(F, "Interface\\Icons\\INV_Misc_PocketWatch_01", 16, function() SC.ToggleRecent() end)
+    recentIcon:SetPoint("RIGHT", logIcon, "LEFT", -8, 0)
+    Tip(recentIcon, "Recent", "Every mob you've targeted before. Pick one again or remove it.")
 
-    -- Recent: a quiet text link in the header.
-    local recent = CreateFrame("Button", nil, F)
-    recent:SetSize(46, 16)
-    recent:SetPoint("RIGHT", ui.logToggle, "LEFT", -8, 0)
-    recent:SetNormalFontObject("GameFontDisableSmall")
-    recent:SetHighlightFontObject("GameFontHighlightSmall")
-    recent:SetText("Recent")
-    recent:SetScript("OnClick", function() SC.ToggleRecent() end)
-    Tip(recent, "Recent", "Every mob you've targeted before. Pick one again or remove it.")
-    ui.recentLink = recent
-
-    -- Key row
-    KeyButton(F, 8, -29, SC.char)
-    local clearKey = Btn(F, "Unassign", 70, 162, -29, function()
+    -- Key bar: the key as a big chip, and what the next press does.
+    local bar = F:CreateTexture(nil, "BACKGROUND", nil, 1)
+    bar:SetPoint("TOPLEFT", 1, -26)
+    bar:SetPoint("TOPRIGHT", -1, -26)
+    bar:SetHeight(44)
+    if Modern() then bar:SetColorTexture(C.panel[1], C.panel[2], C.panel[3], 1)
+    else bar:SetColorTexture(0, 0, 0, 0.25) end
+    local chip = KeyButton(F, 10, -31, SC.char)
+    chip.scBigFont = true
+    chip:SetSize(84, 34)
+    ui.keyDot = F:CreateTexture(nil, "ARTWORK")
+    ui.keyDot:SetSize(8, 8)
+    ui.keyDot:SetPoint("TOPLEFT", 106, -38)
+    ui.keyDot:SetTexture("Interface\\Buttons\\WHITE8X8")
+    ui.keyState = Text(F, "", 118, -35, "GameFontNormal")
+    ui.keyDetail = Text(F, "", 106, -53, "GameFontHighlightSmall")
+    ui.keyDetail:SetWidth(330)
+    ui.keyDetail:SetWordWrap(false)
+    ui.clearKey = Btn(F, "Unassign", 64, 0, 0, function()
         SC.char.key = ""
         SC.ApplyBindings()
         SC.Refresh()
     end)
-    Tip(clearKey, "Unassign", "Removes the key. Your normal binding for it comes back.")
-    ui.clearKey = clearKey
-    ui.keyNote = Text(F, "", 240, -34)
-    ui.keyNote:SetWidth(220)
-
-    if ModernLayout() then
-        -- Header tools as icons: Recent, Log, Settings.
-        ui.recentLink:Hide()
-        ui.logToggle:Hide()
-        local logIcon = IconButton(F, "Interface\\Icons\\INV_Misc_Book_09", 16, function()
-            SC.char.logOpen = not SC.char.logOpen
-            SC.Refresh()
-        end)
-        logIcon:SetPoint("RIGHT", gear, "LEFT", -8, 0)
-        Tip(logIcon, "Log", "Opens or closes the target's log: respawn times and every sighting.")
-        ui.logIcon = logIcon
-        local recentIcon = IconButton(F, "Interface\\Icons\\INV_Misc_PocketWatch_01", 16, function() SC.ToggleRecent() end)
-        recentIcon:SetPoint("RIGHT", logIcon, "LEFT", -8, 0)
-        Tip(recentIcon, "Recent", "Every mob you've targeted before. Pick one again or remove it.")
-
-        -- Key bar: the key as a big chip, and what the next press does.
-        local bar = F:CreateTexture(nil, "BACKGROUND", nil, 1)
-        bar:SetPoint("TOPLEFT", 1, -26)
-        bar:SetPoint("TOPRIGHT", -1, -26)
-        bar:SetHeight(44)
-        if Modern() then bar:SetColorTexture(C.panel[1], C.panel[2], C.panel[3], 1)
-        else bar:SetColorTexture(0, 0, 0, 0.25) end
-        local chip = ui.keys[#ui.keys]
-        chip.scBigFont = true
-        chip:ClearAllPoints()
-        chip:SetPoint("TOPLEFT", 10, -31)
-        chip:SetSize(84, 34)
-        ui.keyDot = F:CreateTexture(nil, "ARTWORK")
-        ui.keyDot:SetSize(8, 8)
-        ui.keyDot:SetPoint("TOPLEFT", 106, -38)
-        ui.keyDot:SetTexture("Interface\\Buttons\\WHITE8X8")
-        ui.keyState = Text(F, "", 118, -35, "GameFontNormal")
-        ui.keyDetail = Text(F, "", 106, -53, "GameFontHighlightSmall")
-        ui.keyDetail:SetWidth(330)
-        ui.keyDetail:SetWordWrap(false)
-        ui.keyNote:Hide()
-        clearKey:ClearAllPoints()
-        clearKey:SetPoint("TOPRIGHT", -10, -40)
-        clearKey:SetSize(64, 18)
-    end
-
+    ui.clearKey:ClearAllPoints()
+    ui.clearKey:SetPoint("TOPRIGHT", -10, -40)
+    ui.clearKey:SetHeight(18)
+    Tip(ui.clearKey, "Unassign", "Removes the key. Your normal binding for it comes back.")
 end
 
-local BOX_H = 64   -- height of a target box (and the picker)
+local BOX_H = 58   -- height of a target card
 
--- The picker: a blank target box with the ways to add one. Shown when you have
--- no targets (and Auto Quest is off), or after "+ Add another target".
---   New target [ type or paste a mob name      ] [Add]               [x]
---   [My Target] [Nearby] [Quest] [Auto Quest]
+-- The add bar: one row, always open under the key bar.
+--   [ Add a mob or search... ] [Add] [My Target] [Nearby] [Quest] [Auto Quest]
 local function BuildPicker()
     local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
-    T:SetHeight(BOX_H)
+    T:SetHeight(32)
     Backdrop(T, 0.6)
     BoxBorder(T)
     ui.picker = T
-    ui.pickLabel = Text(T, "New target", 10, -11, "GameFontNormal")
-    ui.addName = Edit(T, 230, 84, -8, function() end)
+    local function at(w, x, width)
+        w:ClearAllPoints()
+        w:SetPoint("LEFT", T, "LEFT", x, 0)
+        if width then w:SetWidth(width) end
+        if w.GetObjectType and w:GetObjectType() == "Button" then w:SetHeight(22) end
+    end
+    ui.addName = Edit(T, 156, 0, 0, function() end)
+    at(ui.addName, 14)
     local hint = ui.addName:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     hint:SetPoint("LEFT", 2, 0)
-    hint:SetText(ModernLayout() and "Add a mob or search..." or "type or paste a mob name")
+    hint:SetText("Add a mob or search...")
     local function showHint()
         hint:SetShown(not ui.addName:HasFocus() and (ui.addName:GetText() or "") == "")
     end
@@ -1101,52 +1061,26 @@ local function BuildPicker()
     end
     ui.addName:SetScript("OnEnterPressed", addTyped)
     ui.addName:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    ui.pickAdd = Btn(T, "Add", 44, 326, -8, addTyped)
+    ui.pickAdd = Btn(T, "Add", 40, 0, 0, addTyped)
+    at(ui.pickAdd, 176)
     Tip(ui.pickAdd, "Add", "Adds a search for the typed text: any mob with it in its name, capitals don't matter (\"owl\" finds Vicious Owlbeast). Your key looks for it straight away, and every mob seen that matches is added as its own target. Clear a wrong one and the search skips it from then on.")
-    ui.pickMy = Btn(T, "My Target", 84, 8, -36, function() SC.AddTarget(); SC.Refresh() end)
-    Tip(ui.pickMy,
-        "My Target", "Adds the mob you have targeted in game to your targets: Attack if hostile, Talk if friendly.")
-    ui.pickNear = Btn(T, "Nearby", 64, 94, -36, function() SC.ToggleNearby() end)
-    Tip(ui.pickNear,
-        "Nearby", "Lists mobs around you, with a button to use each one.")
-    ui.pickQuest = Btn(T, "Quest", 56, 160, -36, function() SC.ToggleQuests() end)
-    Tip(ui.pickQuest,
-        "Quest", "Mobs your current quests want: kill objectives from your quest log, plus mobs nearby that your quests need (item drops too).")
-    ui.autoQuest = Btn(T, "Auto Quest", 92, 218, -36, function() SC.SetAnyQuest(not SC.char.anyQuest) end)
+    ui.pickMy = Btn(T, "My Target", 74, 0, 0, function() SC.AddTarget(); SC.Refresh() end)
+    at(ui.pickMy, 222)
+    Tip(ui.pickMy, "My Target", "Adds the mob you have targeted in game to your targets: Attack if hostile, Talk if friendly.")
+    ui.pickNear = Btn(T, "Nearby", 62, 0, 0, function() SC.ToggleNearby() end)
+    at(ui.pickNear, 300)
+    Tip(ui.pickNear, "Nearby", "Lists mobs around you, with a button to use each one.")
+    ui.pickQuest = Btn(T, "Quest", 52, 0, 0, function() SC.ToggleQuests() end)
+    at(ui.pickQuest, 366)
+    Tip(ui.pickQuest, "Quest", "Mobs your current quests want: kill objectives from your quest log, plus mobs nearby that your quests need (item drops too).")
+    ui.autoQuest = Btn(T, "Auto Quest", 80, 0, 0, function() SC.SetAnyQuest(not SC.char.anyQuest) end)
+    at(ui.autoQuest, 422)
     Tip(ui.autoQuest, "Auto Quest", "On, your key goes for any mob your quests still need, alive and not tagged by someone else, after your own targets. Finished objectives drop off by themselves.")
 
-    ui.pickCancel = CreateFrame("Button", nil, T, "UIPanelCloseButton")
-    ui.pickCancel:SetSize(22, 22)
-    ui.pickCancel:SetPoint("TOPRIGHT", -2, -2)
-    ui.pickCancel:SetScript("OnClick", function()
-        ui.picking = false
-        if ui.addName then ui.addName:ClearFocus() end
-        SC.Refresh()
-    end)
-    Tip(ui.pickCancel, "Cancel", "Closes this without adding a target.")
-
-    if ModernLayout() then
-        -- One row, always open at the top: the most-used action is one click away.
-        T:SetHeight(32)
-        ui.pickLabel:Hide()
-        ui.pickCancel:Hide()
-        local function at(w, x, width)
-            w:ClearAllPoints()
-            w:SetPoint("LEFT", T, "LEFT", x, 0)
-            if width then w:SetWidth(width) end
-        end
-        at(ui.addName, 14, 156)
-        at(ui.pickAdd, 176, 40)
-        at(ui.pickMy, 222, 74)
-        at(ui.pickNear, 300, 62)
-        at(ui.pickQuest, 366, 52)
-        at(ui.autoQuest, 422, 80)
-        for _, b in ipairs({ ui.pickAdd, ui.pickMy, ui.pickNear, ui.pickQuest, ui.autoQuest }) do b:SetHeight(22) end
-        ui.listLabel = Text(F, "", 10, 0, "GameFontNormalSmall")
-        ui.emptyHint = Text(F, "Nothing on your key yet.\nType a mob's name (or part of it) above and press Enter, or use My Target, Nearby or Quest. Rares pop up here by themselves.", 10, 0, "GameFontDisableSmall")
-        ui.emptyHint:SetWidth(490)
-        ui.emptyHint:SetWordWrap(true)
-    end
+    ui.listLabel = Text(F, "", 10, 0, "GameFontNormalSmall")
+    ui.emptyHint = Text(F, "Nothing on your key yet.\nType a mob's name (or part of it) above and press Enter, or use My Target, Nearby or Quest. Rares pop up here by themselves.", 10, 0, "GameFontDisableSmall")
+    ui.emptyHint:SetWidth(490)
+    ui.emptyHint:SetWordWrap(true)
 end
 
 -- Target boxes, one per slot, left to right:
@@ -1189,7 +1123,7 @@ local function BuildTargetBox(slot, quest)
     BoxBorder(T)
     bx.frame = T
 
-    if ModernLayout() and not quest then
+    if not quest then
         bx.onGlow = T:CreateTexture(nil, "BACKGROUND", nil, 3)
         bx.onGlow:SetPoint("TOPLEFT", 1, -1)
         bx.onGlow:SetPoint("BOTTOMRIGHT", -1, 1)
@@ -1207,7 +1141,7 @@ local function BuildTargetBox(slot, quest)
         bx.keyTag:Hide()
         Tip(bx.keyTag, "Your key is on this mob", "The next press works on it. Spamming won't swap you off it.")
     end
-    if Modern() or ModernLayout() then
+    do
         bx.accent = T:CreateTexture(nil, "BORDER", nil, 6)
         bx.accent:SetPoint("TOPLEFT", 1, -1)
         bx.accent:SetPoint("BOTTOMLEFT", 1, 1)
@@ -1216,8 +1150,7 @@ local function BuildTargetBox(slot, quest)
     end
 
     bx.portrait = CreateFrame("Frame", nil, T)
-    local ps = ModernLayout() and 44 or 52
-    bx.portrait:SetSize(ps, ps)
+    bx.portrait:SetSize(44, 44)
     bx.portrait:SetPoint("LEFT", 30, 0)
     bx.portrait:EnableMouse(true)
     bx.portrait:SetScript("OnEnter", function(self) SC.ShowMobTip(self, bx.tipName) end)
@@ -1403,13 +1336,6 @@ local function BuildTarget()
     ui.boxes = {}
     for slot = 1, SC.MAX_TARGETS do ui.boxes[slot] = BuildTargetBox(slot) end
     ui.questBox = BuildTargetBox(SC.MAX_TARGETS + 1, true)
-    -- Under the last target: add another.
-    ui.addAnother = Btn(F, "+ Add another target", 160, 0, 0, function()
-        ui.picking = true
-        SC.Refresh()
-        if ui.addName then ui.addName:SetFocus() end
-    end)
-    Tip(ui.addAnother, "Another target", "Your key goes for the highest target in the list that's in view, alive and untagged (the arrows on each box's left edge change the order); each keeps its own Attack/Talk. Up to " .. SC.MAX_TARGETS .. ".")
 end
 
 -- Clicking a target's name or portrait targets that mob in game. Targeting is
@@ -2064,9 +1990,7 @@ end
 ------------------------------------------------------------------------------
 
 local function Build()
-    THEME = SC.char.theme == "modern" and "modern" or "classic"
-    LAYOUT = "modern"
-    BOX_H = ModernLayout() and 58 or 64
+    THEME = SC.char.theme == "classic" and "classic" or "modern"
     F = CreateFrame("Frame", "SpawnCampFrame", UIParent, "BackdropTemplate")
     F:SetSize(W, 200)
     F:SetPoint("TOP", UIParent, "TOP", 0, -160)
@@ -2097,28 +2021,11 @@ local function Build()
     BuildAutoTargets()
     BuildIgnored()
     BuildLog()
-    ui.panels = {}
-    if ModernLayout() then
-        -- Settings open beside the window instead of stretching it.
-        ui.settingsPopup = Popup("SpawnCampSettings", 440, PANEL_H.settings + 6, "")
-    end
-    for id, build in pairs({ settings = BuildSettings }) do
-        local S = ui.settingsPopup
-        local P = CreateFrame("Frame", nil, S or F, "BackdropTemplate")
-        if S then
-            P:SetPoint("TOPLEFT", S, "TOPLEFT", 0, 0)
-            P:SetPoint("BOTTOMRIGHT", S, "BOTTOMRIGHT", 0, 0)
-            P:Show()
-        else
-            P:SetPoint("LEFT", F, "LEFT", 6, 0)
-            P:SetPoint("RIGHT", F, "RIGHT", -6, 0)
-            P:SetHeight(PANEL_H[id])
-            Backdrop(P, 0.5)
-            P:Hide()
-        end
-        build(P)
-        ui.panels[id] = P
-    end
+    -- Settings open beside the window.
+    ui.settingsPopup = Popup("SpawnCampSettings", 440, PANEL_H.settings + 6, "")
+    local P = CreateFrame("Frame", nil, ui.settingsPopup)
+    P:SetAllPoints()
+    BuildSettings(P)
     for _, f in ipairs({ F, AP, TP, N, RP, Q, AQ, IG, CH, ui.settingsPopup }) do StyleTree(f) end
 end
 
@@ -2154,7 +2061,9 @@ local function RefreshAutoQuest()
     end
 end
 
-local function RefreshKeyModern(m, quests)
+local function RefreshKey()
+    RefreshAutoQuest()
+    local m, quests = SC.Active(), #SC.QuestWanted()
     for _, b in ipairs(ui.keys) do
         if not (capturing and capturing.button == b) then
             b:SetText(SC.char.key ~= "" and SC.KeyLabel(SC.char.key) or "|cff999999Set key|r")
@@ -2172,40 +2081,15 @@ local function RefreshKeyModern(m, quests)
         local what = m and (m.mode == "attack" and "Attack" or "Talk") or "Attack"
         local words = { on = "On target", lock = "Locked on its nameplate", off = "Searching" }
         state = words[st] or "Ready"
-        detail = what .. "  |cff808080-|r  " .. (text:gsub("^[^:]+:%s*", ""))
+        local rest = (text:gsub("^[^:]+:%s*", ""))
         local tn = st == "on" and SC.UnitNameSafe("target")
-        if tn then detail = what .. "  |cff808080-|r  |cffffffff" .. tn .. "|r  |cff808080-|r  " .. (text:gsub("^[^:]+:%s*", "")) end
+        detail = what .. "  |cff808080-|r  " .. (tn and ("|cffffffff" .. tn .. "|r  |cff808080-|r  ") or "") .. rest
         if st == "on" or st == "lock" then r, g, b = 0.25, 0.9, 0.4 else r, g, b = 1, 0.82, 0 end
     end
     ui.keyState:SetText(state)
     ui.keyState:SetTextColor(r, g, b)
     ui.keyDot:SetVertexColor(r, g, b)
     ui.keyDetail:SetText(detail)
-end
-
-local function RefreshKey()
-    RefreshAutoQuest()
-    if ModernLayout() then
-        return RefreshKeyModern(SC.Active(), #SC.QuestWanted())
-    end
-    for _, b in ipairs(ui.keys) do
-        if not (capturing and capturing.button == b) then
-            b:SetText(SC.char.key ~= "" and ("|cffffffff" .. SC.KeyLabel(SC.char.key) .. "|r") or "Click to Bind Key")
-        end
-    end
-    local m = SC.Active()
-    local quests = #SC.QuestWanted()
-    if SC.char.key == "" then
-        ui.keyNote:SetText("|cffff6060No key assigned.|r")
-    elseif not m and quests == 0 then
-        ui.keyNote:SetText(SC.char.anyQuest and "|cff999999Does nothing: no quest mobs needed.|r"
-            or "|cff999999Does nothing: no target.|r")
-    else
-        local state, text = SC.KeyState()
-        local color = (state == "on" or state == "lock") and "|cff40ff40" or "|cffffd100"
-        local what = m and (m.mode == "attack" and "Attack" or "Talk") or "Attack"
-        ui.keyNote:SetText(color .. what .. ": " .. text .. "|r")
-    end
 end
 
 -- The Auto Quest box: one mob when there's one to show (the only one left, or
@@ -2312,14 +2196,13 @@ local function RefreshBox(bx, m, slot)
     bx.down:SetEnabled(slot < n)
 end
 
--- Lays out a box per target and the "add another" button; returns the y below.
-local function RefreshTargetModern()
+-- Lays out the add bar and a card per target; returns the y below.
+local function RefreshTarget()
     local n = #SC.Actives()
     ui.picker:ClearAllPoints()
     ui.picker:SetPoint("TOPLEFT", F, "TOPLEFT", 6, -74)
     ui.picker:SetPoint("RIGHT", F, "RIGHT", -6, 0)
     ui.picker:Show()
-    ui.addAnother:Hide()
     local y = -112
     ui.listLabel:ClearAllPoints()
     ui.listLabel:SetPoint("TOPLEFT", F, "TOPLEFT", 10, y)
@@ -2359,60 +2242,6 @@ local function RefreshTargetModern()
     return y
 end
 
-local function RefreshTarget()
-    if ModernLayout() then return RefreshTargetModern() end
-    local y = -56
-    local n = #SC.Actives()
-    -- Adding a target (or turning on Auto Quest) closes the picker.
-    if (ui.lastN and n > ui.lastN) or (SC.char.anyQuest and not ui.lastAQ) then ui.picking = false end
-    ui.lastN, ui.lastAQ = n, SC.char.anyQuest
-    for slot = 1, SC.MAX_TARGETS do
-        local bx, m = ui.boxes[slot], SC.Active(slot)
-        if m then
-            bx.frame:ClearAllPoints()
-            bx.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
-            bx.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
-            bx.frame:Show()
-            RefreshBox(bx, m, slot)
-            y = y - BOX_H - 4
-        else
-            bx.frame:Hide()
-        end
-    end
-    local qb = ui.questBox
-    if SC.char.anyQuest then
-        qb.frame:ClearAllPoints()
-        qb.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
-        qb.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
-        qb.frame:Show()
-        RefreshQuestBox(qb)
-        y = y - BOX_H - 4
-    else
-        qb.frame:Hide()
-    end
-    -- Nothing on the key: the picker stays open (no cancel).
-    local empty = n == 0 and not SC.char.anyQuest
-    local pick = n < SC.MAX_TARGETS and (empty or ui.picking)
-    ui.picker:ClearAllPoints()
-    ui.addAnother:ClearAllPoints()
-    if pick then
-        ui.picker:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
-        ui.picker:SetPoint("RIGHT", F, "RIGHT", -6, 0)
-        ui.picker:Show()
-        ui.pickCancel:SetShown(not empty)
-        y = y - BOX_H - 4
-    else
-        ui.picker:Hide()
-    end
-    if not pick and n < SC.MAX_TARGETS then
-        ui.addAnother:SetPoint("TOPLEFT", F, "TOPLEFT", 8, y)
-        ui.addAnother:Show()
-        y = y - 26
-    else
-        ui.addAnother:Hide()
-    end
-    return y
-end
 local function RefreshRecent()
     if not (RP and RP:IsShown()) then return end
     local list = {}
@@ -2547,12 +2376,8 @@ function SC.RefreshWindow()
     local y = RefreshTarget()
     if not SC.Active(SC.char.logSlot or 1) then SC.char.logSlot = 1 end
     local m = SC.Active(SC.char.logSlot or 1) or SC.Active(1)
-    ui.logToggle:SetShown(m ~= nil and not ModernLayout())
-    if SC.char.logRight then
-        ui.logToggle:SetText(SC.char.logOpen and "Log <" or "Log >")
-    else
-        ui.logToggle:SetText(SC.char.logOpen and "> Log" or "< Log")
-    end
+    ui.logIcon:SetShown(m ~= nil)
+    ui.logIcon:SetAlpha(SC.char.logOpen and 1 or 0.55)
     if m and SC.char.logOpen then
         ui.log:ClearAllPoints()
         if SC.char.logRight then
@@ -2573,43 +2398,20 @@ function SC.RefreshWindow()
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
     RefreshPopups()
 
-    local panel = SC.char.panel
-    if panel ~= "settings" then panel = nil; SC.char.panel = nil end
-    local height = -y + 6
-    if ui.settingsPopup then
-        -- /spawncamp settings: open the side panel.
-        if panel then
-            SC.char.panel = nil
-            if not ui.settingsPopup:IsShown() then ShowBeside(ui.settingsPopup) end
-            return
-        end
-        if ui.logIcon then
-            ui.logIcon:SetShown(m ~= nil)
-            ui.logIcon:SetAlpha(SC.char.logOpen and 1 or 0.55)
-        end
-        F:SetHeight(height)
-        pcall(PlaceNameSecure)
+    -- /spawncamp settings: open the side panel.
+    if SC.char.panel == "settings" then
+        SC.char.panel = nil
+        if not ui.settingsPopup:IsShown() then ShowBeside(ui.settingsPopup) end
         return
     end
-    for id, P in pairs(ui.panels) do
-        if id == panel then
-            P:ClearAllPoints()
-            P:SetPoint("TOPLEFT", F, "TOPLEFT", 6, -height)
-            P:SetPoint("RIGHT", F, "RIGHT", -6, 0)
-            P:Show()
-        else
-            P:Hide()
-        end
-    end
-    if panel then height = height + PANEL_H[panel] + 6 end
-    F:SetHeight(height)
+    SC.char.panel = nil
+    F:SetHeight(-y + 6)
     pcall(PlaceNameSecure)
 end
 
 -- Focuses the name box (when the game hides a target's name).
 function SC.FocusAddName()
     SC.char.shown = true
-    ui.picking = true
     SC.Refresh()
     if ui.addName then ui.addName:SetFocus() end
 end

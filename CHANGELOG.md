@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.37.1
+
+- Removed the old layout's code from the window. Nothing changes on screen, and `UI.lua` is about 300 lines shorter. The README's window section shows the current layout.
+
 ## 0.37.0
 
 - The new layout is the only layout. The Layout choice is gone, and the Skin choice (Modern / Classic) stays. New characters start on the Modern skin.

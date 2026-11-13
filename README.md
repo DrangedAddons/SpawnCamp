@@ -5,34 +5,32 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
 ## The window
 
 ```
-              SpawnCamp             Recent  [> Log] [gear] [x]
- Log drawer   [ Shift-Wheel Down ] [Unassign]   Attacks Mechanized Sentry.
- (left, or    +----------------------------------------------------------------+
-  right)      | (portrait) Mechanized Sentry   ETA 2:55  [SWORD] [BUBBLE] [Clear] |
-              |            dead 2:05, earliest in 1:10  Avg 5:00                   |
-              +----------------------------------------------------------------+
-              [+ Add another target]  -> opens a blank box:
-              +----------------------------------------------------------------+
-              | New target [ type or paste a mob name ] [Add]               [x] |
-              | [My Target] [Nearby] [Quest] [Auto Quest]                        |
-              +----------------------------------------------------------------+
+ Log drawer  [icon] SpawnCamp                          [Recent] [Log] [gear] [x]
+ (left, or   [   R   ]  * On target                                  [Unassign]
+  right)                Attack - Vicious Owlbeast - won't swap
+             [ Add a mob or search... ] [Add] [My Target] [Nearby] [Quest] [Auto Quest]
+             TARGETS  2 / 8   (top = highest priority)
+             | (portrait) Vicious Owlbeast [KEY]   DUE       [SWORD] [BUBBLE] [Clear]
+             |            dead 4:59                3:03 over avg             Keep [x]
+             | (portrait) Primitive Owlbeast       UP        [SWORD] [BUBBLE] [Clear]
 ```
 
-- **Key button**: shows the bound key (e.g. "Shift-Wheel Down"), or **Click to Bind Key**. Click it and press a key, roll the mouse wheel, or press mouse button 3-5 (Shift/Ctrl/Alt combos work). **Unassign** removes it. The key only does something while you have a **target**.
+- **Key bar**: the big box shows your key (e.g. "R", "Shift-Wheel Down"), or **Set key**. Click it and press a key, roll the mouse wheel, or press mouse button 3-5 (Shift/Ctrl/Alt combos work). **Unassign** removes it. Next to it, a coloured light and a line say what the next press does: green **On target** or **Locked on its nameplate**, gold **Searching**, grey **Idle** when nothing's on your key, with the mode and the mob underneath.
+- **Add bar**: always open under the key bar. Type a name or part of one and press Enter (or **Add**), or use **My Target**, **Nearby**, **Quest** or **Auto Quest**.
 - **Target**: the mob your key works on. Set it by typing or pasting a name (**Add** or Enter), with **My Target** (your in-game target), from **Nearby**, or from **Recent**. **Hover the target's name or portrait** for the mob's game tooltip: the live one when it's in view, else a copy from the last time you saw it. **Click the name or portrait** to target it in game. **Clear** unsets it: the key then does nothing and goes back to its normal binding. Getting the kill clears it too, unless **Keep** (under Clear) is ticked for that mob.
-- **More targets** (up to 8): every add joins the list, and **+ Add another target** under the last box opens a blank target box with the ways to add one: type a name, **My Target**, **Nearby**, **Quest** or **Auto Quest**. With nothing on your key that box is always open. Each gets the same controls. The list order is the **priority**: the arrows on the box's left edge move it up or down. The key goes for the highest one in view that's alive, untagged, in range of your attack spell and in sight; mobs out of range or out of sight come after those. Click the log's title to step through them.
+- **More targets** (up to 8): every add joins the list under TARGETS, each as its own card with the same controls. A coloured strip on a card's left edge shows its mode (red attack, blue talk, gold Auto Quest), and the card your key is on has a green edge and a **KEY** tag. The list order is the **priority**: the arrows on a card's left edge move it up or down. The key goes for the highest one in view that's alive, untagged, in range of your attack spell and in sight; mobs out of range or out of sight come after those. Click the log's title to step through them.
 - **Typed names are searches**: type "owl" and Add. It's always a wildcard **search**: any mob with that text in its name, capitals don't matter, even when you type a full name. The key looks for it straight away (`/target owl`, after your exact targets), and every mob seen nearby whose name matches is added as its own target, right under the search, and found by its exact name from then on. Clear a wrong one and the search skips that name. When you've found the one, click **Lock in** on its box: that keeps it and removes the search and its other finds.
 - **ETA / Avg**: *Avg* (the average respawn) is how long this mob usually takes to come back after it dies (from the log). *ETA* counts down to that from its last death. It shows **DUE** once the average has passed without a sighting, and **UP** once the mob is seen.
 - **Sword / bubble**: big square buttons, one always pressed. The sword means your key targets the mob and casts your attack spell. The bubble means it targets the NPC and talks to it: chat, quest hand-ins, new and follow-up quests. Clicking the pressed one does nothing; clicking the other swaps them. **Right-click the sword** to pick the spell (Choose spell lists your spellbook with a filter and a Show all ranks box, or drag one onto the icon) or one of your saved macros from /m (edits in /m apply on their own), **right-click the bubble** for the chat and quest options. Clicking anywhere outside an options box closes it.
-- **Log** (header button): a drawer on the left of the window (or the right, in the settings). It shows the target's respawn times (fastest, average, slowest), a known respawn time you can enter, the manual "it died / it's up" buttons, and every sighting with its time.
-- **Recent** (small link in the header): a pop-out listing every mob you've targeted, with **Use** to pick one again and **x** to remove it.
+- **Log** (book icon in the header, shown while you have a target): a drawer on the left of the window (or the right, in the settings). It shows the target's respawn times (fastest, average, slowest), a known respawn time you can enter, the manual "it died / it's up" buttons, and every sighting with its time.
+- **Recent** (watch icon in the header): a pop-out listing every mob you've targeted, with **Use** to pick one again and **x** to remove it.
 - **Nearby**: a pop-out of mobs around you, with **Use**.
 - **Quest**: a pop-out of mobs your current quests want: kill objectives from your quest log, and mobs seen nearby that your quests need (item drops too), with **Use**.
 - **Rares**: when a rare's minimap vignette (the rare star) appears, a rare or rare elite nameplate comes into view, or someone in your party or raid targets a rare, it's added at the top of your targets in a box with a silver frame and the game's silver dragon around its portrait, the window opens and a loud alert goes off. Clear its box and it won't pop up again until you next log in. No list is involved: the game marks rares on their nameplates. The vignette reaches furthest, and its alert gives a rough distance and direction; your key targets the rare once it's in reach. Without a vignette, range is nameplate range (up to 60 yards), or any rare you target or mouse over. `/spc vignettes` shows whether the game is giving vignettes where you are. **Ignore** on a rare's box takes it off your key and stops it ever popping up again; **Ignored rares** in the gear settings lists them, with **Remove** and a box to add a name by hand. **Pop up rares** in the gear settings turns the whole thing off. While SilverDragon is loaded the box still pops up but SilverDragon does the alerting.
 - **Map button** (with Questie installed): the small map icon at the top right of a target's name pins that mob's spawns on your map and minimap through Questie, the same as Questie's Advanced Search > Show on Map. On a search it pins every NPC with that text in its name. Click again, or clear the target, to remove them.
 - **Auto Quest**: your key goes for any mob your quests still need, after your own targets, without adding each one. It gets its own box like a target's: the mob it's on (or the only one left), the quest and your progress (3/10), or "Any quest mob" with the count. **Clear** on that box turns Auto Quest off.
 - **Portrait**: the mob's real portrait once it has been seen (targeted, on a nameplate, moused over). Before that, an icon for its creature type, or a sword or scroll if that isn't known yet.
-- **Gear**:
+- **Gear**: the settings open beside the window.
   - Sharing with **Party**, **Raid** and **Guild**.
   - **Alert when a mob spawns** (loud).
   - **Pop up rares**: a rare's nameplate adds it as a silver target box. **Ignored rares** next to it reviews, adds and removes ignored rares. **Test rare** shows a pretend one so you can see the look.
