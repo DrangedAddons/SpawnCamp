@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.34.2
+
+- Adding a search starts it fresh. Typing a search you used before ("owl") kept the list of matches you had cleared last time, so those mobs were never found again. Every Add now clears that list, including adding the same text while it's still listed.
+
 ## 0.34.1
 
 - The map button can be clicked on targets with long names. The click-to-target area over a name covered the whole name even when it was cut short, which put it over the map button.

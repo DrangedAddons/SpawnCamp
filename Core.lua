@@ -308,13 +308,14 @@ function SC.AddTyped(text)
     if text == "" then return end
     -- Always a wildcard search, even for a full name: every mob whose name
     -- contains the text is found.
+    -- Adding it again starts it fresh: names skipped last time (cleared finds)
+    -- are found again.
     local mobs = SC.char.mobs
     if not mobs[text] then
-        mobs[text] = { name = text, partial = true, rejected = {} }
+        mobs[text] = { name = text }
         Fill(mobs[text], SC.MOB_DEFAULTS)
-    elseif not mobs[text].partial then
-        mobs[text].partial, mobs[text].rejected = true, mobs[text].rejected or {}
     end
+    mobs[text].partial, mobs[text].rejected = true, {}
     SC.SetActive(text)
     SC.FindPartials()
     return mobs[text]
