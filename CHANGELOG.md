@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.38.3
+
+- `/spc key` now shows, for each press, which click edge ran and what the game did in the next second: casts sent, done or failed, and any red error text. This is to find out why the key can target a mob and still not cast.
+
 ## 0.38.2
 
 - Auto Quest no longer adds quest credit lines as mobs. "Screecher Spirits collected: 0/3" became a target called "Screecher Spirits collected". Objectives ending in collected, captured, rescued, freed and similar are skipped; "X destroyed" and "X defeated" keep the mob name.

@@ -88,10 +88,12 @@ SC.On("UPDATE_MACROS", function()
     SC.Refresh()
 end)
 
-keyBtn:HookScript("OnClick", function()
+keyBtn:HookScript("OnClick", function(_, button, down)
     local now = GetTime()
     if SC.lastPress.key and now - SC.lastPress.key < 0.1 then return end
     SC.lastPress.key = now
+    SC.pressEdge = string.format("%s %s, key-down cvar %s", tostring(button), down and "down" or "up",
+        (GetCVarBool and GetCVarBool("ActionButtonUseKeyDown")) and "on" or "off")
     SC.ranMacro = keyBtn:GetAttribute("macrotext") or ""
     if SC.OnKeyPressed then
         local ok, err = pcall(SC.OnKeyPressed)
@@ -115,11 +117,33 @@ function SC.LogPress()
         local ok, i = pcall(GetRaidTargetIndex, "target")
         if ok then mark = show(i) end
     end
-    local entry = string.format("%s %s | target after: %s | marker: %s | ran: %s", date("%H:%M:%S"), state,
-        target, mark, ((SC.ranMacro or ""):gsub("\n", " ; ")))
+    local entry = string.format("%s %s | click: %s | target after: %s | marker: %s | ran: %s", date("%H:%M:%S"), state,
+        SC.pressEdge or "?", target, mark, ((SC.ranMacro or ""):gsub("\n", " ; ")))
     SpawnCampDB.keyLog = SpawnCampDB.keyLog or {}
     table.insert(SpawnCampDB.keyLog, entry)
     while #SpawnCampDB.keyLog > 20 do table.remove(SpawnCampDB.keyLog, 1) end
+end
+
+-- What the game said in the second after a press: casts sent, failed or
+-- done, and red error text. Added to that press's log line, so a key that
+-- targets but doesn't cast shows why.
+local function NoteAfterPress(what)
+    local log = SpawnCampDB and SpawnCampDB.keyLog
+    if not (log and #log > 0 and SC.lastPress.key) or GetTime() - SC.lastPress.key > 1 then return end
+    local i = #log
+    if not log[i]:find(" | game: ", 1, true) then log[i] = log[i] .. " | game: " .. what
+    elseif #log[i] < 1500 then log[i] = log[i] .. ", " .. what end
+end
+SC.On("UI_ERROR_MESSAGE", function(_, msg)
+    msg = SC.Plain(msg)
+    if type(msg) == "string" then NoteAfterPress('error "' .. msg .. '"') end
+end)
+for ev, word in pairs({ UNIT_SPELLCAST_SENT = "cast sent", UNIT_SPELLCAST_START = "casting",
+    UNIT_SPELLCAST_SUCCEEDED = "cast done", UNIT_SPELLCAST_FAILED = "cast failed",
+    UNIT_SPELLCAST_FAILED_QUIET = "cast failed quietly", UNIT_SPELLCAST_INTERRUPTED = "cast interrupted" }) do
+    SC.On(ev, function(unit)
+        if unit == "player" then NoteAfterPress(word) end
+    end)
 end
 
 -- How the key gets the mob, best first. The macro is rewritten (out of combat
