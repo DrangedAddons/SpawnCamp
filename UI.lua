@@ -1052,6 +1052,38 @@ local function BuildTargetBox(slot, quest)
     end
 
     if not quest then
+        -- Questie: pin this mob's spawns on the map and minimap.
+        bx.map = CreateFrame("Button", nil, T)
+        bx.map:SetSize(20, 20)
+        bx.map:SetPoint("TOPRIGHT", nameArea, "TOPRIGHT", 0, -6)
+        bx.map.icon = bx.map:CreateTexture(nil, "ARTWORK")
+        bx.map.icon:SetAllPoints()
+        bx.map.icon:SetTexture("Interface\\Icons\\INV_Misc_Map_01")
+        bx.map:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+        bx.map:SetScript("OnClick", Safe(function()
+            local m = SC.Active(slot)
+            if m then SC.Print(SC.QuestieToggle(m.name)) end
+        end))
+        bx.map:SetScript("OnEnter", function(self)
+            local m = SC.Active(slot)
+            if not m then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            if SC.QuestieShown(m.name) then
+                GameTooltip:SetText("Remove from map")
+                GameTooltip:AddLine("Takes Questie's pins for " .. m.name .. " off your map and minimap.", 1, 1, 1, true)
+            else
+                GameTooltip:SetText("Show on map (Questie)")
+                GameTooltip:AddLine(m.partial
+                    and ("Pins every NPC with \"" .. m.name .. "\" in its name on your map and minimap, like Questie's Advanced Search > Show on Map.")
+                    or ("Pins every spawn of " .. m.name .. " on your map and minimap, like Questie's Advanced Search > Show on Map."), 1, 1, 1, true)
+            end
+            GameTooltip:Show()
+        end)
+        bx.map:SetScript("OnLeave", GameTooltip_Hide)
+        bx.map:Hide()
+    end
+
+    if not quest then
         -- On a mob a search found: keep it and drop the search.
         bx.lock = Btn(T, "Lock in", 64, 0, 0, function() local m = SC.Active(slot); if m then SC.LockIn(m.name) end end)
         bx.lock:ClearAllPoints()
@@ -1889,6 +1921,14 @@ local function RefreshBox(bx, m, slot)
     bx.silverGlow:SetShown(rare and true or false)
     if rare then bx.frame:SetBackdropBorderColor(0.86, 0.9, 1, 1) else bx.frame:SetBackdropBorderColor(1, 0.82, 0, 0.6) end
     bx.ignore:SetShown(rare and true or false)
+    local questie = m and SC.QuestieReady and SC.QuestieReady()
+    bx.map:SetShown(questie and true or false)
+    bx.name:SetPoint("RIGHT", questie and bx.map or bx.nameArea, questie and "LEFT" or "RIGHT", questie and -4 or 0, 0)
+    if questie then
+        local on = SC.QuestieShown(m.name)
+        bx.map.icon:SetDesaturated(not on)
+        bx.map.icon:SetAlpha(on and 1 or 0.6)
+    end
     if not m then bx.up:Hide(); bx.down:Hide(); bx.lock:Hide(); return end
     PlacePortrait(m.name, bx.portrait)
     bx.tipName = m.name

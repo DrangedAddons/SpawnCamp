@@ -182,6 +182,7 @@ function SC.SetActive(name, slot)
             gm.fromPartial = nil
         end
         if slot and list[slot] then table.remove(list, slot) end
+        if gone and SC.QuestieForget then pcall(SC.QuestieForget, gone) end
         if gm and gm.test then
             SC.char.mobs[gone] = nil
             for i, n in ipairs(SC.char.order) do

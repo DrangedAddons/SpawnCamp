@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.34.0
+
+- With Questie installed, each target box has a small map button at the top right of the name. Click it to pin that mob's spawns on your map and minimap, the same as Questie's Advanced Search > Show on Map. Click again to take them off. The icon is in colour while the pins are shown.
+- On a search (like "owl") it pins every NPC in Questie's database with that text in its name that has spawns, up to 40.
+- Clearing a target takes its pins off. Pins last until you reload, like Questie's own.
+
 ## 0.33.0
 
 - Typed names are always a wildcard search now, even a full name: any mob with that text in its name, capitals ignored. Typing a name the addon has seen no longer turns it into an exact name.
