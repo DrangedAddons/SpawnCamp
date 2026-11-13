@@ -82,6 +82,7 @@ SC.CHAR_DEFAULTS = {
     locked = false,       -- window can't be dragged
     sound = true,         -- play a sound with alerts
     minimap = { hide = false },
+    theme = "classic",  -- window look: "classic" or "modern"
 }
 
 SC.MOB_DEFAULTS = {

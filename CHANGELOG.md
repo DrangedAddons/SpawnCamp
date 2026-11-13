@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.35.0
+
+- New **Modern** look, picked under **Look** in the gear settings (Classic stays the default). Flat dark panels with thin borders and a title strip, like retail's newer frames. Buttons are flat with white text. Sword and bubble are flat squares that light up red (attack) or blue (talk) when picked, and each target box has a thin coloured strip on its left edge for its mode (gold for Auto Quest). Rare boxes keep their silver frame and dragon.
+- Switching the look needs a reload: a **Reload to apply** button appears next to the choice.
+
 ## 0.34.2
 
 - Adding a search starts it fresh. Typing a search you used before ("owl") kept the list of matches you had cleared last time, so those mobs were never found again. Every Add now clears that list, including adding the same text while it's still listed.

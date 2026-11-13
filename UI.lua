@@ -23,7 +23,7 @@ local recentOffset, histOffset = 0, 0
 local RECENT_ROWS, HIST_ROWS = 14, 14
 local RECENT_H = 22
 local W = 520
-local PANEL_H = { settings = 216 }
+local PANEL_H = { settings = 244 }
 local capturing     -- { settings = table with .key, button = key button } while setting a key
 
 -- The game's sword and chat cursors, tinted gold on the buttons.
@@ -101,6 +101,114 @@ local function Safe(fn)
     end
 end
 
+------------------------------------------------------------------------------
+-- Themes. "classic" is the original look (red buttons, gold trim). "modern" is
+-- flat and dark with thin borders, like retail's newer frames. Read once when
+-- the window is built, so switching needs a /reload.
+------------------------------------------------------------------------------
+
+local THEME = "classic"
+local function Modern() return THEME == "modern" end
+
+-- Modern palette.
+local C = {
+    window = { 0.059, 0.063, 0.075 },
+    panel = { 0.090, 0.094, 0.110 },
+    header = { 0.118, 0.122, 0.145 },
+    line = { 0.215, 0.223, 0.255 },
+    button = { 0.145, 0.150, 0.172 },
+    buttonDown = { 0.095, 0.098, 0.115 },
+    attack = { 0.80, 0.22, 0.16 },
+    talk = { 0.30, 0.58, 0.92 },
+    quest = { 1, 0.82, 0 },
+}
+
+-- A 1 px outline from four textures (for frames without a backdrop).
+local function Outline(f, c, a)
+    f.scOutline = {}
+    local function edge(p1, p2, w, h)
+        local t = f:CreateTexture(nil, "BORDER", nil, 7)
+        t:SetColorTexture(c[1], c[2], c[3], a or 1)
+        t:SetPoint(p1)
+        t:SetPoint(p2)
+        if w then t:SetWidth(w) else t:SetHeight(h) end
+        f.scOutline[#f.scOutline + 1] = t
+    end
+    edge("TOPLEFT", "TOPRIGHT", nil, 1)
+    edge("BOTTOMLEFT", "BOTTOMRIGHT", nil, 1)
+    edge("TOPLEFT", "BOTTOMLEFT", 1)
+    edge("TOPRIGHT", "BOTTOMRIGHT", 1)
+end
+
+-- A panel button (UIPanelButtonTemplate) redrawn flat: dark fill, thin
+-- outline, white text. The template's own art is faded out, not removed, so
+-- its scripts keep working.
+local function StyleButton(b)
+    if not Modern() or b.scStyled then return end
+    b.scStyled = true
+    for _, k in ipairs({ "Left", "Middle", "Right" }) do
+        if type(b[k]) == "table" and b[k].SetAlpha then b[k]:SetAlpha(0) end
+    end
+    for _, get in ipairs({ "GetNormalTexture", "GetPushedTexture", "GetDisabledTexture" }) do
+        local t = b[get] and b[get](b)
+        if t then t:SetAlpha(0) end
+    end
+    local bg = b:CreateTexture(nil, "BACKGROUND", nil, -7)
+    bg:SetAllPoints()
+    bg:SetColorTexture(C.button[1], C.button[2], C.button[3], 1)
+    b.scBg = bg
+    Outline(b, C.line)
+    b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
+    b:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.07)
+    if b.SetNormalFontObject then
+        b:SetNormalFontObject("GameFontHighlightSmall")
+        b:SetHighlightFontObject("GameFontHighlightSmall")
+        b:SetDisabledFontObject("GameFontDisableSmall")
+    end
+    b:HookScript("OnMouseDown", function(self)
+        if self:IsEnabled() then self.scBg:SetColorTexture(C.buttonDown[1], C.buttonDown[2], C.buttonDown[3], 1) end
+    end)
+    b:HookScript("OnMouseUp", function(self)
+        self.scBg:SetColorTexture(C.button[1], C.button[2], C.button[3], 1)
+    end)
+end
+
+-- Every panel button under a frame.
+local function StyleTree(f, depth)
+    depth = depth or 0
+    if not (Modern() and f and f.GetChildren) or depth > 12 then return end
+    for _, c in ipairs({ f:GetChildren() }) do
+        if type(c) == "table" then
+            if c.GetObjectType and c:GetObjectType() == "Button" and type(c.Left) == "table"
+                and type(c.Middle) == "table" and type(c.Right) == "table" then
+                StyleButton(c)
+            end
+            StyleTree(c, depth + 1)
+        end
+    end
+end
+
+-- Modern: a title strip across the top of a window or popup.
+local function TitleBar(f, h)
+    if not Modern() then return end
+    local bar = f:CreateTexture(nil, "BACKGROUND", nil, 2)
+    bar:SetPoint("TOPLEFT", 1, -1)
+    bar:SetPoint("TOPRIGHT", -1, -1)
+    bar:SetHeight(h or 24)
+    bar:SetColorTexture(C.header[1], C.header[2], C.header[3], 1)
+    local line = f:CreateTexture(nil, "BORDER")
+    line:SetPoint("TOPLEFT", bar, "BOTTOMLEFT")
+    line:SetPoint("TOPRIGHT", bar, "BOTTOMRIGHT")
+    line:SetHeight(1)
+    line:SetColorTexture(C.line[1], C.line[2], C.line[3], 1)
+end
+
+-- A target box's border: gold in classic, a quiet line in modern.
+local function BoxBorder(f)
+    if Modern() then f:SetBackdropBorderColor(C.line[1], C.line[2], C.line[3], 1)
+    else f:SetBackdropBorderColor(1, 0.82, 0, 0.6) end
+end
+
 local function Btn(parent, text, w, x, y, onClick)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetSize(w, 22)
@@ -146,6 +254,18 @@ local function Edit(parent, w, x, y, onSave, numeric)
 end
 
 local function Backdrop(f, a)
+    if Modern() then
+        f:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Buttons\\WHITE8X8",
+            edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 },
+        })
+        -- Boxes inside the window (asked for see-through) sit a shade lighter.
+        local c = (a and a < 0.7) and C.panel or C.window
+        f:SetBackdropColor(c[1], c[2], c[3], 0.96)
+        f:SetBackdropBorderColor(C.line[1], C.line[2], C.line[3], 1)
+        return
+    end
     f:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -180,7 +300,8 @@ end
 local function Header(parent, text, y)
     local fs = Text(parent, text, 8, y, "GameFontNormal")
     local line = parent:CreateTexture(nil, "ARTWORK")
-    line:SetColorTexture(1, 0.82, 0, 0.25)
+    if Modern() then line:SetColorTexture(C.line[1], C.line[2], C.line[3], 1)
+    else line:SetColorTexture(1, 0.82, 0, 0.25) end
     line:SetHeight(1)
     line:SetPoint("LEFT", fs, "RIGHT", 6, 0)
     line:SetPoint("RIGHT", parent, "RIGHT", -8, 0)
@@ -193,7 +314,8 @@ local function Popup(name, w, h, title)
     p:SetFrameStrata("DIALOG")
     p:EnableMouse(true)
     Backdrop(p, 0.95)
-    Text(p, title, 10, -10, "GameFontNormal")
+    TitleBar(p)
+    p.title = Text(p, title, 10, -10, "GameFontNormal")
     local close = CreateFrame("Button", nil, p, "UIPanelCloseButton")
     close:SetSize(22, 22)
     close:SetPoint("TOPRIGHT", -1, -1)
@@ -469,7 +591,8 @@ local function ModeButton(parent, icon, onLeft, onRight, title, body)
     local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
     b:SetSize(MODE_SIZE, MODE_SIZE)
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    b:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 3 })
+    local edge = Modern() and 1 or 3
+    b:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = edge })
     -- Gold glow around the pressed one.
     b.glow = b:CreateTexture(nil, "BACKGROUND", nil, -8)
     b.glow:SetPoint("TOPLEFT", -10, 10)
@@ -478,8 +601,8 @@ local function ModeButton(parent, icon, onLeft, onRight, title, body)
     b.glow:SetBlendMode("ADD")
     b.glow:SetVertexColor(1, 0.8, 0.2, 0.9)
     b.fill = b:CreateTexture(nil, "BACKGROUND")
-    b.fill:SetPoint("TOPLEFT", 3, -3)
-    b.fill:SetPoint("BOTTOMRIGHT", -3, 3)
+    b.fill:SetPoint("TOPLEFT", edge, -edge)
+    b.fill:SetPoint("BOTTOMRIGHT", -edge, edge)
     -- Raised: light band on top. Pressed: dark band on top (pushed in).
     b.shine = b:CreateTexture(nil, "BORDER")
     b.shine:SetPoint("TOPLEFT", 3, -3)
@@ -508,6 +631,23 @@ local function SetPressed(b, pressed)
     b.icon:ClearAllPoints()
     b.icon:SetDesaturated(true)
     b.icon:SetAlpha(1)
+    if Modern() then
+        b.glow:Hide()
+        b.shine:Hide()
+        b.inset:Hide()
+        b.icon:SetPoint("CENTER", 0, 0)
+        if pressed then
+            local c = b.accent or C.attack
+            Gradient(b.fill, { c[1] * 0.55, c[2] * 0.55, c[3] * 0.55 }, { c[1] * 0.85, c[2] * 0.85, c[3] * 0.85 })
+            b:SetBackdropBorderColor(c[1], c[2], c[3], 1)
+            b.icon:SetVertexColor(1, 0.92, 0.75)
+        else
+            b.fill:SetColorTexture(C.button[1], C.button[2], C.button[3], 1)
+            b:SetBackdropBorderColor(C.line[1], C.line[2], C.line[3], 1)
+            b.icon:SetVertexColor(0.6, 0.6, 0.62)
+        end
+        return
+    end
     if pressed then
         Gradient(b.fill, { 0.55, 0.05, 0.03 }, { 0.9, 0.15, 0.06 })
         b:SetBackdropBorderColor(1, 0.82, 0.1, 1)
@@ -808,6 +948,7 @@ local function BuildTop()
     icon:SetSize(16, 16)
     icon:SetPoint("TOPLEFT", 6, -5)
     icon:SetTexture(SC.ICON)
+    TitleBar(F)
     Text(F, "SpawnCamp", 26, -7, "GameFontNormal")
 
     local close = CreateFrame("Button", nil, F, "UIPanelCloseButton")
@@ -873,7 +1014,7 @@ local function BuildPicker()
     local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
     T:SetHeight(BOX_H)
     Backdrop(T, 0.6)
-    T:SetBackdropBorderColor(1, 0.82, 0, 0.6)
+    BoxBorder(T)
     ui.picker = T
     Text(T, "New target", 10, -11, "GameFontNormal")
     ui.addName = Edit(T, 230, 84, -8, function() end)
@@ -953,8 +1094,16 @@ local function BuildTargetBox(slot, quest)
     local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
     T:SetHeight(BOX_H)
     Backdrop(T, 0.6)
-    T:SetBackdropBorderColor(1, 0.82, 0, 0.6)
+    BoxBorder(T)
     bx.frame = T
+
+    if Modern() then
+        bx.accent = T:CreateTexture(nil, "BORDER", nil, 6)
+        bx.accent:SetPoint("TOPLEFT", 1, -1)
+        bx.accent:SetPoint("BOTTOMLEFT", 1, 1)
+        bx.accent:SetWidth(3)
+        bx.accent:SetColorTexture(C.quest[1], C.quest[2], C.quest[3], 1)
+    end
 
     bx.portrait = CreateFrame("Frame", nil, T)
     bx.portrait:SetSize(52, 52)
@@ -992,6 +1141,7 @@ local function BuildTargetBox(slot, quest)
     bx.talk = ModeButton(T, BUBBLE, function() HideSidePanels(); SetMode("interact", slot) end, function(self) ShowBeside(TP, self) end,
         "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests.\n|cffffd100Right-click|r for the chat and quest options.")
     bx.talk:SetPoint("RIGHT", T, "RIGHT", -74, 0)
+    bx.talk.accent = C.talk
     bx.attack = ModeButton(T, SWORD, function() HideSidePanels(); if not quest then SetMode("attack", slot) end end, function(self) ShowBeside(AP, self) end,
         "Attack", quest and "Your key targets the quest mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro."
             or "Your key targets this mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro.")
@@ -1424,7 +1574,20 @@ local function BuildSettings(P)
     Text(P, "Early ding", 8, -148)
     ui.lead = Edit(P, 36, 66, -144, function(t) SC.char.lead = tonumber(t) or 0 end, true)
     Text(P, "seconds before the earliest respawn (0 = off)", 112, -148)
-    Text(P, "Right-click Attack or Talk for their options.", 8, -174, "GameFontDisableSmall")
+    Text(P, "Look:", 8, -178)
+    local function themeTip(which)
+        return which == "modern" and "Flat and dark with thin borders, like retail's newer frames." or "The original look: red buttons and gold trim."
+    end
+    local function setTheme(v)
+        SC.char.theme = v
+        if ui.reloadTheme then ui.reloadTheme:SetShown(v ~= THEME) end
+    end
+    Check(P, "Classic", 48, -172, function() return SC.char.theme ~= "modern" end, function() setTheme("classic") end, themeTip("classic"))
+    Check(P, "Modern", 130, -172, function() return SC.char.theme == "modern" end, function() setTheme("modern") end, themeTip("modern"))
+    ui.reloadTheme = Btn(P, "Reload to apply", 120, 220, -173, function() ReloadUI() end)
+    Tip(ui.reloadTheme, "Reload to apply", "The new look is used once the interface reloads (same as /reload).")
+    ui.reloadTheme:Hide()
+    Text(P, "Right-click Attack or Talk for their options.", 8, -204, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------
@@ -1790,6 +1953,7 @@ end
 ------------------------------------------------------------------------------
 
 local function Build()
+    THEME = SC.char.theme == "modern" and "modern" or "classic"
     F = CreateFrame("Frame", "SpawnCampFrame", UIParent, "BackdropTemplate")
     F:SetSize(W, 200)
     F:SetPoint("TOP", UIParent, "TOP", 0, -160)
@@ -1831,6 +1995,7 @@ local function Build()
         build(P)
         ui.panels[id] = P
     end
+    for _, f in ipairs({ F, AP, TP, N, RP, Q, AQ, IG, CH }) do StyleTree(f) end
 end
 
 ------------------------------------------------------------------------------
@@ -1923,7 +2088,7 @@ local function RefreshBox(bx, m, slot)
     local rare = m and SC.IsRareClass and SC.IsRareClass(m.rare)
     bx.silver:SetShown(rare and true or false)
     bx.silverGlow:SetShown(rare and true or false)
-    if rare then bx.frame:SetBackdropBorderColor(0.86, 0.9, 1, 1) else bx.frame:SetBackdropBorderColor(1, 0.82, 0, 0.6) end
+    if rare then bx.frame:SetBackdropBorderColor(0.86, 0.9, 1, 1) else BoxBorder(bx.frame) end
     bx.ignore:SetShown(rare and true or false)
     local questie = m and SC.QuestieReady and SC.QuestieReady()
     bx.map:SetShown(questie and true or false)
@@ -1967,6 +2132,10 @@ local function RefreshBox(bx, m, slot)
     bx.avg:SetText(small)
     SetPressed(bx.attack, m.mode == "attack")
     SetPressed(bx.talk, m.mode == "interact")
+    if bx.accent then
+        local c = (m.mode == "interact") and C.talk or C.attack
+        bx.accent:SetColorTexture(c[1], c[2], c[3], 1)
+    end
     local n = #SC.Targets()
     bx.up:SetShown(n > 1)
     bx.down:SetShown(n > 1)
