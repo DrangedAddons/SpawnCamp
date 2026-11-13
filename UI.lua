@@ -101,109 +101,75 @@ local function Safe(fn)
 end
 
 ------------------------------------------------------------------------------
--- Themes. "classic" is the original look (red buttons, gold trim). "modern" is
--- flat and dark with thin borders, like retail's newer frames. Read once when
--- the window is built, so switching needs a /reload.
+-- Look: the DrangedAddons house kit (Theme.lua / Widgets.lua / Window.lua).
+-- Every window and side panel sits in a kit-themed shell, so it matches
+-- EllesmereUI: Match EllesmereUI, default, EllesmereUI Style, WoW Forever,
+-- Blizzard Style, Classic WoW UI. The pick (SC.db.theme) applies live.
 ------------------------------------------------------------------------------
 
-local THEME = "classic"
-local function Modern() return THEME == "modern" end
+local UI = SC.UI
+local WHITE = "Interface\\Buttons\\WHITE8X8"
+local MARGIN = 12   -- the shell's border around a window's content
 
--- Modern palette.
-local C = {
-    window = { 0.059, 0.063, 0.075 },
-    panel = { 0.090, 0.094, 0.110 },
-    header = { 0.118, 0.122, 0.145 },
-    line = { 0.215, 0.223, 0.255 },
-    button = { 0.145, 0.150, 0.172 },
-    buttonDown = { 0.095, 0.098, 0.115 },
+-- Mode colours: red attack, blue talk, gold Auto Quest.
+local MODE_COLOR = {
     attack = { 0.80, 0.22, 0.16 },
     talk = { 0.30, 0.58, 0.92 },
     quest = { 1, 0.82, 0 },
 }
 
--- A 1 px outline from four textures (for frames without a backdrop).
-local function Outline(f, c, a)
-    f.scOutline = {}
-    local function edge(p1, p2, w, h)
-        local t = f:CreateTexture(nil, "BORDER", nil, 7)
-        t:SetColorTexture(c[1], c[2], c[3], a or 1)
-        t:SetPoint(p1)
-        t:SetPoint(p2)
-        if w then t:SetWidth(w) else t:SetHeight(h) end
-        f.scOutline[#f.scOutline + 1] = t
-    end
-    edge("TOPLEFT", "TOPRIGHT", nil, 1)
-    edge("BOTTOMLEFT", "BOTTOMRIGHT", nil, 1)
-    edge("TOPLEFT", "BOTTOMLEFT", 1)
-    edge("TOPRIGHT", "BOTTOMRIGHT", 1)
+local function Flat() return SC.ActiveTheme() == "eui" end
+
+-- The themed frame behind a window's content: a child that reaches MARGIN past
+-- every edge and sits under the content's own regions.
+local shells = {}
+local function Shell(content, title)
+    content:SetFrameLevel(math.max(content:GetFrameLevel(), 10))
+    local shell = CreateFrame("Frame", nil, content, "BackdropTemplate")
+    shell:SetPoint("TOPLEFT", -MARGIN, MARGIN)
+    shell:SetPoint("BOTTOMRIGHT", MARGIN, -MARGIN)
+    shell:SetFrameLevel(content:GetFrameLevel() - 5)
+    shell:EnableMouse(false)
+    shell.nsTitle = title
+    content.scShell = shell
+    shells[#shells + 1] = { shell = shell, content = content }
+    SC.ThemeRegisterWindow(shell)
+    return shell
 end
 
--- A panel button (UIPanelButtonTemplate) redrawn flat: dark fill, thin
--- outline, white text. The template's own art is faded out, not removed, so
--- its scripts keep working.
-local function StyleButton(b)
-    if not Modern() or b.scStyled then return end
-    b.scStyled = true
-    for _, k in ipairs({ "Left", "Middle", "Right" }) do
-        if type(b[k]) == "table" and b[k].SetAlpha then b[k]:SetAlpha(0) end
-    end
-    for _, get in ipairs({ "GetNormalTexture", "GetPushedTexture", "GetDisabledTexture" }) do
-        local t = b[get] and b[get](b)
-        if t then t:SetAlpha(0) end
-    end
-    local bg = b:CreateTexture(nil, "BACKGROUND", nil, -7)
-    bg:SetAllPoints()
-    bg:SetColorTexture(C.button[1], C.button[2], C.button[3], 1)
-    b.scBg = bg
-    Outline(b, C.line)
-    b:SetHighlightTexture("Interface\\Buttons\\WHITE8X8", "ADD")
-    b:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.07)
-    if b.SetNormalFontObject then
-        local font = b.scBigFont and "GameFontHighlightLarge" or "GameFontHighlightSmall"
-        b:SetNormalFontObject(font)
-        b:SetHighlightFontObject(font)
-        b:SetDisabledFontObject("GameFontDisableSmall")
-    end
-    b:HookScript("OnMouseDown", function(self)
-        if self:IsEnabled() then self.scBg:SetColorTexture(C.buttonDown[1], C.buttonDown[2], C.buttonDown[3], 1) end
-    end)
-    b:HookScript("OnMouseUp", function(self)
-        self.scBg:SetColorTexture(C.button[1], C.button[2], C.button[3], 1)
-    end)
-end
-
--- Every panel button under a frame.
-local function StyleTree(f, depth)
+-- Every panel button under a frame goes on the kit's list (flat with an
+-- accent underline in EllesmereUI Style, the game's red button otherwise).
+local function RegisterButtons(f, depth)
     depth = depth or 0
-    if not (Modern() and f and f.GetChildren) or depth > 12 then return end
+    if not (f and f.GetChildren) or depth > 12 then return end
     for _, c in ipairs({ f:GetChildren() }) do
         if type(c) == "table" then
             if c.GetObjectType and c:GetObjectType() == "Button" and type(c.Left) == "table"
                 and type(c.Middle) == "table" and type(c.Right) == "table" then
-                StyleButton(c)
+                SC.ThemeRegisterButton(c)
             end
-            StyleTree(c, depth + 1)
+            RegisterButtons(c, depth + 1)
         end
     end
 end
 
--- Modern: a title strip across the top of a window or popup.
-local function TitleBar(f, h)
-    if not Modern() then return end
-    local bar = f:CreateTexture(nil, "BACKGROUND", nil, 2)
-    bar:SetPoint("TOPLEFT", 1, -1)
-    bar:SetPoint("TOPRIGHT", -1, -1)
-    bar:SetHeight(h or 24)
-    bar:SetColorTexture(C.header[1], C.header[2], C.header[3], 1)
-    local line = f:CreateTexture(nil, "BORDER")
-    line:SetPoint("TOPLEFT", bar, "BOTTOMLEFT")
-    line:SetPoint("TOPRIGHT", bar, "BOTTOMRIGHT")
-    line:SetHeight(1)
-    line:SetColorTexture(C.line[1], C.line[2], C.line[3], 1)
+-- Re-skins everything (after a look change, or once after building).
+local function ReskinAll()
+    for _, w in ipairs(shells) do
+        SC.ApplyTheme(w.shell)
+        SC.NoteThemeFonts(w.content)
+    end
 end
 
--- A small icon button (header tools in the modern layout).
+-- A look picked in the settings re-skins all SpawnCamp windows at once.
+local kitSetLook = SC.SetLook
+function SC.SetLook(key)
+    kitSetLook(key)
+    ReskinAll()
+    SC.Refresh()
+end
+
+-- A small icon button (header tools).
 local function IconButton(parent, texture, size, onClick)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(size, size)
@@ -216,18 +182,14 @@ local function IconButton(parent, texture, size, onClick)
     return b
 end
 
--- A target box's border: gold in classic, a quiet line in modern.
+-- A card or box border: the house panel line.
 local function BoxBorder(f)
-    if Modern() then f:SetBackdropBorderColor(C.line[1], C.line[2], C.line[3], 1)
-    else f:SetBackdropBorderColor(1, 0.82, 0, 0.6) end
+    f:SetBackdropBorderColor(0.25, 0.25, 0.28, 1)
 end
 
 local function Btn(parent, text, w, x, y, onClick)
-    local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    b:SetSize(w, 22)
+    local b = UI.Button(parent, text, w, 22, Safe(onClick))
     b:SetPoint("TOPLEFT", x, y)
-    b:SetText(text)
-    b:SetScript("OnClick", Safe(onClick))
     return b
 end
 
@@ -250,42 +212,36 @@ local function Check(parent, label, x, y, get, set, tip)
     return cb
 end
 
--- Saves on Enter, on focus lost and while typing (OnTextChanged's userInput flag
--- isn't reliable on Forever, so HasFocus decides).
-local function Edit(parent, w, x, y, onSave, numeric)
+-- House rule: saves on Enter and on focus loss; Esc puts the old value back.
+-- live = also save while typing (a filter box), with HasFocus deciding, since
+-- OnTextChanged's user-input flag isn't reliable on Forever.
+local function Edit(parent, w, x, y, onSave, numeric, live)
     local e = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
     e:SetSize(w, 20)
     e:SetPoint("TOPLEFT", x + 6, y)
     e:SetAutoFocus(false)
     if numeric then e:SetNumeric(true) end
     local function save(self) onSave(self:GetText() or "") end
-    e:SetScript("OnEnterPressed", function(self) save(self); self:ClearFocus(); SC.Refresh() end)
-    e:SetScript("OnEscapePressed", function(self) self:ClearFocus(); SC.Refresh() end)
-    e:SetScript("OnEditFocusLost", function(self) save(self); SC.Refresh() end)
-    e:SetScript("OnTextChanged", function(self) if self:HasFocus() then save(self) end end)
+    e:SetScript("OnEditFocusGained", function(self) self.scOld = self:GetText() or "" end)
+    e:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    e:SetScript("OnEscapePressed", function(self)
+        self.scCancel = true
+        self:SetText(self.scOld or "")
+        self:ClearFocus()
+    end)
+    e:SetScript("OnEditFocusLost", function(self)
+        if self.scCancel then self.scCancel = nil else save(self) end
+        SC.Refresh()
+    end)
+    if live then
+        e:SetScript("OnTextChanged", function(self) if self:HasFocus() then save(self) end end)
+    end
     return e
 end
 
-local function Backdrop(f, a)
-    if Modern() then
-        f:SetBackdrop({
-            bgFile = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = "Interface\\Buttons\\WHITE8X8",
-            edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 },
-        })
-        -- Boxes inside the window (asked for see-through) sit a shade lighter.
-        local c = (a and a < 0.7) and C.panel or C.window
-        f:SetBackdropColor(c[1], c[2], c[3], 0.96)
-        f:SetBackdropBorderColor(C.line[1], C.line[2], C.line[3], 1)
-        return
-    end
-    f:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 },
-    })
-    f:SetBackdropColor(0.05, 0.05, 0.07, a or 0.9)
-    f:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
+-- A box inside a window: the house panel colours.
+local function Backdrop(f)
+    UI.Backdrop(f)
 end
 
 local function BigEdit(parent, w, h, x, y, maxLetters, onSave)
@@ -297,11 +253,19 @@ local function BigEdit(parent, w, h, x, y, maxLetters, onSave)
     e:SetFontObject(ChatFontNormal)
     e:SetTextInsets(6, 6, 4, 4)
     e:SetMaxLetters(maxLetters)
-    Backdrop(e, 0.8)
+    UI.Backdrop(e, 0.1, 0.1, 0.11, 1)
     local function save(self) onSave(self:GetText() or "") end
-    e:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    e:SetScript("OnEditFocusLost", function(self) save(self); SC.ApplyBindings(); SC.Refresh() end)
-    e:SetScript("OnTextChanged", function(self) if self:HasFocus() then save(self) end end)
+    e:SetScript("OnEditFocusGained", function(self) self.scOld = self:GetText() or "" end)
+    e:SetScript("OnEscapePressed", function(self)
+        self.scCancel = true
+        self:SetText(self.scOld or "")
+        self:ClearFocus()
+    end)
+    e:SetScript("OnEditFocusLost", function(self)
+        if self.scCancel then self.scCancel = nil else save(self) end
+        SC.ApplyBindings()
+        SC.Refresh()
+    end)
     e:SetScript("OnMouseDown", function(self) self:SetFocus() end)
     return e
 end
@@ -313,8 +277,8 @@ end
 local function Header(parent, text, y)
     local fs = Text(parent, text, 8, y, "GameFontNormal")
     local line = parent:CreateTexture(nil, "ARTWORK")
-    if Modern() then line:SetColorTexture(C.line[1], C.line[2], C.line[3], 1)
-    else line:SetColorTexture(1, 0.82, 0, 0.25) end
+    local r, g, b = SC.AccentColor()
+    line:SetColorTexture(r, g, b, 0.3)
     line:SetHeight(1)
     line:SetPoint("LEFT", fs, "RIGHT", 6, 0)
     line:SetPoint("RIGHT", parent, "RIGHT", -8, 0)
@@ -322,13 +286,12 @@ local function Header(parent, text, y)
 end
 
 local function Popup(name, w, h, title)
-    local p = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
+    local p = CreateFrame("Frame", name, UIParent)
     p:SetSize(w, h)
     p:SetFrameStrata("DIALOG")
     p:EnableMouse(true)
-    Backdrop(p, 0.95)
-    TitleBar(p)
     p.title = Text(p, title, 10, -10, "GameFontNormal")
+    Shell(p, p.title)
     local close = CreateFrame("Button", nil, p, "UIPanelCloseButton")
     close:SetSize(22, 22)
     close:SetPoint("TOPRIGHT", -1, -1)
@@ -605,8 +568,7 @@ local function ModeButton(parent, icon, onLeft, onRight, title, body)
     local size = MODE_SIZE
     b:SetSize(size, size)
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    local edge = Modern() and 1 or 3
-    b:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = edge })
+    b:SetBackdrop({ edgeFile = WHITE, edgeSize = 3 })
     -- Gold glow around the pressed one.
     b.glow = b:CreateTexture(nil, "BACKGROUND", nil, -8)
     b.glow:SetPoint("TOPLEFT", -10, 10)
@@ -615,8 +577,8 @@ local function ModeButton(parent, icon, onLeft, onRight, title, body)
     b.glow:SetBlendMode("ADD")
     b.glow:SetVertexColor(1, 0.8, 0.2, 0.9)
     b.fill = b:CreateTexture(nil, "BACKGROUND")
-    b.fill:SetPoint("TOPLEFT", edge, -edge)
-    b.fill:SetPoint("BOTTOMRIGHT", -edge, edge)
+    b.fill:SetPoint("TOPLEFT", 3, -3)
+    b.fill:SetPoint("BOTTOMRIGHT", -3, 3)
     -- Raised: light band on top. Pressed: dark band on top (pushed in).
     b.shine = b:CreateTexture(nil, "BORDER")
     b.shine:SetPoint("TOPLEFT", 3, -3)
@@ -641,23 +603,33 @@ local function ModeButton(parent, icon, onLeft, onRight, title, body)
     return b
 end
 
+-- EllesmereUI Style: flat squares lit in the mode's colour. Every other look:
+-- red with gold trim, pressed in.
 local function SetPressed(b, pressed)
     b.icon:ClearAllPoints()
     b.icon:SetDesaturated(true)
     b.icon:SetAlpha(1)
-    if Modern() then
+    local edge = Flat() and 1 or 3
+    if b.scEdge ~= edge then
+        b.scEdge = edge
+        b:SetBackdrop({ edgeFile = WHITE, edgeSize = edge })
+        b.fill:ClearAllPoints()
+        b.fill:SetPoint("TOPLEFT", edge, -edge)
+        b.fill:SetPoint("BOTTOMRIGHT", -edge, edge)
+    end
+    if Flat() then
         b.glow:Hide()
         b.shine:Hide()
         b.inset:Hide()
         b.icon:SetPoint("CENTER", 0, 0)
         if pressed then
-            local c = b.accent or C.attack
+            local c = b.accent or MODE_COLOR.attack
             Gradient(b.fill, { c[1] * 0.55, c[2] * 0.55, c[3] * 0.55 }, { c[1] * 0.85, c[2] * 0.85, c[3] * 0.85 })
             b:SetBackdropBorderColor(c[1], c[2], c[3], 1)
             b.icon:SetVertexColor(1, 0.92, 0.75)
         else
-            b.fill:SetColorTexture(C.button[1], C.button[2], C.button[3], 1)
-            b:SetBackdropBorderColor(C.line[1], C.line[2], C.line[3], 1)
+            b.fill:SetColorTexture(0.09, 0.09, 0.09, 1)
+            b:SetBackdropBorderColor(0.25, 0.25, 0.28, 1)
             b.icon:SetVertexColor(0.6, 0.6, 0.62)
         end
         return
@@ -713,7 +685,7 @@ local function ShowBeside(p, opener)
         p.opener = opener
         p:ClearAllPoints()
         local beside = (SC.char.logRight and ui.log and ui.log:IsShown()) and ui.log or F
-        p:SetPoint("TOPLEFT", beside, "TOPRIGHT", 2, 0)
+        p:SetPoint("TOPLEFT", beside, "TOPRIGHT", MARGIN * 2 + 2, 0)
         p:Show()
     end
     SC.Refresh()
@@ -789,7 +761,7 @@ SC.RefreshChooser = RefreshChooser
 local function BuildChooser()
     CH = Popup("SpawnCampChooser", 300, 96 + CH_ROWS * CH_H, "")
     CH.title = Text(CH, "", 10, -10, "GameFontNormal")
-    CH.filter = Edit(CH, 160, 8, -32, function(t) CH.filterText = strtrim(t):lower(); CH.offset = 0; RefreshChooser() end)
+    CH.filter = Edit(CH, 160, 8, -32, function(t) CH.filterText = strtrim(t):lower(); CH.offset = 0; RefreshChooser() end, nil, true)
     local hint = CH.filter:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     hint:SetPoint("LEFT", 2, 0)
     hint:SetText("type to filter")
@@ -962,8 +934,7 @@ local function BuildTop()
     icon:SetSize(16, 16)
     icon:SetPoint("TOPLEFT", 6, -5)
     icon:SetTexture(SC.ICON)
-    TitleBar(F)
-    Text(F, "SpawnCamp", 26, -7, "GameFontNormal")
+    F.title = Text(F, "SpawnCamp", 26, -7, "GameFontNormal")
 
     local close = CreateFrame("Button", nil, F, "UIPanelCloseButton")
     close:SetSize(22, 22)
@@ -1001,8 +972,7 @@ local function BuildTop()
     bar:SetPoint("TOPLEFT", 1, -26)
     bar:SetPoint("TOPRIGHT", -1, -26)
     bar:SetHeight(44)
-    if Modern() then bar:SetColorTexture(C.panel[1], C.panel[2], C.panel[3], 1)
-    else bar:SetColorTexture(0, 0, 0, 0.25) end
+    bar:SetColorTexture(0.1, 0.1, 0.11, 0.9)
     local chip = KeyButton(F, 10, -31, SC.char)
     chip.scBigFont = true
     chip:SetSize(84, 34)
@@ -1032,8 +1002,7 @@ local BOX_H = 58   -- height of a target card
 local function BuildPicker()
     local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
     T:SetHeight(32)
-    Backdrop(T, 0.6)
-    BoxBorder(T)
+    Backdrop(T)
     ui.picker = T
     local function at(w, x, width)
         w:ClearAllPoints()
@@ -1119,8 +1088,7 @@ local function BuildTargetBox(slot, quest)
     local bx = { quest = quest }
     local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
     T:SetHeight(BOX_H)
-    Backdrop(T, 0.6)
-    BoxBorder(T)
+    Backdrop(T)
     bx.frame = T
 
     if not quest then
@@ -1146,7 +1114,7 @@ local function BuildTargetBox(slot, quest)
         bx.accent:SetPoint("TOPLEFT", 1, -1)
         bx.accent:SetPoint("BOTTOMLEFT", 1, 1)
         bx.accent:SetWidth(3)
-        bx.accent:SetColorTexture(C.quest[1], C.quest[2], C.quest[3], 1)
+        bx.accent:SetColorTexture(MODE_COLOR.quest[1], MODE_COLOR.quest[2], MODE_COLOR.quest[3], 1)
     end
 
     bx.portrait = CreateFrame("Frame", nil, T)
@@ -1185,7 +1153,7 @@ local function BuildTargetBox(slot, quest)
     bx.talk = ModeButton(T, BUBBLE, function() HideSidePanels(); SetMode("interact", slot) end, function(self) ShowBeside(TP, self) end,
         "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests.\n|cffffd100Right-click|r for the chat and quest options.")
     bx.talk:SetPoint("RIGHT", T, "RIGHT", -74, 0)
-    bx.talk.accent = C.talk
+    bx.talk.accent = MODE_COLOR.talk
     bx.attack = ModeButton(T, SWORD, function() HideSidePanels(); if not quest then SetMode("attack", slot) end end, function(self) ShowBeside(AP, self) end,
         "Attack", quest and "Your key targets the quest mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro."
             or "Your key targets this mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro.")
@@ -1497,9 +1465,8 @@ local LOG_H = 138 + HIST_ROWS * 16
 
 -- A drawer beside the window (left by default; right in the settings).
 local function BuildLog()
-    local P = CreateFrame("Frame", "SpawnCampLog", F, "BackdropTemplate")
+    local P = CreateFrame("Frame", "SpawnCampLog", F)
     P:SetSize(LOG_W, LOG_H)
-    Backdrop(P, 0.9)
     P:EnableMouse(true)
     ui.log = P
     local titleBtn = CreateFrame("Button", nil, P)
@@ -1611,20 +1578,19 @@ local function BuildSettings(P)
     Text(P, "Early ding", 8, -148)
     ui.lead = Edit(P, 36, 66, -144, function(t) SC.char.lead = tonumber(t) or 0 end, true)
     Text(P, "seconds before the earliest respawn (0 = off)", 112, -148)
-    local function changed()
-        if ui.reloadTheme then
-            ui.reloadTheme:SetShown((SC.char.theme == "modern" and "modern" or "classic") ~= THEME)
-        end
-    end
-    Text(P, "Skin:", 8, -178)
-    Check(P, "Classic", 56, -172, function() return SC.char.theme ~= "modern" end,
-        function() SC.char.theme = "classic"; changed() end, "The original look: red buttons and gold trim.")
-    Check(P, "Modern", 138, -172, function() return SC.char.theme == "modern" end,
-        function() SC.char.theme = "modern"; changed() end, "Flat and dark with thin borders, like retail's newer frames.")
-    ui.reloadTheme = Btn(P, "Reload to apply", 120, 240, -173, function() ReloadUI() end)
-    Tip(ui.reloadTheme, "Reload to apply", "The new skin is used once the interface reloads (same as /reload).")
-    ui.reloadTheme:Hide()
-    Text(P, "Right-click Attack or Talk for their options.", 8, -204, "GameFontDisableSmall")
+    Text(P, "Look:", 8, -178)
+    local look = UI.Dropdown(P, 210, function()
+        local out = {}
+        for _, o in ipairs(SC.LookOptions()) do out[#out + 1] = { value = o.value, label = o.text } end
+        return out
+    end, function() return SC.db.theme or "auto" end, function(v) SC.SetLook(v) end)
+    look:SetPoint("TOPLEFT", 50, -174)
+    Tip(look, "Look", "Matches EllesmereUI by default. Pick another to change every SpawnCamp window straight away.")
+    Check(P, "Show minimap button", 274, -172,
+        function() return not (SC.char.minimap and SC.char.minimap.hide) end,
+        function(v) UI.SetLauncherShown(SC.char.minimap, v) end,
+        "The SpawnCamp button on the minimap. /spawncamp and the AddOns menu still open the window.")
+    Text(P, "Right-click Attack or Talk for their options.", 8, -206, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------
@@ -1990,8 +1956,7 @@ end
 ------------------------------------------------------------------------------
 
 local function Build()
-    THEME = SC.char.theme == "classic" and "classic" or "modern"
-    F = CreateFrame("Frame", "SpawnCampFrame", UIParent, "BackdropTemplate")
+    F = CreateFrame("Frame", "SpawnCampFrame", UIParent)
     F:SetSize(W, 200)
     F:SetPoint("TOP", UIParent, "TOP", 0, -160)
     F:SetFrameStrata("MEDIUM")
@@ -2001,14 +1966,15 @@ local function Build()
     F:RegisterForDrag("LeftButton")
     F:SetScript("OnDragStart", function(self) if not SC.char.locked then self:StartMoving() end end)
     F:SetScript("OnDragStop", function(self) self:StopMovingOrSizing(); SavePos() end)
-    Backdrop(F, 0.8)
     local pos = SC.char.framePos
     if pos then
         F:ClearAllPoints()
         F:SetPoint(pos[1], UIParent, pos[2], pos[3], pos[4])
     end
     ui.checks, ui.keys = {}, {}
+    Shell(F)
     BuildTop()
+    F.scShell.nsTitle = F.title
     BuildTarget()
     BuildPicker()
     BuildNameSecure()
@@ -2021,12 +1987,14 @@ local function Build()
     BuildAutoTargets()
     BuildIgnored()
     BuildLog()
+    Shell(ui.log, ui.logTitle)
     -- Settings open beside the window.
     ui.settingsPopup = Popup("SpawnCampSettings", 440, PANEL_H.settings + 6, "")
     local P = CreateFrame("Frame", nil, ui.settingsPopup)
     P:SetAllPoints()
     BuildSettings(P)
-    for _, f in ipairs({ F, AP, TP, N, RP, Q, AQ, IG, CH, ui.settingsPopup }) do StyleTree(f) end
+    for _, f in ipairs({ F, AP, TP, N, RP, Q, AQ, IG, CH, ui.settingsPopup }) do RegisterButtons(f) end
+    ReskinAll()
 end
 
 ------------------------------------------------------------------------------
@@ -2173,7 +2141,7 @@ local function RefreshBox(bx, m, slot)
     SetPressed(bx.attack, m.mode == "attack")
     SetPressed(bx.talk, m.mode == "interact")
     if bx.accent then
-        local c = (m.mode == "interact") and C.talk or C.attack
+        local c = (m.mode == "interact") and MODE_COLOR.talk or MODE_COLOR.attack
         bx.accent:SetColorTexture(c[1], c[2], c[3], 1)
     end
     if bx.keyTag then
@@ -2381,9 +2349,9 @@ function SC.RefreshWindow()
     if m and SC.char.logOpen then
         ui.log:ClearAllPoints()
         if SC.char.logRight then
-            ui.log:SetPoint("TOPLEFT", F, "TOPRIGHT", 2, 0)
+            ui.log:SetPoint("TOPLEFT", F, "TOPRIGHT", MARGIN * 2 + 2, 0)
         else
-            ui.log:SetPoint("TOPRIGHT", F, "TOPLEFT", -2, 0)
+            ui.log:SetPoint("TOPRIGHT", F, "TOPLEFT", -(MARGIN * 2 + 2), 0)
         end
         ui.logTitle:SetText("Log: " .. m.name .. (SC.Active(2) and "  |cff999999(click for the next target)|r" or ""))
         ui.log:Show()
@@ -2396,6 +2364,7 @@ function SC.RefreshWindow()
     RefreshAutoTargets()
     RefreshIgnored()
     for _, cb in ipairs(ui.checks) do cb:SetChecked(cb.get() and true or false) end
+    UI.RefreshAll()
     RefreshPopups()
 
     -- /spawncamp settings: open the side panel.
@@ -2415,6 +2384,15 @@ function SC.FocusAddName()
     SC.Refresh()
     if ui.addName then ui.addName:SetFocus() end
 end
+
+function SC.OpenSettings()
+    SC.char.shown = true
+    SC.char.panel = "settings"
+    SC.Refresh()
+end
+
+-- Options > AddOns: a page that opens SpawnCamp's settings.
+UI.RegisterSettingsPage(SC.ICON, "/spawncamp", function() SC.OpenSettings() end)
 
 function SC.ShowWindow()
     SC.char.shown = true

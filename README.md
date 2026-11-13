@@ -36,7 +36,8 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
   - **Pop up rares**: a rare's nameplate adds it as a silver target box. **Ignored rares** next to it reviews, adds and removes ignored rares. **Test rare** shows a pretend one so you can see the look.
   - **Respawn dings** (soft), with how early the first one comes.
   - Show mobs you've already killed, sound, lock window, log on the right.
-  - **Skin**: Modern (flat and dark, thin borders, like retail's newer frames) or Classic (red buttons, gold trim). Reload to apply.
+  - **Look**: Match EllesmereUI (default), SpawnCamp default, EllesmereUI Style, WoW Forever, Blizzard Style or Classic WoW UI. Changes straight away.
+  - **Show minimap button**. Click the minimap button to open the window, right-click for these settings. They're also under Options > AddOns > SpawnCamp.
 
 Hostile mobs start on the sword and friendly ones on the bubble.
 

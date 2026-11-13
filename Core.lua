@@ -82,7 +82,6 @@ SC.CHAR_DEFAULTS = {
     locked = false,       -- window can't be dragged
     sound = true,         -- play a sound with alerts
     minimap = { hide = false },
-    theme = "modern",   -- window skin: "modern" (flat, thin borders) or "classic" (red buttons, gold trim)
 }
 
 SC.MOB_DEFAULTS = {
@@ -601,6 +600,7 @@ SC.On("ADDON_LOADED", function(name)
     if name ~= ADDON then return end
     SpawnCampDB = SpawnCampDB or {}
     SpawnCampDB.realms = SpawnCampDB.realms or {}
+    SpawnCampDB.theme = SpawnCampDB.theme or "auto"   -- house kit look (Theme.lua)
     SpawnCampCharDB = SpawnCampCharDB or {}
     Fill(SpawnCampCharDB, SC.CHAR_DEFAULTS)
     SC.char = SpawnCampCharDB
@@ -675,6 +675,7 @@ SC.On("ADDON_LOADED", function(name)
     end
     SC.char.expanded, SC.char.tab, SC.char.showTimers = nil, nil, nil
     SC.char.layout = nil   -- 0.36 had a layout choice; there's one layout now
+    SC.char.theme = nil    -- 0.35-0.37 had its own skin; the house kit's look (SpawnCampDB.theme) replaced it
 end)
 
 SC.On("PLAYER_LOGIN", function()

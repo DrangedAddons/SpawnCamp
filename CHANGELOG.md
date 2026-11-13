@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.38.0
+
+- Rebuilt on the DrangedAddons house UI kit, so SpawnCamp looks like the other DrangedAddons addons and matches EllesmereUI. The window, the log and every side panel use the kit's frame, buttons and EllesmereUI's font.
+- **Look** in the settings replaces Skin: Match EllesmereUI (default), SpawnCamp default, EllesmereUI Style (flat, your accent colour), WoW Forever, Blizzard Style or Classic WoW UI. It changes straight away, no reload. In EllesmereUI Style the sword and bubble go flat and light up in the mode's colour; in the other looks they're red with gold trim.
+- **Show minimap button** in the settings. Right-click the minimap button opens the settings. SpawnCamp also has a page under Options > AddOns that opens them.
+- Edit boxes save when you press Enter or click away, and Esc puts the old value back. The spell filter still filters as you type.
+
 ## 0.37.1
 
 - Removed the old layout's code from the window. Nothing changes on screen, and `UI.lua` is about 300 lines shorter. The README's window section shows the current layout.
