@@ -173,6 +173,12 @@ local function ParseCount(text)
     return tonumber(have), tonumber(need)
 end
 
+local NOT_A_KILL = {
+    collected = true, captured = true, rescued = true, freed = true, released = true,
+    gathered = true, found = true, recovered = true, cleansed = true, controlled = true,
+    tamed = true, sampled = true, saved = true, investigated = true, placed = true, used = true,
+}
+
 -- The mob's name from a kill objective, in either word order.
 local function MobFromObjective(text)
     text = strtrim(text)
@@ -182,7 +188,14 @@ local function MobFromObjective(text)
         or text:match("^%d+%s*/%s*%d+%s+(.-)%s+[Kk]illed$")
         or text:match("^(.-):%s*%d+%s*/%s*%d+$")
         or text:match("^%d+%s*/%s*%d+%s+(.+)$")
-    if name then name = strtrim(name) end
+    if not name then return nil end
+    name = strtrim(name)
+    -- Scripted credit ("Screecher Spirits collected: 0/3") names no mob to
+    -- target. "Destroyed"/"defeated" usually follow a real mob name: keep it.
+    local last = name:match("%s(%a+)$")
+    last = last and last:lower()
+    if last and NOT_A_KILL[last] then return nil end
+    if last == "destroyed" or last == "defeated" then name = strtrim(name:sub(1, -#last - 1)) end
     if name == "" then return nil end
     return name
 end

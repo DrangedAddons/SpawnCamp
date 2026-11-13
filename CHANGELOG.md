@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.38.2
+
+- Auto Quest no longer adds quest credit lines as mobs. "Screecher Spirits collected: 0/3" became a target called "Screecher Spirits collected". Objectives ending in collected, captured, rescued, freed and similar are skipped; "X destroyed" and "X defeated" keep the mob name.
+
 ## 0.38.1
 
 - The KEY tag now sits on the bottom of the mob's portrait. It used to follow the name, so a long truncated name put it on top of the Questie map button.
