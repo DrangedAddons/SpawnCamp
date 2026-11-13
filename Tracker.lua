@@ -423,6 +423,34 @@ function SC.InRange(unit)
     return nil
 end
 
+-- Rough distance to a unit in yards, from item range checks. The items and
+-- yards are the ones DBM calibrated against hostile NPCs on Forever. Out of
+-- combat only (the client blocks item range checks on enemies in combat);
+-- nil when it can't be told.
+local RANGE_ITEMS = {
+    { 8, 8149 }, { 13, 17626 }, { 23, 17757 }, { 28, 13289 },
+    { 33, 17202 }, { 38, 18904 }, { 48, 221316 }, { 103, 5418 },
+}
+if C_Item and C_Item.RequestLoadItemDataByID then
+    for _, r in ipairs(RANGE_ITEMS) do pcall(C_Item.RequestLoadItemDataByID, r[2]) end
+end
+local FAR = 200
+function SC.Distance(unit)
+    local f = (C_Item and C_Item.IsItemInRange) or IsItemInRange
+    if not f or InCombatLockdown() or not SC.MaybeExists(unit) then return nil end
+    local answered = false
+    for _, r in ipairs(RANGE_ITEMS) do
+        local ok, v = pcall(f, r[2], unit)
+        if ok then
+            v = SC.Plain(v)
+            if v == true or v == 1 then return r[1] end
+            if v == false or v == 0 then answered = true end
+        end
+    end
+    return answered and FAR or nil
+end
+
+-- Priority (lower is better) and distance of a nameplate the key could lock.
 local function PlateRank(unit)
     if not SC.MaybeExists(unit) or SC.True(UnitIsPlayer(unit)) then return end
     if SC.Bool(UnitIsDead(unit)) ~= false then return end
@@ -436,24 +464,32 @@ local function PlateRank(unit)
     if not r then return end
     if blocked[unit] and blocked[unit] > GetTime() then r = r + LOS_PENALTY end
     if SC.InRange(unit) == false then r = r + RANGE_PENALTY end
-    return r, n
+    return r, n, SC.Distance(unit) or FAR + 1
 end
 SC._PlateRank = PlateRank
 
+-- Higher priority wins; between equals (all Auto Quest mobs, or several of
+-- one target) the closer one does.
+local function Better(r, d, br, bd)
+    return r < br or (r == br and d < bd)
+end
+
 function SC.PickLock()
     if not SC.char or SC.inCombat or InCombatLockdown() then return end
-    local best, bestRank, bestName
+    local best, bestRank, bestName, bestDist
     for i = 1, 40 do
         local u = "nameplate" .. i
-        local r, n = PlateRank(u)
-        if r and (not bestRank or r < bestRank) then best, bestRank, bestName = u, r, n end
+        local r, n, d = PlateRank(u)
+        if r and (not bestRank or Better(r, d, bestRank, bestDist)) then best, bestRank, bestName, bestDist = u, r, n, d end
     end
+    -- The current lock stays unless something is strictly better, so equal
+    -- mobs don't hop.
     if SC.fastUnit and bestRank then
-        local r, n = PlateRank(SC.fastUnit)
-        if r and r <= bestRank then best, bestRank, bestName = SC.fastUnit, r, n end
+        local r, n, d = PlateRank(SC.fastUnit)
+        if r and not Better(bestRank, bestDist, r, d) then best, bestRank, bestName = SC.fastUnit, r, n end
     end
     if best and bestRank % RANGE_PENALTY > SC.MAX_TARGETS then SC.lastQuestMob = bestName end
-    SC.SetFastUnit(best)
+    SC.SetFastUnit(best, best and bestName or nil)
 end
 
 -- After "not in line of sight" on a key press: the mob you're on ranks below
@@ -573,6 +609,7 @@ end
 function SC.OnKeyPressed()
     if not SC.char then return end
     TakeTarget()
+    pcall(SC.CheckSwapLanded)
     SC.EvalTarget()
     C_Timer.After(0.15, function() pcall(TakeTarget); pcall(SC.EvalTarget) end)
 end
@@ -630,18 +667,37 @@ function SC.EvalTarget()
     -- one isn't, or higher in the list). Never to itself or another of the
     -- same name: the nameplate-vs-target check can't always tell them apart,
     -- and swapping to "itself" made the key clear and re-take the same mob.
+    -- Equal priority (Auto Quest mobs, or two of one target): it gives way to a
+    -- strictly closer one. The same mob always reads the same distance, so this
+    -- can't swap to itself. After a swap press that landed somewhere else, no
+    -- more swaps for a few seconds, so the key can't clear and re-take in a loop.
     local fu = SC.fastUnit
     if on and fu and not SC.inCombat and SC.Bool(UnitAffectingCombat("target")) ~= true
-        and not SC.True(UnitIsUnit("target", fu)) then
-        local fr, fn = PlateRank(fu)
-        if fn and onName and fn:lower() ~= onName:lower() then
+        and not SC.True(UnitIsUnit("target", fu)) and GetTime() >= (SC.noSwapUntil or 0) then
+        local fr, fn, fd = PlateRank(fu)
+        if fr and fn and onName then
             local tr = SC.RankOf(onName) or SC.MAX_TARGETS + 2
             if SC.targetBlocked and SC.targetBlocked > GetTime() then tr = tr + LOS_PENALTY end
             if SC.InRange("target") == false then tr = tr + RANGE_PENALTY end
-            if fr and fr < tr then on = false end
+            if fn:lower() ~= onName:lower() and fr < tr then
+                on = false
+            elseif fr == tr then
+                local td = SC.Distance("target")
+                if td and fd <= FAR and fd < td then on = false end
+            end
         end
     end
     SC.SetOnMob(on)
+end
+
+-- A swap press (the key went for the locked nameplate) that ended on some
+-- other mob: the lock can't be reached by the key right now.
+function SC.CheckSwapLanded()
+    local fu = SC.fastUnit
+    if not fu or not (SC.ranMacro or ""):find("^/cleartarget\n/target nameplate") then return end
+    if SC.MaybeExists("target") and SC.Bool(UnitIsUnit("target", fu)) == false then
+        SC.noSwapUntil = GetTime() + 5
+    end
 end
 
 SC.On("PLAYER_REGEN_ENABLED", function() SC.EvalTarget() end)

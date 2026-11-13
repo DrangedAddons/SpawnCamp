@@ -206,6 +206,7 @@ function SC.BuildKeyMacro()
     -- opening lines, one search per target, and the cast/attack/talk lines.
     -- The searches run in priority order, so the lowest ones are dropped.
     local head, units, tail = {}, {}, {}
+    local skipName   -- already searched in head
     -- Name search for every target in priority order: the first unconditional,
     -- the rest only if the earlier ones found nothing. With clearDead, a corpse
     -- found by one search is dropped before the next, so a dead mob higher up
@@ -224,7 +225,9 @@ function SC.BuildKeyMacro()
         end
         for _, x in ipairs(all) do
             n = n + 1
-            unit(((n == 1 and not firstCond) and "/targetexact " or "/targetexact [noexists] ") .. x.name)
+            if x.name:lower() ~= skipName then
+                unit(((n == 1 and not firstCond) and "/targetexact " or "/targetexact [noexists] ") .. x.name)
+            end
         end
         for _, text in ipairs(searches) do
             n = n + 1
@@ -240,8 +243,16 @@ function SC.BuildKeyMacro()
         -- clearing first loses nothing.
         -- The cast goes at that exact unit (checked alive and not tagged by
         -- someone else), never at whatever the name search found.
+        -- The backup search tries the locked mob's name first, so a miss on the
+        -- nameplate token still lands on that mob (nearest of that name), not
+        -- on whichever target is first in the list.
         head[#head + 1] = "/cleartarget"
         head[#head + 1] = "/target " .. SC.fastUnit
+        if SC.fastName then
+            head[#head + 1] = "/targetexact [noexists] " .. SC.fastName
+            head[#head + 1] = "/cleartarget [dead]"
+            skipName = SC.fastName:lower()
+        end
         Search(true, true)
         TalkAndAttack(tail, attack, talk, "[@" .. SC.fastUnit .. ",harm,nodead]")
     else
@@ -290,9 +301,9 @@ function SC.UpdateKeyMacro()
     keyBtn:SetAttribute("macrotext", SC.KeyMacro())
 end
 
-function SC.SetFastUnit(unit)
-    if unit == SC.fastUnit or InCombatLockdown() then return end
-    SC.fastUnit = unit
+function SC.SetFastUnit(unit, name)
+    if (unit == SC.fastUnit and name == SC.fastName) or InCombatLockdown() then return end
+    SC.fastUnit, SC.fastName = unit, unit and name or nil
     SC.UpdateKeyMacro()
 end
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.39.0
+
+- Auto Quest goes for the **closest** quest mob. Mobs of equal priority (all Auto Quest mobs, or several of one target) are now told apart by distance, read from item range checks out of combat. Your own list order still comes first.
+- The key keeps your target unless a quest mob is strictly closer and you're not fighting the one you have. Equal distances never swap.
+- Fixed the key clearing and re-taking targets while you spam it. When it went for a locked nameplate, its backup name search ran in list order and could land on a different mob, which the next press cleared again. The backup now searches the locked mob's name first, and a swap that lands elsewhere stops further swaps for 5 seconds.
+
 ## 0.38.4
 
 - Fixed the key targeting a mob but never attacking it when you have a lot of targets (Auto Quest easily adds 8). The game only runs the first 255 characters of the key's macro, and a long target list pushed the cast and attack lines past that. The key now always keeps your spell, attack and talk lines, plus as many searches as fit, highest priority first.
