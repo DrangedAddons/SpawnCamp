@@ -146,6 +146,25 @@ function SC.MoveTarget(slot, delta)
     SC.Refresh()
 end
 
+-- Moves the target in slot `from` to slot `to`; the ones between shift by one.
+function SC.MoveTargetTo(from, to)
+    local list = SC.char.targets
+    if from == to or not (list[from] and list[to]) then return end
+    table.insert(list, to, table.remove(list, from))
+    local ls = SC.char.logSlot
+    if ls == from then
+        SC.char.logSlot = to
+    elseif ls and from < to and ls > from and ls <= to then
+        SC.char.logSlot = ls - 1
+    elseif ls and from > to and ls >= to and ls < from then
+        SC.char.logSlot = ls + 1
+    end
+    SC.ApplyBindings()
+    if SC.PickLock then pcall(SC.PickLock) end
+    if SC.EvalTarget then SC.EvalTarget() end
+    SC.Refresh()
+end
+
 -- The targets in this mode. With "any quest mob" on, attack also gets the
 -- mobs your quests still need (stand-ins with quest = true, after your own
 -- targets), capped by SC.questCap so the key's macro stays short enough.

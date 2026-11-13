@@ -1081,6 +1081,171 @@ local function PlaceRareDragon(tex, portrait)
     return false
 end
 
+------------------------------------------------------------------------------
+-- Drag to reorder. The grab bar on a card's left edge picks it up: the card
+-- lifts (shadow, nudge), follows the cursor, and the others slide out of the
+-- way. Letting go settles it into its gap and saves the new order. Out of
+-- combat only: the cards' secure name/portrait buttons can't move in combat.
+------------------------------------------------------------------------------
+local STEP = BOX_H + 3
+local HideTargetSecure   -- set once the secure overlays exist
+local drag               -- the drag in progress, or nil
+local dragDriver = CreateFrame("Frame")
+
+local function CardY(i) return (ui.cardTop or -128) - (i - 1) * STEP end
+
+local function PlaceCard(bx, y, x)
+    bx.frame:ClearAllPoints()
+    bx.frame:SetPoint("TOPLEFT", F, "TOPLEFT", x or 6, y)
+    bx.frame:SetPoint("RIGHT", F, "RIGHT", -6 + ((x or 6) - 6), 0)
+end
+
+-- Cursor height in the window's coordinates (0 at its top, negative down).
+local function CursorY()
+    local _, cy = GetCursorPosition()
+    return cy / F:GetEffectiveScale() - F:GetTop()
+end
+
+local function FinishDrag()
+    local d = drag
+    drag, ui.drag = nil, nil
+    dragDriver:Hide()
+    d.box.frame:SetFrameStrata(F:GetFrameStrata())
+    ui.dragShadow:Hide()
+    pcall(ResetCursor)
+    local to = d.slots[d.to]
+    if to ~= d.slot and not d.cancel and not InCombatLockdown() then
+        SC.MoveTargetTo(d.slot, to)
+    else
+        SC.Refresh()
+    end
+end
+
+dragDriver:Hide()
+dragDriver:SetScript("OnUpdate", function(_, dt)
+    local d = drag
+    if not d then dragDriver:Hide(); return end
+    -- Combat or a changed list mid-drag: put it back where it was.
+    if not d.dropping then
+        local changed = InCombatLockdown()
+        for _, s in ipairs(d.slots) do if not SC.Active(s) then changed = true end end
+        if not F:IsShown() then changed = true end
+        if changed then d.dropping, d.cancel, d.to = true, true, d.from end
+    end
+    local k = math.min(1, dt * 16)
+    d.lift = d.lift + ((d.dropping and 0 or 1) - d.lift) * math.min(1, dt * 14)
+    if not d.dropping then
+        -- Anchored to the cursor at the point it was grabbed, a little past the
+        -- ends allowed so it doesn't feel walled in.
+        local top = CursorY() - d.grab
+        top = math.max(CardY(#d.slots) - 14, math.min(CardY(1) + 14, top))
+        d.y = top
+        d.to = math.max(1, math.min(#d.slots, math.floor((CardY(1) - top) / STEP + 1.5)))
+    else
+        d.y = d.y + (CardY(d.to) - d.y) * k
+        if math.abs(CardY(d.to) - d.y) < 0.5 then d.y = CardY(d.to) end
+    end
+    local settled = d.y == CardY(d.to)
+    -- Everyone else, in the order shown with the dragged card in its gap.
+    local order = {}
+    for _, s in ipairs(d.slots) do if s ~= d.slot then order[#order + 1] = s end end
+    table.insert(order, d.to, d.slot)
+    for i, s in ipairs(order) do
+        if s ~= d.slot then
+            local want, cur = CardY(i), d.ys[s]
+            cur = cur + (want - cur) * k
+            if math.abs(want - cur) < 0.5 then cur = want else settled = false end
+            d.ys[s] = cur
+            PlaceCard(ui.boxes[s], cur)
+        end
+    end
+    -- Lifted: nudged up-left with a soft shadow below-right.
+    PlaceCard(d.box, d.y + d.lift * 2, 6 - d.lift * 2)
+    local sh = ui.dragShadow
+    sh:ClearAllPoints()
+    sh:SetPoint("TOPLEFT", d.box.frame, "TOPLEFT", 2 + d.lift * 3, -(2 + d.lift * 4))
+    sh:SetPoint("BOTTOMRIGHT", d.box.frame, "BOTTOMRIGHT", 2 + d.lift * 3, -(2 + d.lift * 4))
+    sh:SetAlpha(0.6 * d.lift)
+    if d.dropping and settled and d.lift < 0.05 then FinishDrag() end
+end)
+
+local function StartDrag(slot)
+    if drag or InCombatLockdown() or not F:GetTop() then return end
+    local slots, from = {}, nil
+    for s = 1, SC.MAX_TARGETS do
+        if SC.Active(s) then
+            slots[#slots + 1] = s
+            if s == slot then from = #slots end
+        end
+    end
+    if #slots < 2 or not from then return end
+    local bx = ui.boxes[slot]
+    drag = { slot = slot, box = bx, slots = slots, from = from, to = from, y = CardY(from), lift = 0, ys = {} }
+    drag.grab = CursorY() - CardY(from)
+    for i, s in ipairs(slots) do drag.ys[s] = CardY(i) end
+    ui.drag = drag
+    GameTooltip:Hide()
+    if HideTargetSecure then HideTargetSecure() end
+    bx.frame:SetFrameStrata("HIGH")
+    ui.dragShadow:SetFrameStrata("HIGH")
+    ui.dragShadow:SetFrameLevel(math.max(1, bx.frame:GetFrameLevel() - 1))
+    ui.dragShadow:Show()
+    pcall(SetCursor, "UI_MOVE_CURSOR")
+    dragDriver:Show()
+end
+
+local function DropDrag()
+    if drag then drag.dropping = true end
+end
+SC._drag = { start = StartDrag, drop = DropDrag, driver = dragDriver, state = function() return drag end }
+
+-- The grab bar: a column of dots at the card's left edge.
+local function GripBar(T, slot)
+    local g = CreateFrame("Button", nil, T)
+    g:SetPoint("TOPLEFT", T, "TOPLEFT", 5, -3)
+    g:SetPoint("BOTTOMLEFT", T, "BOTTOMLEFT", 5, 3)
+    g:SetWidth(20)
+    g.hl = g:CreateTexture(nil, "BACKGROUND")
+    g.hl:SetAllPoints()
+    g.hl:SetColorTexture(1, 1, 1, 0.06)
+    g.hl:Hide()
+    g.dots = {}
+    for r = 0, 2 do
+        for c = 0, 1 do
+            local t = g:CreateTexture(nil, "ARTWORK")
+            t:SetSize(3, 3)
+            t:SetPoint("CENTER", g, "CENTER", (c - 0.5) * 6, (1 - r) * 6)
+            t:SetColorTexture(1, 1, 1, 1)
+            g.dots[#g.dots + 1] = t
+        end
+    end
+    local function Lit(on)
+        for _, t in ipairs(g.dots) do t:SetAlpha(on and 0.9 or 0.35) end
+        g.hl:SetShown(on)
+    end
+    Lit(false)
+    g:RegisterForClicks()   -- presses go to OnMouseDown/Up, not OnClick
+    g:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" then StartDrag(slot) end
+    end)
+    g:SetScript("OnMouseUp", function() DropDrag() end)
+    Tip(g, "Drag to reorder", "Higher in the list = higher priority. With several targets in view, the key goes for the highest one.")
+    g:HookScript("OnEnter", function()
+        Lit(true)
+        if InCombatLockdown() then
+            GameTooltip:AddLine("Not in combat.", 1, 0.4, 0.4)
+            GameTooltip:Show()
+        else
+            pcall(SetCursor, "UI_MOVE_CURSOR")
+        end
+    end)
+    g:HookScript("OnLeave", function()
+        if not drag then Lit(false); pcall(ResetCursor) end
+    end)
+    g.Lit = Lit
+    return g
+end
+
 -- quest = the Auto Quest box: same look, but the key picks the mob.
 local function BuildTargetBox(slot, quest)
     local bx = { quest = quest }
@@ -1264,24 +1429,7 @@ local function BuildTargetBox(slot, quest)
     end
 
     if not quest then
-        -- Priority arrows at the left edge. Higher in the list = higher priority.
-        local function Arrow(dir, delta, tip)
-            local a = CreateFrame("Button", nil, T)
-            a:SetSize(26, 26)
-            a:SetNormalTexture("Interface\\Buttons\\Arrow-" .. dir .. "-Up")
-            a:SetPushedTexture("Interface\\Buttons\\Arrow-" .. dir .. "-Down")
-            a:SetDisabledTexture("Interface\\Buttons\\Arrow-" .. dir .. "-Up")
-            a:GetDisabledTexture():SetDesaturated(true)
-            a:GetDisabledTexture():SetAlpha(0.3)
-            a:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
-            a:SetScript("OnClick", function() SC.MoveTarget(slot, delta) end)
-            Tip(a, "Priority", tip)
-            return a
-        end
-        bx.up = Arrow("Up", -1, "Higher priority. With several targets in view, the key goes for the highest one.")
-        bx.up:SetPoint("TOPLEFT", T, "TOPLEFT", 2, -4)
-        bx.down = Arrow("Down", 1, "Lower priority. With several targets in view, the key goes for the highest one.")
-        bx.down:SetPoint("BOTTOMLEFT", T, "BOTTOMLEFT", 2, 4)
+        bx.grip = GripBar(T, slot)
     end
 
     if quest then
@@ -1305,6 +1453,11 @@ local function BuildTarget()
     ui.boxes = {}
     for slot = 1, SC.MAX_TARGETS do ui.boxes[slot] = BuildTargetBox(slot) end
     ui.questBox = BuildTargetBox(SC.MAX_TARGETS + 1, true)
+    ui.dragShadow = CreateFrame("Frame", nil, F)
+    local t = ui.dragShadow:CreateTexture(nil, "BACKGROUND")
+    t:SetAllPoints()
+    t:SetColorTexture(0, 0, 0, 1)
+    ui.dragShadow:Hide()
 end
 
 -- Clicking a target's name or portrait targets that mob in game. Targeting is
@@ -1358,8 +1511,14 @@ local function BuildNameSecure()
     end
 end
 
-local function PlaceNameSecure()
+HideTargetSecure = function()
     if InCombatLockdown() then return end
+    for _, b in pairs(nameSecure) do b:Hide() end
+    for _, b in pairs(portSecure) do b:Hide() end
+end
+
+local function PlaceNameSecure()
+    if InCombatLockdown() or ui.drag then return end
     for slot = 1, SC.MAX_TARGETS + 1 do
         local b, bx = nameSecure[slot], ui.boxes[slot] or ui.questBox
         local m = SC.Active(slot)
@@ -2107,7 +2266,7 @@ local function RefreshBox(bx, m, slot)
         bx.map.icon:SetDesaturated(not on)
         bx.map.icon:SetAlpha(on and 1 or 0.6)
     end
-    if not m then bx.up:Hide(); bx.down:Hide(); bx.lock:Hide(); return end
+    if not m then bx.grip:Hide(); bx.lock:Hide(); return end
     PlacePortrait(m.name, bx.portrait)
     bx.tipName = m.name
     local search = SC.SearchOf(m.name)
@@ -2154,11 +2313,7 @@ local function RefreshBox(bx, m, slot)
             if not rare then bx.frame:SetBackdropBorderColor(0.25, 0.85, 0.4, 1) end
         end
     end
-    local n = #SC.Targets()
-    bx.up:SetShown(n > 1)
-    bx.down:SetShown(n > 1)
-    bx.up:SetEnabled(slot > 1)
-    bx.down:SetEnabled(slot < n)
+    bx.grip:SetShown(#SC.Targets() > 1)
 end
 
 -- Lays out the add bar and a card per target; returns the y below.
@@ -2173,12 +2328,12 @@ local function RefreshTarget()
     ui.listLabel:SetPoint("TOPLEFT", F, "TOPLEFT", 10, y)
     ui.listLabel:SetText("TARGETS  |cff808080" .. n .. " / " .. SC.MAX_TARGETS .. "   (top = highest priority)|r")
     y = y - 16
+    ui.cardTop = y
     for slot = 1, SC.MAX_TARGETS do
         local bx, m = ui.boxes[slot], SC.Active(slot)
         if m then
-            bx.frame:ClearAllPoints()
-            bx.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
-            bx.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
+            -- Mid-drag the drag places the cards.
+            if not ui.drag then PlaceCard(bx, y) end
             bx.frame:Show()
             RefreshBox(bx, m, slot)
             y = y - BOX_H - 3

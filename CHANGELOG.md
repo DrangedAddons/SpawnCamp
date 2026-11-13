@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.40.0
+
+- Drag to reorder targets. The up/down arrows are replaced by a dotted grab bar on each card's left edge. Pick a card up and it lifts with a shadow and follows your cursor, while the other cards slide out of the way to show where it will land. Let go and it settles into the gap and the new priority is saved. Out of combat only; if combat starts mid-drag, the card goes back where it was.
+
 ## 0.39.0
 
 - Auto Quest goes for the **closest** quest mob. Mobs of equal priority (all Auto Quest mobs, or several of one target) are now told apart by distance, read from item range checks out of combat. Your own list order still comes first.
