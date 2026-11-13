@@ -38,7 +38,8 @@ WoW Forever addon for camping a mob: one key to tag it or talk to it (chat, ques
   - **Pop up rares**: a rare's nameplate adds it as a silver target box. **Ignored rares** next to it reviews, adds and removes ignored rares. **Test rare** shows a pretend one so you can see the look.
   - **Respawn dings** (soft), with how early the first one comes.
   - Show mobs you've already killed, sound, lock window, log on the right.
-  - **Look**: Classic (red buttons, gold trim) or Modern (flat and dark, thin borders, like retail's newer frames). Reload to apply.
+  - **Skin**: Classic (red buttons, gold trim) or Modern (flat and dark, thin borders, like retail's newer frames).
+  - **Layout**: Classic (this window as drawn above) or Modern: a key bar saying what the next press does, the add bar always open, compact target cards with the one your key is on tagged KEY, and settings beside the window. Skin and layout mix freely. Reload to apply.
 
 Hostile mobs start on the sword and friendly ones on the bubble.
 

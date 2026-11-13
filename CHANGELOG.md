@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.36.0
+
+- New **Modern layout**, a redesign of the window around how SpawnCamp is used. Pick it under **Layout** in the gear settings. Skin and layout are now separate choices, so the 0.35 flat skin also works on the classic layout.
+  - **Key bar** at the top: your key as a big chip (click to rebind), a coloured light and a plain line saying what the next press does: "On target", "Locked on its nameplate" or "Searching", with the mode, the mob and what happens next.
+  - **Add bar always open** under it, in one row: type a name or search and press Enter, or My Target, Nearby, Quest and Auto Quest. No more "+ Add another target" step.
+  - **Compact target cards** under a TARGETS heading with the count, top = highest priority. A coloured strip on each card's edge shows its mode, and the card your key is on gets a green edge and a **KEY** tag.
+  - **Header icons** for Recent and Log, and **settings open beside the window** instead of stretching it.
+  - A short hint when nothing is on your key.
+- Settings: **Skin** (Classic / Modern) and **Layout** (Classic / Modern), with **Reload to apply** when either changes.
+
 ## 0.35.0
 
 - New **Modern** look, picked under **Look** in the gear settings (Classic stays the default). Flat dark panels with thin borders and a title strip, like retail's newer frames. Buttons are flat with white text. Sword and bubble are flat squares that light up red (attack) or blue (talk) when picked, and each target box has a thin coloured strip on its left edge for its mode (gold for Auto Quest). Rare boxes keep their silver frame and dragon.

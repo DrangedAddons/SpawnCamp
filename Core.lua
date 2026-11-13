@@ -83,6 +83,7 @@ SC.CHAR_DEFAULTS = {
     sound = true,         -- play a sound with alerts
     minimap = { hide = false },
     theme = "classic",  -- window look: "classic" or "modern"
+    layout = "classic", -- window layout: "classic" or "modern" (independent of the skin)
 }
 
 SC.MOB_DEFAULTS = {
