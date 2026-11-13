@@ -2,6 +2,10 @@
 
 ## 0.38.1
 
+- The KEY tag now sits on the bottom of the mob's portrait. It used to follow the name, so a long truncated name put it on top of the Questie map button.
+
+## 0.38.1
+
 - Removed the Add button from the add bar. Pressing Enter in the name box does the same thing, and the box is wider. Its tooltip now explains how searches work.
 
 ## 0.38.0

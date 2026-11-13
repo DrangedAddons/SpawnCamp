@@ -1121,6 +1121,9 @@ local function BuildTargetBox(slot, quest)
     bx.portrait:EnableMouse(true)
     bx.portrait:SetScript("OnEnter", function(self) SC.ShowMobTip(self, bx.tipName) end)
     bx.portrait:SetScript("OnLeave", GameTooltip_Hide)
+    -- KEY badge sits on the portrait's bottom edge. After the name it landed
+    -- on the Questie map button whenever a long name was truncated.
+    if bx.keyTag then bx.keyTag:SetPoint("CENTER", bx.portrait, "BOTTOM", 0, 1) end
 
     -- Right column: Clear, with Keep under it.
     bx.clear = Btn(T, "Clear", 58, 0, 0, function()
@@ -2149,10 +2152,6 @@ local function RefreshBox(bx, m, slot)
         bx.keyTag:SetShown(onThis)
         if onThis then
             if not rare then bx.frame:SetBackdropBorderColor(0.25, 0.85, 0.4, 1) end
-            local sw, nw = bx.name:GetStringWidth(), bx.name:GetWidth()
-            local w = math.min(type(sw) == "number" and sw or 0, type(nw) == "number" and nw or 0)
-            bx.keyTag:ClearAllPoints()
-            bx.keyTag:SetPoint("LEFT", bx.name, "LEFT", w + 6, 0)
         end
     end
     local n = #SC.Targets()
