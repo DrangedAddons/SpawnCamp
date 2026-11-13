@@ -1227,7 +1227,11 @@ local function PlaceNameSecure()
             b:SetAttribute("macrotext", SC.TargetCmd(m.name) .. m.name)
             b.mobName = m.name
             local s = fs:GetEffectiveScale() / UIParent:GetEffectiveScale()
+            -- The text as shown: a long name is cut short, and covering its full
+            -- width would put this over the map button beside it.
+            local shown = fs:GetWidth()
             local w = math.max(fs:GetStringWidth() or 0, 40)
+            if type(shown) == "number" and shown > 0 then w = math.min(w, shown) end
             b:ClearAllPoints()
             b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l * s, bottom * s - 2)
             b:SetSize(w * s, fs:GetHeight() * s + 4)

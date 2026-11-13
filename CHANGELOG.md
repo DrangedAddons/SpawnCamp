@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.34.1
+
+- The map button can be clicked on targets with long names. The click-to-target area over a name covered the whole name even when it was cut short, which put it over the map button.
+
 ## 0.34.0
 
 - With Questie installed, each target box has a small map button at the top right of the name. Click it to pin that mob's spawns on your map and minimap, the same as Questie's Advanced Search > Show on Map. Click again to take them off. The icon is in colour while the pins are shown.
