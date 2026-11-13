@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.37.0
+
+- The new layout is the only layout. The Layout choice is gone, and the Skin choice (Modern / Classic) stays. New characters start on the Modern skin.
+- The "< Log" text button no longer shows over the header icons. The Log icon (with its hover tooltip) opens and closes the log, and only shows when you have a target.
+
 ## 0.36.0
 
 - New **Modern layout**, a redesign of the window around how SpawnCamp is used. Pick it under **Layout** in the gear settings. Skin and layout are now separate choices, so the 0.35 flat skin also works on the classic layout.

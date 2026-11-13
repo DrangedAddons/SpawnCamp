@@ -82,8 +82,7 @@ SC.CHAR_DEFAULTS = {
     locked = false,       -- window can't be dragged
     sound = true,         -- play a sound with alerts
     minimap = { hide = false },
-    theme = "classic",  -- window look: "classic" or "modern"
-    layout = "classic", -- window layout: "classic" or "modern" (independent of the skin)
+    theme = "modern",   -- window skin: "modern" (flat, thin borders) or "classic" (red buttons, gold trim)
 }
 
 SC.MOB_DEFAULTS = {
@@ -675,6 +674,7 @@ SC.On("ADDON_LOADED", function(name)
         if not SC.char.mobs[SC.char.targets[i]] then table.remove(SC.char.targets, i) end
     end
     SC.char.expanded, SC.char.tab, SC.char.showTimers = nil, nil, nil
+    SC.char.layout = nil   -- 0.36 had a layout choice; there's one layout now
 end)
 
 SC.On("PLAYER_LOGIN", function()

@@ -23,7 +23,7 @@ local recentOffset, histOffset = 0, 0
 local RECENT_ROWS, HIST_ROWS = 14, 14
 local RECENT_H = 22
 local W = 520
-local PANEL_H = { settings = 268 }
+local PANEL_H = { settings = 244 }
 local capturing     -- { settings = table with .key, button = key button } while setting a key
 
 -- The game's sword and chat cursors, tinted gold on the buttons.
@@ -109,10 +109,10 @@ end
 
 local THEME = "classic"
 local function Modern() return THEME == "modern" end
--- The layout is its own choice: "modern" rearranges the window (key bar, add
--- bar always open, compact cards, settings beside the window); either skin
--- works with either layout.
-local LAYOUT = "classic"
+-- The window layout: "modern" (key bar, add bar always open, compact cards,
+-- settings beside the window) since 0.37. The older layout's code paths are
+-- still here behind ModernLayout() but can't be picked any more.
+local LAYOUT = "modern"
 local function ModernLayout() return LAYOUT == "modern" end
 
 -- Modern palette.
@@ -1687,8 +1687,7 @@ local function BuildSettings(P)
     Text(P, "seconds before the earliest respawn (0 = off)", 112, -148)
     local function changed()
         if ui.reloadTheme then
-            ui.reloadTheme:SetShown((SC.char.theme == "modern" and "modern" or "classic") ~= THEME
-                or (SC.char.layout == "modern" and "modern" or "classic") ~= LAYOUT)
+            ui.reloadTheme:SetShown((SC.char.theme == "modern" and "modern" or "classic") ~= THEME)
         end
     end
     Text(P, "Skin:", 8, -178)
@@ -1696,16 +1695,10 @@ local function BuildSettings(P)
         function() SC.char.theme = "classic"; changed() end, "The original look: red buttons and gold trim.")
     Check(P, "Modern", 138, -172, function() return SC.char.theme == "modern" end,
         function() SC.char.theme = "modern"; changed() end, "Flat and dark with thin borders, like retail's newer frames.")
-    Text(P, "Layout:", 8, -202)
-    Check(P, "Classic", 56, -196, function() return SC.char.layout ~= "modern" end,
-        function() SC.char.layout = "classic"; changed() end, "The original window: key row, target boxes, + Add another target, settings under the list.")
-    Check(P, "Modern", 138, -196, function() return SC.char.layout == "modern" end,
-        function() SC.char.layout = "modern"; changed() end,
-        "A key bar showing what the next press does, the add bar always open at the top, compact target cards with the one your key is on marked KEY, and settings beside the window.")
-    ui.reloadTheme = Btn(P, "Reload to apply", 120, 240, -185, function() ReloadUI() end)
-    Tip(ui.reloadTheme, "Reload to apply", "The new skin or layout is used once the interface reloads (same as /reload).")
+    ui.reloadTheme = Btn(P, "Reload to apply", 120, 240, -173, function() ReloadUI() end)
+    Tip(ui.reloadTheme, "Reload to apply", "The new skin is used once the interface reloads (same as /reload).")
     ui.reloadTheme:Hide()
-    Text(P, "Right-click Attack or Talk for their options.", 8, -228, "GameFontDisableSmall")
+    Text(P, "Right-click Attack or Talk for their options.", 8, -204, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------
@@ -2072,7 +2065,7 @@ end
 
 local function Build()
     THEME = SC.char.theme == "modern" and "modern" or "classic"
-    LAYOUT = SC.char.layout == "modern" and "modern" or "classic"
+    LAYOUT = "modern"
     BOX_H = ModernLayout() and 58 or 64
     F = CreateFrame("Frame", "SpawnCampFrame", UIParent, "BackdropTemplate")
     F:SetSize(W, 200)
@@ -2554,7 +2547,7 @@ function SC.RefreshWindow()
     local y = RefreshTarget()
     if not SC.Active(SC.char.logSlot or 1) then SC.char.logSlot = 1 end
     local m = SC.Active(SC.char.logSlot or 1) or SC.Active(1)
-    ui.logToggle:SetShown(m ~= nil)
+    ui.logToggle:SetShown(m ~= nil and not ModernLayout())
     if SC.char.logRight then
         ui.logToggle:SetText(SC.char.logOpen and "Log <" or "Log >")
     else
@@ -2590,7 +2583,10 @@ function SC.RefreshWindow()
             if not ui.settingsPopup:IsShown() then ShowBeside(ui.settingsPopup) end
             return
         end
-        if ui.logIcon then ui.logIcon:SetAlpha(SC.char.logOpen and 1 or 0.55) end
+        if ui.logIcon then
+            ui.logIcon:SetShown(m ~= nil)
+            ui.logIcon:SetAlpha(SC.char.logOpen and 1 or 0.55)
+        end
         F:SetHeight(height)
         pcall(PlaceNameSecure)
         return
