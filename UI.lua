@@ -1010,7 +1010,7 @@ local function BuildPicker()
         if width then w:SetWidth(width) end
         if w.GetObjectType and w:GetObjectType() == "Button" then w:SetHeight(22) end
     end
-    ui.addName = Edit(T, 156, 0, 0, function() end)
+    ui.addName = Edit(T, 202, 0, 0, function() end)
     at(ui.addName, 14)
     local hint = ui.addName:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     hint:SetPoint("LEFT", 2, 0)
@@ -1030,9 +1030,7 @@ local function BuildPicker()
     end
     ui.addName:SetScript("OnEnterPressed", addTyped)
     ui.addName:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    ui.pickAdd = Btn(T, "Add", 40, 0, 0, addTyped)
-    at(ui.pickAdd, 176)
-    Tip(ui.pickAdd, "Add", "Adds a search for the typed text: any mob with it in its name, capitals don't matter (\"owl\" finds Vicious Owlbeast). Your key looks for it straight away, and every mob seen that matches is added as its own target. Clear a wrong one and the search skips it from then on.")
+    Tip(ui.addName, "Add a mob or search", "Type a name or part of one and press Enter. Adds a search for the typed text: any mob with it in its name, capitals don't matter (\"owl\" finds Vicious Owlbeast). Your key looks for it straight away, and every mob seen that matches is added as its own target. Clear a wrong one and the search skips it from then on.")
     ui.pickMy = Btn(T, "My Target", 74, 0, 0, function() SC.AddTarget(); SC.Refresh() end)
     at(ui.pickMy, 222)
     Tip(ui.pickMy, "My Target", "Adds the mob you have targeted in game to your targets: Attack if hostile, Talk if friendly.")
