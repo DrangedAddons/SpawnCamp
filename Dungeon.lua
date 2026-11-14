@@ -8,8 +8,12 @@
 --   * spawnless NPCs of the same family: event and summoned mobs (Sandfury
 --     Slave, Sandfury Drudge, Sandfury Zealot) have no spawn point or zone in
 --     Questie, but share a first word with two or more of the instance's mobs;
---   * what the instance's mobs summon (totems, wards, adds), from the
---     SUMMONS table below: Questie has no data on who summons what;
+--   * gaps Questie leaves, from DungeonData.lua (generated from the cMaNGOS
+--     classic database by tools/build_dungeon_data.py): mobs cMaNGOS spawns
+--     there that Questie doesn't place, and what the instance's mobs summon
+--     (totems, wards, adds), which Questie has no record of at all;
+--   * the SUMMONS table below, for what neither has (summons the server
+--     scripts in code, Forever-only NPCs);
 --   * your typed searches ("slave", "totem") match only those names.
 --
 -- Each name is one /targetexact line. That's far past one macro's 255
@@ -58,23 +62,27 @@ end
 
 local cache = {}      -- area id -> { mobs = {...} }
 
--- What each instance's mobs summon, by Questie area id. Questie lists NPCs
--- but not who casts what, so these are written down by hand, from what the
--- mobs were seen casting. Names must be exact.
+-- Summons DungeonData.lua doesn't have, by Questie area id: the ones the
+-- server makes in its C++ scripts rather than its database, and Forever-only
+-- NPCs. Written by hand from what was seen in game. Names must be exact.
 local SUMMONS = {
     [1176] = {   -- Zul'Farrak
-        "Lava Spout Totem",         -- Sandfury Witch Doctor
-        "Greater Healing Ward",     -- Sandfury Witch Doctor
-        "Ward of Zum'rah",          -- Witch Doctor Zum'rah
         "Skeleton of Zum'rah",      -- Ward of Zum'rah
         "Zombie Troll of Zum'rah",  -- Witch Doctor Zum'rah
     },
 }
 SC.DUNGEON_SUMMONS = SUMMONS
 
+-- A totem or ward by name ("Sul'lithuz Warder" isn't one).
+local function TotemName(n)
+    local low = n:lower()
+    return low:find("%f[%a]totem%f[%A]") ~= nil or low:find("%f[%a]ward%f[%A]") ~= nil
+end
+SC.IsTotemName = TotemName
+
 -- One pass over Questie's NPCs. step yields every few hundred so a scan
 -- never stalls a frame.
-local function Collect(db, area, step)
+local function Collect(db, area, step, mapID)
     local zone, avoid, seen, spawnless = {}, {}, {}, {}
     -- Questie reads a number it has no value for as 0 (a summon's zone is 0,
     -- not nil), so 0 counts as "none" here.
@@ -133,13 +141,32 @@ local function Collect(db, area, step)
             zone[#zone + 1] = { name = s.name, rank = 0, level = 0, friendly = s.friendly, family = true }
         end
     end
-    -- What the mobs summon.
-    for _, n in ipairs(SUMMONS[area] or {}) do
-        if not seen[n] then
-            seen[n] = true
-            zone[#zone + 1] = { name = n, rank = 0, level = 0, family = true }
+    -- Gaps from the generated data, then the hand-written summons. A name
+    -- already on the list only gets marked (a totem, who summons it).
+    local function Extra(n, totem, by)
+        if seen[n] then
+            for _, m in ipairs(zone) do
+                if m.name == n then
+                    m.totem = m.totem or totem or nil
+                    m.by = m.by or by
+                    break
+                end
+            end
+            return
+        end
+        seen[n] = true
+        zone[#zone + 1] = { name = n, rank = 0, level = 0, family = true, totem = totem or nil, by = by }
+    end
+    local prof = mapID and SC.DUNGEON_DATA and SC.DUNGEON_DATA[mapID]
+    if prof then
+        for _, n in ipairs(prof.mobs or {}) do
+            if not avoid[n] then Extra(n, false) end
+        end
+        for _, s in ipairs(prof.summons or {}) do
+            Extra(s[1], s[3] or TotemName(s[1]), s[2] ~= "" and s[2] or nil)
         end
     end
+    for _, n in ipairs(SUMMONS[area] or {}) do Extra(n, TotemName(n)) end
     -- Bosses and elites first, then by level; family extras after the
     -- instance's own mobs of the same rank.
     table.sort(zone, function(a, b)
@@ -171,7 +198,7 @@ local function InstanceArea(zones)
             area = ok and a or nil
         end
     end
-    return area, name
+    return area, name, instanceID
 end
 
 ------------------------------------------------------------------------------
@@ -236,7 +263,7 @@ local function ChainNames()
         local k = m.name:lower()
         if seen[k] then return end
         seen[k] = true
-        out[#out + 1] = { name = m.name, friendly = m.friendly, from = from }
+        out[#out + 1] = { name = m.name, friendly = m.friendly, from = from, by = m.by, totem = m.totem }
     end
     -- Your own exact targets (cards, including ones a search added) are in
     -- the key's macro already.
@@ -383,7 +410,7 @@ function SC.DungeonCheck(sync)
         Retry(sync)
         return
     end
-    local area, name = InstanceArea(zones)
+    local area, name, mapID = InstanceArea(zones)
     if not area then
         if SC.True(IsInInstance()) then
             local _, _, _, _, _, _, _, id = GetInstanceInfo()
@@ -400,14 +427,14 @@ function SC.DungeonCheck(sync)
     if SC.dungeon and SC.dungeon.area == area then return end
     if cache[area] then Apply(area, name, cache[area]); return end
     if sync then
-        cache[area] = Collect(db, area)
+        cache[area] = Collect(db, area, nil, mapID)
         Apply(area, name, cache[area])
         return
     end
     if scanning == area then return end
     scanning = area
     local co = coroutine.create(function()
-        cache[area] = Collect(db, area, coroutine.yield)
+        cache[area] = Collect(db, area, coroutine.yield, mapID)
     end)
     local function Resume()
         local ok, err = coroutine.resume(co)
@@ -469,6 +496,7 @@ function SC.DungeonReport()
     for i, n in ipairs(c.names) do
         local s = n.name
         if n.from then s = s .. " |cff808080(\"" .. n.from .. "\")|r" end
+        if n.by then s = s .. " |cff808080(summoned by " .. n.by .. ")|r" end
         if i > c.used then s = "|cff808080" .. s .. " (left out)|r" end
         names[#names + 1] = s
     end

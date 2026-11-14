@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.46.0
+
+- **Dungeon profiles for every dungeon and raid.** Questie stays the main source for an instance's mobs. A new generated file, `DungeonData.lua`, fills what Questie doesn't have, from the cMaNGOS classic database (the 1.12 data Questie itself is built from): mobs cMaNGOS spawns there that Questie doesn't place, and what each instance's mobs summon (totems, wards, adds), with who summons them. Questie has no summon data at all.
+- Zul'Farrak from the generated data: Lava Spout Totem and Greater Healing Ward (Sandfury Witch Doctor), Earthgrab Totem and Servant of Antu'sul (Antu'sul), Sandfury Slave (Chief Ukorz Sandscalp), Ward of Zum'rah. The hand-written list keeps only what the database can't have: summons the server makes in its code (Skeleton and Zombie Troll of Zum'rah) and Forever-only NPCs.
+- Auto > Totem / Ward in dungeons uses the generated totems and wards, so it works in every dungeon with them, not just Zul'Farrak.
+- `/spc dungeon` shows who summons each summon.
+- To refresh the data from the source: `python tools/build_dungeon_data.py --refresh` (downloads the newest cMaNGOS dump into `tools/.cache`, which isn't committed).
+
 ## 0.45.0
 
 - **Auto** menu: the Auto Quest button is now **Auto**, a menu with two switches, **Quest** (as before) and **Totem / Ward**. The button shows which are on.

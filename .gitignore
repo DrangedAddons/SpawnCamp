@@ -2,3 +2,6 @@
 Thumbs.db
 .DS_Store
 *.bak
+
+# cMaNGOS dump downloaded by tools/build_dungeon_data.py
+tools/.cache/

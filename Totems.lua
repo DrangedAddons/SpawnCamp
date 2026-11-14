@@ -16,8 +16,8 @@
 -- The names: every enemy nameplate of the game's Totem creature type (wards
 -- are totems too) is remembered for the zone it was seen in, in
 -- SpawnCampDB.totems. One seen mid-fight joins the key when that fight ends.
--- In a dungeon names can't be read, so the dungeon's summons list (Dungeon.lua)
--- supplies its totems and wards from the start.
+-- In a dungeon names can't be read, so the dungeon's list (Dungeon.lua, with
+-- DungeonData.lua's summons) supplies its totems and wards from the start.
 
 local _, SC = ...
 
@@ -84,18 +84,16 @@ function SC.NoteTotem(unit)
     end
 end
 
--- Totem and ward names the key goes for here: the dungeon's summons that are
--- totems or wards, then the ones seen in this zone.
+-- Totem and ward names the key goes for here: the dungeon's totems and wards,
+-- then the ones seen in this zone.
 function SC.TotemNames()
     local out, seen = {}, {}
     local function add(n)
         if not seen[n] then seen[n] = true; out[#out + 1] = n end
     end
     local d = SC.dungeon
-    local summons = d and SC.DUNGEON_SUMMONS and SC.DUNGEON_SUMMONS[d.area]
-    for _, n in ipairs(summons or {}) do
-        local low = n:lower()
-        if low:find("totem", 1, true) or low:find("ward", 1, true) then add(n) end
+    for _, m in ipairs(d and d.mobs or {}) do
+        if m.totem then add(m.name) end
     end
     local k = ZoneKey()
     local learned = k and SpawnCampDB and SpawnCampDB.totems and SpawnCampDB.totems[k]
