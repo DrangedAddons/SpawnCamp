@@ -8,8 +8,9 @@
 --   * spawnless NPCs of the same family: event and summoned mobs (Sandfury
 --     Slave, Sandfury Drudge, Sandfury Zealot) have no spawn point or zone in
 --     Questie, but share a first word with two or more of the instance's mobs;
---   * your typed searches ("slave", "totem"): matched against those names
---     first, else against every name Questie knows, preferring summons.
+--   * what the instance's mobs summon (totems, wards, adds), from the
+--     SUMMONS table below: Questie has no data on who summons what;
+--   * your typed searches ("slave", "totem") match only those names.
 --
 -- Each name is one /targetexact line. That's far past one macro's 255
 -- characters, so the lines go into hidden buttons and a hub button /clicks
@@ -37,7 +38,6 @@ local CHAIN = HUBS * PER_HUB     -- search buttons: room for about 200 names (60
 local HUB = "SpawnCampDH"        -- hubs 2-4 are SpawnCampDH2 ... SpawnCampDH4
 local BTN = "SpcD"               -- short: a hub's 255 characters hold all its /clicks
 local LAST = "/targetenemy [noexists]"
-local SEARCH_CAP = 120           -- names one typed search adds from outside the dungeon (all 100 totems)
 
 SC.DUNGEON_CHAIN = CHAIN
 
@@ -57,17 +57,30 @@ local function FirstWord(name)
 end
 
 local cache = {}      -- area id -> { mobs = {...} }
-local allNames        -- every Questie NPC: { { name, spawnless, friendly } }, built on the first scan
+
+-- What each instance's mobs summon, by Questie area id. Questie lists NPCs
+-- but not who casts what, so these are written down by hand, from what the
+-- mobs were seen casting. Names must be exact.
+local SUMMONS = {
+    [1176] = {   -- Zul'Farrak
+        "Lava Spout Totem",         -- Sandfury Witch Doctor
+        "Greater Healing Ward",     -- Sandfury Witch Doctor
+        "Ward of Zum'rah",          -- Witch Doctor Zum'rah
+        "Skeleton of Zum'rah",      -- Ward of Zum'rah
+        "Zombie Troll of Zum'rah",  -- Witch Doctor Zum'rah
+    },
+}
+SC.DUNGEON_SUMMONS = SUMMONS
 
 -- One pass over Questie's NPCs. step yields every few hundred so a scan
 -- never stalls a frame.
 local function Collect(db, area, step)
     local zone, avoid, seen, spawnless = {}, {}, {}, {}
-    local all = not allNames and {} or nil
-    local allSeen = {}
+    -- Questie reads a number it has no value for as 0 (a summon's zone is 0,
+    -- not nil), so 0 counts as "none" here.
     local function Q(id, k)
         local ok, v = pcall(db.QueryNPCSingle, id, k)
-        if ok then return v end
+        if ok and v ~= 0 then return v end
     end
     local n = 0
     for id in pairs(db.NPCPointers) do
@@ -80,11 +93,6 @@ local function Collect(db, area, step)
             local hasSpawn = type(sp) == "table" and next(sp) ~= nil
             local service = Service(Q(id, "npcFlags"))
             local friendly = Q(id, "friendlyToFaction") ~= nil
-            if all and not service and not allSeen[name] then
-                allSeen[name] = true
-                all[#all + 1] = { name = name, spawnless = not hasSpawn and zid == nil, friendly = friendly,
-                                  level = Q(id, "maxLevel") or Q(id, "minLevel") }
-            end
             local here = zid == area or (hasSpawn and sp[area] ~= nil)
             if here then
                 if service then
@@ -97,10 +105,6 @@ local function Collect(db, area, step)
                 spawnless[#spawnless + 1] = { name = name, friendly = friendly }
             end
         end
-    end
-    if all then
-        table.sort(all, function(a, b) return a.name < b.name end)
-        allNames = all
     end
     -- Families: a first word two or more of the instance's mobs share.
     local fam = {}
@@ -129,6 +133,13 @@ local function Collect(db, area, step)
             zone[#zone + 1] = { name = s.name, rank = 0, level = 0, friendly = s.friendly, family = true }
         end
     end
+    -- What the mobs summon.
+    for _, n in ipairs(SUMMONS[area] or {}) do
+        if not seen[n] then
+            seen[n] = true
+            zone[#zone + 1] = { name = n, rank = 0, level = 0, family = true }
+        end
+    end
     -- Bosses and elites first, then by level; family extras after the
     -- instance's own mobs of the same rank.
     table.sort(zone, function(a, b)
@@ -137,17 +148,7 @@ local function Collect(db, area, step)
         if a.level ~= b.level then return a.level > b.level end
         return a.name < b.name
     end)
-    -- The dungeon's level band, for guessing summons by level: the middle of
-    -- its mobs' levels (a level 63 raid boss shouldn't stretch it), +-3.
-    local lv = {}
-    for _, m in ipairs(zone) do if (m.level or 0) > 0 then lv[#lv + 1] = m.level end end
-    table.sort(lv)
-    local lo, hi
-    if #lv > 0 then
-        lo = lv[math.max(1, math.floor(#lv * 0.2))] - 3
-        hi = lv[math.max(1, math.ceil(#lv * 0.8))] + 3
-    end
-    return { mobs = zone, lo = lo, hi = hi }
+    return { mobs = zone }
 end
 
 -- Questie area id and name for the instance you're in, or nil.
@@ -178,11 +179,7 @@ end
 ------------------------------------------------------------------------------
 
 -- Full names a typed search stands for in this dungeon: the dungeon's own
--- names containing the text; if none, every Questie name containing it,
--- summons (no zone or spawn point: totems, wards, pets) first, the ones
--- nearest the dungeon's level first, up to SEARCH_CAP. Level only orders
--- them: a summon's level in Questie is its own, not its caster's (the
--- Sandfury Witch Doctor's Lava Spout Totem is 37 in a 41-49 dungeon).
+-- names (its mobs and what they summon) containing the text.
 -- Returns { { name, friendly } }.
 function SC.DungeonExpand(text)
     local d = SC.dungeon
@@ -191,25 +188,6 @@ function SC.DungeonExpand(text)
     for _, m in ipairs(d.mobs) do
         if m.name:lower():find(low, 1, true) then out[#out + 1] = m end
     end
-    if #out > 0 or not allNames then return out end
-    local hits = {}
-    local function Off(a)
-        if not (d.lo and a.level and a.level > 1) then return 1000 end
-        if a.level < d.lo then return d.lo - a.level end
-        if a.level > d.hi then return a.level - d.hi end
-        return 0
-    end
-    for _, a in ipairs(allNames) do
-        if a.name:lower():find(low, 1, true) then hits[#hits + 1] = a end
-    end
-    table.sort(hits, function(a, b)
-        if a.spawnless ~= b.spawnless then return a.spawnless end
-        local oa, ob = Off(a), Off(b)
-        if oa ~= ob then return oa < ob end
-        if #a.name ~= #b.name then return #a.name < #b.name end
-        return a.name < b.name
-    end)
-    for i = 1, math.min(SEARCH_CAP, #hits) do out[i] = hits[i] end
     return out
 end
 
@@ -360,7 +338,7 @@ end
 ------------------------------------------------------------------------------
 
 local function Apply(area, name, data)
-    SC.dungeon = { name = name or "Dungeon", area = area, mobs = data.mobs, lo = data.lo, hi = data.hi }
+    SC.dungeon = { name = name or "Dungeon", area = area, mobs = data.mobs }
     -- Your searches get a card for each of the dungeon's mobs they match,
     -- as outdoors when a matching nameplate shows.
     if SC.FindPartials then pcall(SC.FindPartials) end

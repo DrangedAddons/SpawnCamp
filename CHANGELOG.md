@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.44.0
+
+- "totem" in a dungeon now means only what that dungeon's mobs summon, not every totem in the game. Questie doesn't record who summons what, so each dungeon has a hand-written summons list. Zul'Farrak's: Lava Spout Totem and Greater Healing Ward (Sandfury Witch Doctor), Ward of Zum'rah, Skeleton of Zum'rah, Zombie Troll of Zum'rah. Summons are part of the dungeon list, so "totem" adds a **Lava Spout Totem** card. Other dungeons have no summons listed yet.
+- Fixed Zul'Farrak's stair-event mobs (Sandfury Slave, Drudge, Zealot, Acolyte, Zombie) missing from the dungeon list in game. Questie reads a missing zone as 0, not "none", so SpawnCamp never recognised them as zoneless event mobs.
+- A typed search in a dungeon only matches the dungeon's own names. The fallback to every name in Questie is gone.
+
 ## 0.43.1
 
 - Fixed the dungeon list not loading. SpawnCamp gave up after 30 seconds if Questie's database wasn't ready yet (after a login or `/reload` inside the instance), and then never tried again, so the key had no dungeon mobs and typed searches like "drinker" added nothing. It now keeps trying every 3 seconds while you're in an instance, and also finds the instance by its zone name or map if the instance ID lookup misses.
