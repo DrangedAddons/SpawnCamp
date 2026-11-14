@@ -6,7 +6,7 @@
 --   [ Add a mob or search...       ] [My Target] [Nearby] [Quest] [Auto Quest]
 --   TARGETS  2 / 8
 --   | (portrait) Vicious Owlbeast [KEY]   DUE        [sword] [bubble] [Clear]
---   |            dead 4:59                3:03 over avg               Keep [x]
+--   |            dead 4:59                3:03 over avg
 --
 -- The key works on the targets, top first; with none it does nothing. The
 -- card the key is on is marked KEY. Sword / bubble are a pressed/raised pair;
@@ -1052,7 +1052,7 @@ end
 
 -- Target boxes, one per slot, left to right:
 --   [portrait] Name               ETA 0:15        [sword] [bubble]  [Clear]
---              dead 0:05, ...     Avg 0:20                          Keep [x]
+--              dead 0:05, ...     Avg 0:20
 
 -- The game's rare dragon art. On Forever's target frame (58 px portrait) the
 -- silver dragon sits at its own size with its top-right corner 34 px right of
@@ -1301,7 +1301,7 @@ local function BuildTargetBox(slot, quest)
     -- on the Questie map button whenever a long name was truncated.
     if bx.keyTag then bx.keyTag:SetPoint("CENTER", bx.portrait, "BOTTOM", 0, 1) end
 
-    -- Right column: Clear, with Keep under it.
+    -- Right column: Clear. A card stays until you press it.
     bx.clear = Btn(T, "Clear", 58, 0, 0, function()
         if quest then SC.SetAnyQuest(false); return end
         local m = SC.Active(slot)
@@ -1316,15 +1316,6 @@ local function BuildTargetBox(slot, quest)
     else
         Tip(bx.clear, "Clear target", "Takes this mob off your key. It stays in Recent.")
     end
-    bx.keep = Check(T, "Keep", 0, 0,
-        function() local m = SC.Active(slot); return m and m.keep end,
-        function(v) local m = SC.Active(slot); if m then m.keep = v end end,
-        "Ticked, this mob stays your target after you get the kill, until you press Clear. Unticked, getting the kill clears it.")
-    bx.keep:ClearAllPoints()
-    bx.keep:SetSize(20, 20)
-    bx.keep:SetPoint("TOPRIGHT", bx.clear, "BOTTOMRIGHT", 0, -4)
-    bx.keep.label:ClearAllPoints()
-    bx.keep.label:SetPoint("RIGHT", bx.keep, "LEFT", -1, 0)
 
     -- The two big buttons.
     bx.talk = ModeButton(T, BUBBLE, function() HideSidePanels(); SetMode("interact", slot) end, function(self) ShowBeside(TP, self) end,
@@ -1445,7 +1436,6 @@ local function BuildTargetBox(slot, quest)
 
     if quest then
         bx.talk:Hide()
-        bx.keep:Hide()
         bx.show = Btn(T, "Show targets", 92, 0, 0, function() SC.ToggleAutoTargets() end)
         bx.show:ClearAllPoints()
         bx.show:SetPoint("TOPRIGHT", bx.clear, "BOTTOMRIGHT", 0, -4)
@@ -2266,7 +2256,7 @@ local function RefreshQuestBox(bx)
 end
 
 local function RefreshBox(bx, m, slot)
-    for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear, bx.keep }) do w:SetShown(m ~= nil) end
+    for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.talk, bx.clear }) do w:SetShown(m ~= nil) end
     local rare = m and SC.IsRareClass and SC.IsRareClass(m.rare)
     bx.silver:SetShown(rare and true or false)
     bx.silverGlow:SetShown(rare and true or false)

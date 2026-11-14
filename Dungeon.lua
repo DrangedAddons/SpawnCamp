@@ -32,11 +32,12 @@
 local _, SC = ...
 
 local MACRO_MAX = 255
-local CHAIN = 16                 -- search buttons the hub clicks (16 /clicks + /targetenemy fit in 255)
-local HUB = "SpawnCampDH"
-local BTN = "SpcD"               -- short: the hub's 255 characters hold all the /clicks
+local HUBS, PER_HUB = 4, 15     -- each hub /clicks 15 search buttons, then the next hub
+local CHAIN = HUBS * PER_HUB     -- search buttons: room for about 200 names (60 x 3-4)
+local HUB = "SpawnCampDH"        -- hubs 2-4 are SpawnCampDH2 ... SpawnCampDH4
+local BTN = "SpcD"               -- short: a hub's 255 characters hold all its /clicks
 local LAST = "/targetenemy [noexists]"
-local SEARCH_CAP = 16            -- names one typed search adds from outside the dungeon
+local SEARCH_CAP = 120           -- names one typed search adds from outside the dungeon (all 100 totems)
 
 SC.DUNGEON_CHAIN = CHAIN
 
@@ -168,10 +169,12 @@ end
 ------------------------------------------------------------------------------
 
 -- Full names a typed search stands for in this dungeon: the dungeon's own
--- names containing the text; if none, Questie's summons (no spawn point:
--- totems, wards, pets) containing it, the ones near the dungeon's level only
--- when there are any (mobs cast the totem rank of their level: Searing Totem
--- IV, not Ice Totem), shortest first, up to SEARCH_CAP. Returns { { name, friendly } }.
+-- names containing the text; if none, every Questie name containing it,
+-- summons (no zone or spawn point: totems, wards, pets) first, the ones
+-- nearest the dungeon's level first, up to SEARCH_CAP. Level only orders
+-- them: a summon's level in Questie is its own, not its caster's (the
+-- Sandfury Witch Doctor's Lava Spout Totem is 37 in a 41-49 dungeon).
+-- Returns { { name, friendly } }.
 function SC.DungeonExpand(text)
     local d = SC.dungeon
     if not d or type(text) ~= "string" or text == "" then return {} end
@@ -180,19 +183,20 @@ function SC.DungeonExpand(text)
         if m.name:lower():find(low, 1, true) then out[#out + 1] = m end
     end
     if #out > 0 or not allNames then return out end
-    local hits, near = {}, {}
-    local function InBand(a)
-        return d.lo and a.level and a.level >= d.lo and a.level <= d.hi
+    local hits = {}
+    local function Off(a)
+        if not (d.lo and a.level and a.level > 1) then return 1000 end
+        if a.level < d.lo then return d.lo - a.level end
+        if a.level > d.hi then return a.level - d.hi end
+        return 0
     end
     for _, a in ipairs(allNames) do
-        if a.name:lower():find(low, 1, true) then
-            hits[#hits + 1] = a
-            if a.spawnless and InBand(a) then near[#near + 1] = a end
-        end
+        if a.name:lower():find(low, 1, true) then hits[#hits + 1] = a end
     end
-    if #near > 0 then hits = near end
     table.sort(hits, function(a, b)
         if a.spawnless ~= b.spawnless then return a.spawnless end
+        local oa, ob = Off(a), Off(b)
+        if oa ~= ob then return oa < ob end
         if #a.name ~= #b.name then return #a.name < #b.name end
         return a.name < b.name
     end)
@@ -220,7 +224,8 @@ local function Secure(name)
     return b
 end
 
-local hub = Secure(HUB)
+local hubs = {}
+for h = 1, HUBS do hubs[h] = Secure(h == 1 and HUB or (HUB .. h)) end
 local buttons = {}
 for i = 1, CHAIN do buttons[i] = Secure(BTN .. i) end
 
@@ -284,10 +289,21 @@ function SC.PackDungeon(names, anyEnemy)
         used = used + 1
     end
     if cur and #cur > 0 then texts[#texts + 1] = table.concat(cur, "\n") end
-    local hubLines = {}
-    for i = 1, #texts do hubLines[i] = "/click " .. BTN .. i end
-    if anyEnemy then hubLines[#hubLines + 1] = LAST end
-    return texts, table.concat(hubLines, "\n"), used
+    -- Hubs: each clicks its share of buttons, then the next hub only while
+    -- nothing's been found yet.
+    local hubTexts = {}
+    local nHubs = math.max(1, math.ceil(#texts / PER_HUB))
+    for h = 1, nHubs do
+        local lines = {}
+        for i = (h - 1) * PER_HUB + 1, math.min(#texts, h * PER_HUB) do lines[#lines + 1] = "/click " .. BTN .. i end
+        if h < nHubs then
+            lines[#lines + 1] = "/click [noexists] " .. HUB .. (h + 1)
+        elseif anyEnemy then
+            lines[#lines + 1] = LAST
+        end
+        hubTexts[h] = table.concat(lines, "\n")
+    end
+    return texts, hubTexts, used
 end
 
 -- Rebuilds the buttons from the dungeon and your searches. Out of combat
@@ -295,16 +311,17 @@ end
 function SC.WriteDungeonChain()
     if InCombatLockdown() then return end
     local names, anyEnemy = ChainNames()
-    local texts, hubText, used = {}, "", 0
-    if #names > 0 or anyEnemy then texts, hubText, used = SC.PackDungeon(names, anyEnemy) end
+    local texts, hubTexts, used = {}, {}, 0
+    if #names > 0 or anyEnemy then texts, hubTexts, used = SC.PackDungeon(names, anyEnemy) end
     for i, b in ipairs(buttons) do b:SetAttribute("macrotext", texts[i] or "") end
-    hub:SetAttribute("macrotext", hubText)
-    if hubText == "" then
+    for h, b in ipairs(hubs) do b:SetAttribute("macrotext", hubTexts[h] or "") end
+    if (hubTexts[1] or "") == "" then
         SC.dungeonChain = nil
     else
         local set = {}
         for _, n in ipairs(names) do set[n.name:lower()] = true end
-        SC.dungeonChain = { names = names, texts = texts, hub = hubText, used = used, set = set }
+        SC.dungeonChain = { names = names, texts = texts, hubs = hubTexts, hub = table.concat(hubTexts, "\n"),
+                            used = used, set = set }
     end
 end
 
@@ -431,4 +448,4 @@ function SC.DungeonReport()
 end
 
 -- For tests.
-SC._dungeon = { buttons = buttons, hub = hub, cache = cache, Collect = Collect }
+SC._dungeon = { buttons = buttons, hubs = hubs, cache = cache, Collect = Collect }

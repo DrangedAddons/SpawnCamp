@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.43.0
+
+- Targets stay until you press **Clear**. Getting the kill no longer takes a card off the key; you still get the "You got it!" alert. The **Keep** checkbox is gone.
+- "totem" in a dungeon now targets the Sandfury Witch Doctor's **Lava Spout Totem**. 0.41.3 only kept summons within the dungeon's level, but Questie stores a totem's own level (Lava Spout is 37 in a 41-49 dungeon), so it was left out. Now every summon matching the search goes on the key (all 100 totems), nearest the dungeon's level first.
+- The hidden search chain grew to 4 hubs of 15 buttons (about 200 names), so a big search doesn't push the dungeon's own mobs off the end.
+
 ## 0.42.0
 
 - Drag to reorder works in combat. The cards move and the new order is saved straight away, but the game locks the key's macro in combat, so the key keeps its old priority until combat ends and then switches. Until then, clicking a moved card's name or portrait targets the mob that used to be in that spot. Chat says so the first time per fight.

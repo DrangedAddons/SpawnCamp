@@ -685,7 +685,9 @@ SC.On("ADDON_LOADED", function(name)
             m.mode = "attack"
             m.hunting = false
         end
-        for _, old in ipairs({ "key", "spell", "macro", "interact", "armed", "autoQuest", "onlyOption", "gossip", "reward" }) do
+        -- 0.43 dropped "Keep": every target stays until you clear it.
+        if m.keep ~= nil and SC.IsActive(n) then m.hunting = true end
+        for _, old in ipairs({ "key", "spell", "macro", "interact", "armed", "autoQuest", "onlyOption", "gossip", "reward", "keep" }) do
             m[old] = nil
         end
         Fill(m, SC.MOB_DEFAULTS)
