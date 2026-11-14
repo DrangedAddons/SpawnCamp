@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.47.0
+
+- Auto > Totem / Ward gets its own box, like Auto Quest's, at the **top** of the target list (the key tries totems first). It shows the totem your key is on, or "Any enemy totem or ward" with the names it knows here, and how many. **Clear** on it turns Auto Totem off. Clicking its name or portrait targets that totem.
+- The **Auto** button always just says "Auto", green when anything in its menu is on.
+
 ## 0.46.0
 
 - **Dungeon profiles for every dungeon and raid.** Questie stays the main source for an instance's mobs. A new generated file, `DungeonData.lua`, fills what Questie doesn't have, from the cMaNGOS classic database (the 1.12 data Questie itself is built from): mobs cMaNGOS spawns there that Questie doesn't place, and what each instance's mobs summon (totems, wards, adds), with who summons them. Questie has no summon data at all.

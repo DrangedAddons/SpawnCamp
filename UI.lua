@@ -497,9 +497,12 @@ local TYPE_ICON = {
 local QUEST_ICON = "Interface\\GossipFrame\\AvailableQuestIcon"
 
 local QUEST_KEY = "|quest|"   -- portrait cache key for "Any quest mob"
+local TOTEM_ICON = "Interface\\Icons\\Spell_Nature_StoneClawTotem"
+local TOTEM_KEY = "|totem|"   -- portrait cache key for "Any enemy totem or ward"
 
 local function DefaultIcon(name)
     if name == nil or name == QUEST_KEY then return QUEST_ICON end
+    if name == TOTEM_KEY then return TOTEM_ICON end
     local m = SC.char.mobs[name]
     local near = SC.nearby and SC.nearby[name]
     local icon = (m and m.ctype and TYPE_ICON[m.ctype]) or (near and near.ctype and TYPE_ICON[near.ctype])
@@ -1317,6 +1320,7 @@ local function BuildTargetBox(slot, quest)
 
     -- Right column: Clear. A card stays until you press it.
     bx.clear = Btn(T, "Clear", 58, 0, 0, function()
+        if quest == "totem" then SC.SetAutoTotem(false); return end
         if quest then SC.SetAnyQuest(false); return end
         local m = SC.Active(slot)
         if m and m.rareAuto and SC.rareDismissed then SC.rareDismissed[m.name] = true end
@@ -1325,7 +1329,9 @@ local function BuildTargetBox(slot, quest)
     bx.clear:ClearAllPoints()
     bx.clear:SetPoint("TOPRIGHT", -6, -8)
     bx.clear:SetHeight(20)
-    if quest then
+    if quest == "totem" then
+        Tip(bx.clear, "Clear", "Turns Auto Totem off.")
+    elseif quest then
         Tip(bx.clear, "Clear", "Turns Auto Quest off.")
     else
         Tip(bx.clear, "Clear target", "Takes this mob off your key. It stays in Recent.")
@@ -1337,7 +1343,8 @@ local function BuildTargetBox(slot, quest)
     bx.talk:SetPoint("RIGHT", T, "RIGHT", -74, 0)
     bx.talk.accent = MODE_COLOR.talk
     bx.attack = ModeButton(T, SWORD, function() HideSidePanels(); if not quest then SetMode("attack", slot) end end, function(self) ShowBeside(AP, self) end,
-        "Attack", quest and "Your key targets the quest mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro."
+        "Attack", quest == "totem" and "Your key targets an enemy totem or ward first and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro."
+            or quest and "Your key targets the quest mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro."
             or "Your key targets this mob and casts your attack spell.\n|cffffd100Right-click|r to set the spell or macro.")
     bx.attack:SetPoint("RIGHT", bx.talk, "LEFT", -6, 0)
 
@@ -1352,7 +1359,9 @@ local function BuildTargetBox(slot, quest)
     bx.avg:SetWidth(92)
     bx.avg:SetWordWrap(false)
     eta:EnableMouse(true)
-    if quest then
+    if quest == "totem" then
+        Tip(eta, "Totems and wards", "How many enemy totems and wards your key knows here: this dungeon's, plus the ones seen in this zone.")
+    elseif quest then
         Tip(eta, "Quest progress", "Kills (or items) done out of how many the quest needs. With several quest mobs, how many kinds are still needed.")
     else
     Tip(eta, "Respawn ETA", "Avg: how long this mob usually takes to come back after it dies (from the log). ETA counts down to that from its last death. At zero you get a soft ding, whether or not it has shown.")
@@ -1448,7 +1457,13 @@ local function BuildTargetBox(slot, quest)
         bx.grip = GripBar(T, slot)
     end
 
-    if quest then
+    if quest == "totem" then
+        bx.talk:Hide()
+        bx.badge = T:CreateTexture(nil, "OVERLAY", nil, 7)
+        bx.badge:SetSize(20, 20)
+        bx.badge:SetPoint("BOTTOMRIGHT", bx.portrait, "BOTTOMRIGHT", 4, -4)
+        bx.badge:SetTexture(TOTEM_ICON)
+    elseif quest then
         bx.talk:Hide()
         bx.show = Btn(T, "Show targets", 92, 0, 0, function() SC.ToggleAutoTargets() end)
         bx.show:ClearAllPoints()
@@ -1468,6 +1483,7 @@ local function BuildTarget()
     ui.boxes = {}
     for slot = 1, SC.MAX_TARGETS do ui.boxes[slot] = BuildTargetBox(slot) end
     ui.questBox = BuildTargetBox(SC.MAX_TARGETS + 1, true)
+    ui.totemBox = BuildTargetBox(SC.MAX_TARGETS + 2, "totem")
     ui.dragShadow = CreateFrame("Frame", nil, F)
     local t = ui.dragShadow:CreateTexture(nil, "BACKGROUND")
     t:SetAllPoints()
@@ -1510,7 +1526,7 @@ local function Cover(b, region, name, w, h, dy)
 end
 
 local function BuildNameSecure()
-    for slot = 1, SC.MAX_TARGETS + 1 do
+    for slot = 1, SC.MAX_TARGETS + 2 do
         portSecure[slot] = NewTargetButton("SpawnCampTargetPortrait" .. slot)
         local b = CreateFrame("Button", "SpawnCampTargetName" .. slot, UIParent, "SecureActionButtonTemplate")
         b:RegisterForClicks("LeftButtonUp", "LeftButtonDown")
@@ -1534,10 +1550,13 @@ end
 
 local function PlaceNameSecure()
     if InCombatLockdown() or ui.drag then return end
-    for slot = 1, SC.MAX_TARGETS + 1 do
-        local b, bx = nameSecure[slot], ui.boxes[slot] or ui.questBox
+    for slot = 1, SC.MAX_TARGETS + 2 do
+        local b, bx = nameSecure[slot], ui.boxes[slot] or (slot == SC.MAX_TARGETS + 1 and ui.questBox or ui.totemBox)
         local m = SC.Active(slot)
-        if bx.quest then
+        if bx.quest == "totem" then
+            local name = SC.char.autoTotem and SC.TotemShown and SC.TotemShown()
+            m = name and { name = name } or nil
+        elseif bx.quest then
             local name = SC.QuestShown()
             m = name and { name = name } or nil
         end
@@ -2198,9 +2217,8 @@ end
 local function RefreshAutoQuest()
     local b = ui.autoQuest
     if not b then return end
-    local q, t = SC.char.anyQuest, SC.char.autoTotem
-    if q or t then
-        b:SetText("|cff40ff40Auto: " .. ((q and t) and "Both" or q and "Quest" or "Totem") .. "|r")
+    if SC.char.anyQuest or SC.char.autoTotem then
+        b:SetText("|cff40ff40Auto|r")
         b:LockHighlight()
     else
         b:SetText("Auto")
@@ -2267,6 +2285,30 @@ local function RefreshQuestBox(bx)
         bx.eta:SetText("|cffffd100" .. #wanted .. "|r")
         bx.avg:SetText(#wanted == 1 and "mob needed" or "mobs needed")
     end
+    SetPressed(bx.attack, true)
+end
+
+-- The Auto Totem box: the totem the key is on, else "Any enemy totem or
+-- ward" with the names it knows here.
+local function RefreshTotemBox(bx)
+    for _, w in ipairs({ bx.portrait, bx.nameArea, bx.etaBox, bx.attack, bx.clear }) do w:Show() end
+    local names = SC.TotemNames and SC.TotemNames() or {}
+    local name = SC.TotemShown and SC.TotemShown()
+    PlacePortrait(name or TOTEM_KEY, bx.portrait)
+    bx.tipName = name
+    local tag = "|cffffd100Auto Totem|r"
+    if name then
+        bx.name:SetText(name)
+        bx.status:SetText(tag .. "  |cffc0c0c0your key is on it|r")
+    elseif #names > 0 then
+        bx.name:SetText("Any enemy totem or ward")
+        bx.status:SetText(tag .. "  |cffc0c0c0" .. table.concat(names, ", ") .. "|r")
+    else
+        bx.name:SetText("No totems known here yet")
+        bx.status:SetText(tag .. "  |cffc0c0c0learns them from their nameplates|r")
+    end
+    bx.eta:SetText("|cffffd100" .. #names .. "|r")
+    bx.avg:SetText("known here")
     SetPressed(bx.attack, true)
 end
 
@@ -2343,6 +2385,18 @@ local function RefreshTarget()
     ui.listLabel:SetPoint("TOPLEFT", F, "TOPLEFT", 10, y)
     ui.listLabel:SetText("TARGETS  |cff808080" .. n .. " / " .. SC.MAX_TARGETS .. "   (top = highest priority)|r")
     y = y - 16
+    -- Auto Totem goes first: the key tries totems before your own targets.
+    local tb = ui.totemBox
+    if SC.char.autoTotem then
+        tb.frame:ClearAllPoints()
+        tb.frame:SetPoint("TOPLEFT", F, "TOPLEFT", 6, y)
+        tb.frame:SetPoint("RIGHT", F, "RIGHT", -6, 0)
+        tb.frame:Show()
+        RefreshTotemBox(tb)
+        y = y - BOX_H - 3
+    else
+        tb.frame:Hide()
+    end
     ui.cardTop = y
     for slot = 1, SC.MAX_TARGETS do
         local bx, m = ui.boxes[slot], SC.Active(slot)
@@ -2367,7 +2421,7 @@ local function RefreshTarget()
     else
         qb.frame:Hide()
     end
-    local empty = n == 0 and not SC.char.anyQuest
+    local empty = n == 0 and not SC.char.anyQuest and not SC.char.autoTotem
     ui.emptyHint:SetShown(empty)
     if empty then
         ui.emptyHint:ClearAllPoints()

@@ -126,6 +126,14 @@ function SC.WriteTotemButton()
     SC.totemText = text
 end
 
+-- The totem the key is on: your target, when it's an enemy totem with a
+-- readable name. nil otherwise.
+function SC.TotemShown()
+    if not (SC.MaybeExists("target") and SC.IsTotem("target")) then return nil end
+    if SC.Bool(UnitCanAttack("player", "target")) ~= true or SC.Bool(UnitIsDead("target")) ~= false then return nil end
+    return SC.UnitNameSafe("target")
+end
+
 -- The key macro's line for the totem button, or nil when it has nothing.
 function SC.TotemClick()
     if SC.totemText ~= "" then return "/click SpawnCampTotem" end
