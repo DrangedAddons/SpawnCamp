@@ -68,6 +68,7 @@ SC.CHAR_DEFAULTS = {
     },
     anyQuest = false,     -- the key also goes for any mob your quests still need
     dungeonMobs = true,   -- in a dungeon, the key also goes for that dungeon's mobs (Questie's list)
+    autoTotem = false,    -- Auto > Totem / Ward: enemy totems and wards first
     alertSpawn = true,    -- loud alert when a watched mob is seen alive
     alarm = true,         -- soft dings: early warning, window open, average reached
     rareAlert = true,     -- a rare's nameplate adds it as a target box (silver) with an alert

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.0
+
+- **Auto** menu: the Auto Quest button is now **Auto**, a menu with two switches, **Quest** (as before) and **Totem / Ward**. The button shows which are on.
+- **Auto > Totem / Ward**: your key goes for an enemy totem or ward first, before your own targets, and back to them once it's gone. Works when you're already on a mob. It learns each zone's totems from their nameplates (the game's Totem creature type, which covers wards). The game locks the key in combat, so a totem first seen mid-fight is on the key from the next fight; chat says when one is learned. In a dungeon it uses the dungeon's summons list from the start (Zul'Farrak: Lava Spout Totem, Greater Healing Ward, Ward of Zum'rah). A friendly totem of the same name, like a party shaman's, is skipped.
+- **Lock in** moved under **Clear**, where Keep used to be.
+
 ## 0.44.0
 
 - "totem" in a dungeon now means only what that dungeon's mobs summon, not every totem in the game. Questie doesn't record who summons what, so each dungeon has a hand-written summons list. Zul'Farrak's: Lava Spout Totem and Greater Healing Ward (Sandfury Witch Doctor), Ward of Zum'rah, Skeleton of Zum'rah, Zombie Troll of Zum'rah. Summons are part of the dungeon list, so "totem" adds a **Lava Spout Totem** card. Other dungeons have no summons listed yet.

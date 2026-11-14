@@ -664,6 +664,12 @@ function SC.EvalTarget()
             if on and dead == nil and not SC.onMob then on = false end
         end
     end
+    -- Auto Totem: an enemy totem you're on counts as on target, so the key
+    -- casts at it.
+    if not on and SC.char.autoTotem and SC.MaybeExists("target") and SC.IsTotem and SC.IsTotem("target")
+        and SC.Bool(UnitCanAttack("player", "target")) == true and SC.Bool(UnitIsDead("target")) == false then
+        on, onName = true, nil
+    end
     -- Never swaps off a mob you're fighting. One you haven't hit yet gives way
     -- only to a DIFFERENT mob that ranks higher (in range and sight when this
     -- one isn't, or higher in the list). Never to itself or another of the
@@ -754,6 +760,7 @@ SC.Scan = Scan
 
 SC.On("NAME_PLATE_UNIT_ADDED", function(unit)
     plates[unit] = true
+    if SC.NoteTotem then pcall(SC.NoteTotem, unit) end
     blocked[unit] = nil
     Check(unit)
     SC.PickLock()
@@ -767,7 +774,10 @@ SC.On("NAME_PLATE_UNIT_REMOVED", function(unit)
     if SC.fastUnit == unit then SC.SetFastUnit(nil); SC.PickLock() end
 end)
 
-SC.On("PLAYER_TARGET_CHANGED", function() Check("target") end)
+SC.On("PLAYER_TARGET_CHANGED", function()
+    Check("target")
+    if SC.NoteTotem then pcall(SC.NoteTotem, "target") end
+end)
 SC.On("UPDATE_MOUSEOVER_UNIT", function() Check("mouseover") end)
 
 SC.On("PLAYER_LOGIN", function()

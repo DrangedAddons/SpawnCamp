@@ -166,7 +166,7 @@ local function TalkAndAttack(lines, attack, talk, at)
     for _, m in ipairs(attack) do
         if m.dungeon then lines[#lines + 1] = SC.DungeonClick(); break end
     end
-    if #attack > 0 and at then
+    if (#attack > 0 or (SC.TotemClick and SC.TotemClick())) and at then
         local A = SC.char.attack
         local body = SC.AttackMacroBody()
         if body then
@@ -203,7 +203,8 @@ function SC.BuildKeyMacro()
     local attack, talk = SC.MobsIn("attack"), SC.MobsIn("interact")
     local anySearch = false
     for _, m in ipairs(SC.Actives()) do if m.partial then anySearch = true end end
-    if #attack + #talk == 0 and not anySearch then return "" end
+    local totem = SC.TotemClick and SC.TotemClick()
+    if #attack + #talk == 0 and not anySearch and not totem then return "" end
     local all = {}
     for _, x in ipairs(attack) do all[#all + 1] = x end
     for _, x in ipairs(talk) do all[#all + 1] = x end
@@ -244,6 +245,9 @@ function SC.BuildKeyMacro()
         end
     end
     if SC.onMob then
+        -- On a mob: an enemy totem still takes over (the totem button only
+        -- changes the target when one is up).
+        if totem then head[#head + 1] = totem end
         Search(true)
         TalkAndAttack(tail, attack, talk, "[@target,harm,nodead]")
     elseif SC.fastUnit then
@@ -262,8 +266,11 @@ function SC.BuildKeyMacro()
             head[#head + 1] = "/cleartarget [dead]"
             skipName = SC.fastName:lower()
         end
+        -- Auto Totem: an enemy totem beats the lock (its button runs after
+        -- these lines), so the cast goes at whatever ended up targeted.
+        if totem then head[#head + 1] = totem end
         Search(true, true)
-        TalkAndAttack(tail, attack, talk, "[@" .. SC.fastUnit .. ",harm,nodead]")
+        TalkAndAttack(tail, attack, talk, totem and "[@target,harm,nodead]" or ("[@" .. SC.fastUnit .. ",harm,nodead]"))
     else
         -- Search only, no cast: the search can't tell a mob someone else tagged
         -- from a free one, and casting at it would cost the global cooldown. Once
@@ -272,7 +279,8 @@ function SC.BuildKeyMacro()
         -- In combat the macro is frozen and can't switch to "on target", so it
         -- casts at what it finds (the old behaviour).
         head[#head + 1] = "/cleartarget"
-        Search(false, true)
+        if totem then head[#head + 1] = totem end
+        Search(totem ~= nil, true)
         TalkAndAttack(tail, attack, talk, SC.inCombat and "[@target,harm,nodead]" or nil)
     end
     -- Opening lines and the first search always go in; then as many searches
@@ -370,6 +378,7 @@ function SC.ApplyBindings()
     end
     ClearOverrideBindings(owner)
     if SC.WriteDungeonChain then SC.WriteDungeonChain() end
+    if SC.WriteTotemButton then SC.WriteTotemButton() end
     keyBtn:RegisterForClicks(ClickEdge())
     local text = SC.KeyMacro()
     keyBtn:SetAttribute("type", "macro")

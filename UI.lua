@@ -3,7 +3,7 @@
 --   [icon] SpawnCamp                              [Recent] [Log] [gear] [x]
 --   [  R  ]  * On target                                          [Unassign]
 --            Attack - Vicious Owlbeast - won't swap
---   [ Add a mob or search...       ] [My Target] [Nearby] [Quest] [Auto Quest]
+--   [ Add a mob or search...       ] [My Target] [Nearby] [Quest] [Auto v]
 --   TARGETS  2 / 8
 --   | (portrait) Vicious Owlbeast [KEY]   DUE        [sword] [bubble] [Clear]
 --   |            dead 4:59                3:03 over avg
@@ -998,7 +998,7 @@ end
 local BOX_H = 58   -- height of a target card
 
 -- The add bar: one row, always open under the key bar.
---   [ Add a mob or search...       ] [My Target] [Nearby] [Quest] [Auto Quest]
+--   [ Add a mob or search...       ] [My Target] [Nearby] [Quest] [Auto v]
 local function BuildPicker()
     local T = CreateFrame("Frame", nil, F, "BackdropTemplate")
     T:SetHeight(32)
@@ -1040,9 +1040,23 @@ local function BuildPicker()
     ui.pickQuest = Btn(T, "Quest", 52, 0, 0, function() SC.ToggleQuests() end)
     at(ui.pickQuest, 366)
     Tip(ui.pickQuest, "Quest", "Mobs your current quests want: kill objectives from your quest log, plus mobs nearby that your quests need (item drops too).")
-    ui.autoQuest = Btn(T, "Auto Quest", 80, 0, 0, function() SC.SetAnyQuest(not SC.char.anyQuest) end)
+    -- Auto: a menu of the automatic target sources, each on or off.
+    local menu = CreateFrame("Frame", nil, F, "BackdropTemplate")
+    menu:SetSize(150, 60)
+    Backdrop(menu)
+    menu:SetFrameStrata("DIALOG")
+    menu:Hide()
+    ui.autoMenu = menu
+    ui.autoQuest = Btn(T, "Auto", 80, 0, 0, function() menu:SetShown(not menu:IsShown()); SC.Refresh() end)
     at(ui.autoQuest, 422)
-    Tip(ui.autoQuest, "Auto Quest", "On, your key goes for any mob your quests still need, alive and not tagged by someone else, after your own targets. Finished objectives drop off by themselves.")
+    menu:SetPoint("TOPRIGHT", ui.autoQuest, "BOTTOMRIGHT", 0, -2)
+    Tip(ui.autoQuest, "Auto", "Targets your key finds by itself: quest mobs, and enemy totems and wards. Click to turn each on or off.")
+    Check(menu, "Quest", 6, -6,
+        function() return SC.char.anyQuest end, function(v) SC.SetAnyQuest(v) end,
+        "Your key goes for any mob your quests still need, alive and not tagged by someone else, after your own targets. Finished objectives drop off by themselves.")
+    Check(menu, "Totem / Ward", 6, -32,
+        function() return SC.char.autoTotem end, function(v) SC.SetAutoTotem(v) end,
+        "Your key goes for an enemy totem or ward first, before your own targets, then back to them once it's gone. It learns each zone's totems from their nameplates (one first seen mid-fight is on the key from the next fight); in a dungeon it uses the dungeon's summons list.")
 
     ui.listLabel = Text(F, "", 10, 0, "GameFontNormalSmall")
     ui.emptyHint = Text(F, "Nothing on your key yet.\nType a mob's name (or part of it) above and press Enter, or use My Target, Nearby or Quest. Rares pop up here by themselves.", 10, 0, "GameFontDisableSmall")
@@ -1417,7 +1431,7 @@ local function BuildTargetBox(slot, quest)
         -- On a mob a search found: keep it and drop the search.
         bx.lock = Btn(T, "Lock in", 64, 0, 0, function() local m = SC.Active(slot); if m then SC.LockIn(m.name) end end)
         bx.lock:ClearAllPoints()
-        bx.lock:SetPoint("BOTTOMRIGHT", nameArea, "BOTTOMRIGHT", 0, 3)
+        bx.lock:SetPoint("TOPRIGHT", bx.clear, "BOTTOMRIGHT", 0, -4)   -- under Clear
         bx.lock:SetHeight(20)
         Tip(bx.lock, "Lock in", "This is the one. Keeps this mob and removes the search that found it, along with anything else that search added.")
         bx.lock:Hide()
@@ -2184,11 +2198,12 @@ end
 local function RefreshAutoQuest()
     local b = ui.autoQuest
     if not b then return end
-    if SC.char.anyQuest then
-        b:SetText("|cff40ff40Auto Quest|r")
+    local q, t = SC.char.anyQuest, SC.char.autoTotem
+    if q or t then
+        b:SetText("|cff40ff40Auto: " .. ((q and t) and "Both" or q and "Quest" or "Totem") .. "|r")
         b:LockHighlight()
     else
-        b:SetText("Auto Quest")
+        b:SetText("Auto")
         b:UnlockHighlight()
     end
 end
@@ -2276,12 +2291,8 @@ local function RefreshBox(bx, m, slot)
     local search = SC.SearchOf(m.name)
     bx.lock:SetShown(search ~= nil)
     bx.ignore:ClearAllPoints()
-    if search then
-        bx.ignore:SetPoint("RIGHT", bx.lock, "LEFT", -4, 0)
-    else
-        bx.ignore:SetPoint("BOTTOMRIGHT", bx.nameArea, "BOTTOMRIGHT", 0, 3)
-    end
-    local leftmost = (rare and bx.ignore) or (search and bx.lock)
+    bx.ignore:SetPoint("BOTTOMRIGHT", bx.nameArea, "BOTTOMRIGHT", 0, 3)
+    local leftmost = rare and bx.ignore
     if leftmost then
         bx.status:SetPoint("RIGHT", leftmost, "LEFT", -4, 0)
     else
