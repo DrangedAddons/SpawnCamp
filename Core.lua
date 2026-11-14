@@ -310,6 +310,10 @@ function SC.KnownNames()
     local function add(n)
         if type(n) == "string" and n ~= "" and not seen[n] then seen[n] = true; out[#out + 1] = n end
     end
+    -- In a dungeon, its mobs from Questie (names there can't be read off nameplates).
+    if SC.dungeon then
+        for _, m in ipairs(SC.dungeon.mobs) do add(m.name) end
+    end
     for n in pairs(SC.nearby or {}) do add(n) end
     if SC.QuestMobs then
         local ok, list = pcall(SC.QuestMobs)

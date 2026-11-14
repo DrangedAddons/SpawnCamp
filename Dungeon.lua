@@ -216,11 +216,17 @@ local function ChainNames()
         seen[k] = true
         out[#out + 1] = { name = m.name, friendly = m.friendly, from = from }
     end
+    -- Your own exact targets (cards, including ones a search added) are in
+    -- the key's macro already.
+    for _, t in ipairs(SC.Actives()) do
+        if not t.partial then seen[t.name:lower()] = true end
+    end
     for _, t in ipairs(SC.Actives()) do
         if t.partial then
-            for _, m in ipairs(SC.DungeonExpand(t.name)) do add(m, t.name) end
-        elseif not seen[t.name:lower()] then
-            seen[t.name:lower()] = true   -- your own exact targets are in the key's macro
+            local rejected = t.rejected or {}
+            for _, m in ipairs(SC.DungeonExpand(t.name)) do
+                if not rejected[m.name] then add(m, t.name) end
+            end
         end
     end
     local on = SC.char and SC.char.dungeonMobs
@@ -299,6 +305,9 @@ end
 
 local function Apply(area, name, data)
     SC.dungeon = { name = name or "Dungeon", area = area, mobs = data.mobs }
+    -- Your searches get a card for each of the dungeon's mobs they match,
+    -- as outdoors when a matching nameplate shows.
+    if SC.FindPartials then pcall(SC.FindPartials) end
     if SC.ApplyBindings then SC.ApplyBindings() end
     if SC.Refresh then SC.Refresh() end
     local c = SC.dungeonChain

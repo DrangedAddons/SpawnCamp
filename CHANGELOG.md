@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.41.2
+
+- In a dungeon your typed searches now add their matches as target cards, like outdoors when a matching nameplate shows. "slave" adds a **Sandfury Slave** card under the search, with its own portrait slot, KEY tag and priority. Clear a card and that search won't add it again.
+- Only the dungeon's own mobs become cards. Guesses from the rest of Questie (the 8 totem names for "totem") stay as hidden searches on the key, so they don't fill your 8 slots.
+
 ## 0.41.1
 
 - Fixed the key not targeting anything in dungeons. Searching by part of a name (`/target Sand`, `/target slave`) finds nothing in an instance, so the dungeon list and your typed searches now target every mob by its **full name** with `/targetexact`, from Questie's names.
