@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.42.0
+
+- Drag to reorder works in combat. The cards move and the new order is saved straight away, but the game locks the key's macro in combat, so the key keeps its old priority until combat ends and then switches. Until then, clicking a moved card's name or portrait targets the mob that used to be in that spot. Chat says so the first time per fight.
+
 ## 0.41.3
 
 - "totem" in a dungeon now targets totems at the dungeon's level. A search no dungeon mob matches falls back to Questie's summons (NPCs with no zone or spawn point), and only the ones within the dungeon's level band: in Zul'Farrak, Searing Totem IV, Healing Stream Totem III, Windfury Totem II and 10 more, instead of Ice Totem and Battle Totem. Up to 16 names per search.

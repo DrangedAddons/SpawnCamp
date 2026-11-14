@@ -1084,8 +1084,10 @@ end
 ------------------------------------------------------------------------------
 -- Drag to reorder. The grab bar on a card's left edge picks it up: the card
 -- lifts (shadow, nudge), follows the cursor, and the others slide out of the
--- way. Letting go settles it into its gap and saves the new order. Out of
--- combat only: the cards' secure name/portrait buttons can't move in combat.
+-- way. Letting go settles it into its gap and saves the new order. Works in
+-- combat too, but the game won't let the key's macro or the cards' secure
+-- name/portrait buttons change then, so those pick up the new order when
+-- combat ends.
 ------------------------------------------------------------------------------
 local STEP = BOX_H + 3
 local HideTargetSecure   -- set once the secure overlays exist
@@ -1114,8 +1116,18 @@ local function FinishDrag()
     ui.dragShadow:Hide()
     pcall(ResetCursor)
     local to = d.slots[d.to]
-    if to ~= d.slot and not d.cancel and not InCombatLockdown() then
+    if to ~= d.slot and not d.cancel then
+        -- In combat ApplyBindings waits for combat to end by itself; the
+        -- secure name/portrait buttons are placed by the Refresh after it.
         SC.MoveTargetTo(d.slot, to)
+        if InCombatLockdown() then
+            SC.AfterCombat(SC.Refresh)
+            if not SC.combatOrderNoted then
+                SC.combatOrderNoted = true
+                SC.AfterCombat(function() SC.combatOrderNoted = nil end)
+                SC.Print("new order saved. The key switches to it when combat ends (the game locks it until then).")
+            end
+        end
     else
         SC.Refresh()
     end
@@ -1125,9 +1137,9 @@ dragDriver:Hide()
 dragDriver:SetScript("OnUpdate", function(_, dt)
     local d = drag
     if not d then dragDriver:Hide(); return end
-    -- Combat or a changed list mid-drag: put it back where it was.
+    -- A changed list mid-drag: put it back where it was.
     if not d.dropping then
-        local changed = InCombatLockdown()
+        local changed = false
         for _, s in ipairs(d.slots) do if not SC.Active(s) then changed = true end end
         if not F:IsShown() then changed = true end
         if changed then d.dropping, d.cancel, d.to = true, true, d.from end
@@ -1170,7 +1182,7 @@ dragDriver:SetScript("OnUpdate", function(_, dt)
 end)
 
 local function StartDrag(slot)
-    if drag or InCombatLockdown() or not F:GetTop() then return end
+    if drag or not F:GetTop() then return end
     local slots, from = {}, nil
     for s = 1, SC.MAX_TARGETS do
         if SC.Active(s) then
@@ -1233,11 +1245,10 @@ local function GripBar(T, slot)
     g:HookScript("OnEnter", function()
         Lit(true)
         if InCombatLockdown() then
-            GameTooltip:AddLine("Not in combat.", 1, 0.4, 0.4)
+            GameTooltip:AddLine("In combat the key keeps its old order until combat ends.", 1, 0.82, 0)
             GameTooltip:Show()
-        else
-            pcall(SetCursor, "UI_MOVE_CURSOR")
         end
+        pcall(SetCursor, "UI_MOVE_CURSOR")
     end)
     g:HookScript("OnLeave", function()
         if not drag then Lit(false); pcall(ResetCursor) end
