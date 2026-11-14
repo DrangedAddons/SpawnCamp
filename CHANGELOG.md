@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.41.3
+
+- "totem" in a dungeon now targets totems at the dungeon's level. A search no dungeon mob matches falls back to Questie's summons (NPCs with no zone or spawn point), and only the ones within the dungeon's level band: in Zul'Farrak, Searing Totem IV, Healing Stream Totem III, Windfury Totem II and 10 more, instead of Ice Totem and Battle Totem. Up to 16 names per search.
+- Boss summons are on the dungeon list: NPCs named "X of <boss>" (Ward of Zum'rah, Skeleton of Zum'rah, Zombie Troll of Zum'rah).
+- The hidden search chain holds 16 buttons (was 15).
+
 ## 0.41.2
 
 - In a dungeon your typed searches now add their matches as target cards, like outdoors when a matching nameplate shows. "slave" adds a **Sandfury Slave** card under the search, with its own portrait slot, KEY tag and priority. Clear a card and that search won't add it again.

@@ -32,11 +32,11 @@
 local _, SC = ...
 
 local MACRO_MAX = 255
-local CHAIN = 15                 -- search buttons the hub clicks
+local CHAIN = 16                 -- search buttons the hub clicks (16 /clicks + /targetenemy fit in 255)
 local HUB = "SpawnCampDH"
 local BTN = "SpcD"               -- short: the hub's 255 characters hold all the /clicks
 local LAST = "/targetenemy [noexists]"
-local SEARCH_CAP = 8             -- names one typed search adds from outside the dungeon
+local SEARCH_CAP = 16            -- names one typed search adds from outside the dungeon
 
 SC.DUNGEON_CHAIN = CHAIN
 
@@ -81,7 +81,8 @@ local function Collect(db, area, step)
             local friendly = Q(id, "friendlyToFaction") ~= nil
             if all and not service and not allSeen[name] then
                 allSeen[name] = true
-                all[#all + 1] = { name = name, spawnless = not hasSpawn, friendly = friendly }
+                all[#all + 1] = { name = name, spawnless = not hasSpawn and zid == nil, friendly = friendly,
+                                  level = Q(id, "maxLevel") or Q(id, "minLevel") }
             end
             local here = zid == area or (hasSpawn and sp[area] ~= nil)
             if here then
@@ -106,12 +107,23 @@ local function Collect(db, area, step)
         local w = FirstWord(m.name)
         if w then fam[w] = (fam[w] or 0) + 1 end
     end
+    local zoneLow = {}
+    for _, m in ipairs(zone) do zoneLow[#zoneLow + 1] = m.name:lower() end
+    -- A boss's summons: "Ward of Zum'rah", "Skeleton of Zum'rah".
+    local function OfBoss(low)
+        local y = low:match(" of (.+)$")
+        if not y or #y < 4 then return false end
+        for _, z in ipairs(zoneLow) do
+            if z:find(y, 1, true) then return true end
+        end
+        return false
+    end
     for _, s in ipairs(spawnless) do
         local w = FirstWord(s.name)
         local low = s.name:lower()
         -- invisible script helpers ("Zul'Farrak Concoction Stalker") can't be targeted
         local helper = low:find(" stalker$") or low:find("trigger") or low:find("bunny") or low:find("%[dn")
-        if w and (fam[w] or 0) >= 2 and not seen[s.name] and not helper then
+        if ((w and (fam[w] or 0) >= 2) or OfBoss(low)) and not seen[s.name] and not helper then
             seen[s.name] = true
             zone[#zone + 1] = { name = s.name, rank = 0, level = 0, friendly = s.friendly, family = true }
         end
@@ -124,7 +136,17 @@ local function Collect(db, area, step)
         if a.level ~= b.level then return a.level > b.level end
         return a.name < b.name
     end)
-    return { mobs = zone }
+    -- The dungeon's level band, for guessing summons by level: the middle of
+    -- its mobs' levels (a level 63 raid boss shouldn't stretch it), +-3.
+    local lv = {}
+    for _, m in ipairs(zone) do if (m.level or 0) > 0 then lv[#lv + 1] = m.level end end
+    table.sort(lv)
+    local lo, hi
+    if #lv > 0 then
+        lo = lv[math.max(1, math.floor(#lv * 0.2))] - 3
+        hi = lv[math.max(1, math.ceil(#lv * 0.8))] + 3
+    end
+    return { mobs = zone, lo = lo, hi = hi }
 end
 
 -- Questie area id and name for the instance you're in, or nil.
@@ -146,9 +168,10 @@ end
 ------------------------------------------------------------------------------
 
 -- Full names a typed search stands for in this dungeon: the dungeon's own
--- names containing the text; if none, every Questie name containing it,
--- summons first (no spawn point: totems, wards, pets), shortest first, up to
--- SEARCH_CAP. Returns { { name, friendly } }.
+-- names containing the text; if none, Questie's summons (no spawn point:
+-- totems, wards, pets) containing it, the ones near the dungeon's level only
+-- when there are any (mobs cast the totem rank of their level: Searing Totem
+-- IV, not Ice Totem), shortest first, up to SEARCH_CAP. Returns { { name, friendly } }.
 function SC.DungeonExpand(text)
     local d = SC.dungeon
     if not d or type(text) ~= "string" or text == "" then return {} end
@@ -157,10 +180,17 @@ function SC.DungeonExpand(text)
         if m.name:lower():find(low, 1, true) then out[#out + 1] = m end
     end
     if #out > 0 or not allNames then return out end
-    local hits = {}
-    for _, a in ipairs(allNames) do
-        if a.name:lower():find(low, 1, true) then hits[#hits + 1] = a end
+    local hits, near = {}, {}
+    local function InBand(a)
+        return d.lo and a.level and a.level >= d.lo and a.level <= d.hi
     end
+    for _, a in ipairs(allNames) do
+        if a.name:lower():find(low, 1, true) then
+            hits[#hits + 1] = a
+            if a.spawnless and InBand(a) then near[#near + 1] = a end
+        end
+    end
+    if #near > 0 then hits = near end
     table.sort(hits, function(a, b)
         if a.spawnless ~= b.spawnless then return a.spawnless end
         if #a.name ~= #b.name then return #a.name < #b.name end
@@ -304,7 +334,7 @@ end
 ------------------------------------------------------------------------------
 
 local function Apply(area, name, data)
-    SC.dungeon = { name = name or "Dungeon", area = area, mobs = data.mobs }
+    SC.dungeon = { name = name or "Dungeon", area = area, mobs = data.mobs, lo = data.lo, hi = data.hi }
     -- Your searches get a card for each of the dungeon's mobs they match,
     -- as outdoors when a matching nameplate shows.
     if SC.FindPartials then pcall(SC.FindPartials) end
