@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.41.1
+
+- Fixed the key not targeting anything in dungeons. Searching by part of a name (`/target Sand`, `/target slave`) finds nothing in an instance, so the dungeon list and your typed searches now target every mob by its **full name** with `/targetexact`, from Questie's names.
+- Typed searches in a dungeon: "slave" and "drudge" become Sandfury Slave and Sandfury Drudge. Text no mob on the list contains ("totem") becomes up to 8 matching names from all of Questie, summoned ones first.
+- Zul'Farrak's stair event mobs (Sandfury Slave, Drudge, Zealot, Acolyte, Zombie) are on the list now. Questie has no zone or spawn point for event and summoned mobs, so the list adds spawnless NPCs that share a first word with two or more of the instance's mobs. Invisible script helpers are skipped.
+- A hub button clicks the search buttons one after another, so up to 15 buttons of names (about 60) fit. `/spc key` prints the hub and every button.
+
 ## 0.41.0
 
 - **Dungeon mobs on the key.** In a dungeon or raid the key now goes for that instance's mobs, after your own targets. Nameplates can't read names in instances, so the list comes from Questie's database: every NPC it places there, including summoned and scripted ones (Zul'Farrak has 35, the Witch Doctor's Greater Healing Ward among them). Quest givers, vendors and trainers are left out.

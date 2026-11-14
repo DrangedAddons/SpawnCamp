@@ -219,9 +219,12 @@ function SC.BuildKeyMacro()
     -- Wildcard searches come last, as "/target <text>": the game's own
     -- part-of-a-name match, nearest first. A mob it finds is added as its own
     -- target by the nameplate scan, and from then on found by exact name.
+    -- In a dungeon the chain buttons search for these by full name instead
+    -- (Dungeon.lua): /target <part of a name> finds nothing there.
     local searches = {}
+    local inDungeon = SC.DungeonOn and SC.DungeonOn()
     for _, m in ipairs(SC.Actives()) do
-        if m.partial then searches[#searches + 1] = m.name end
+        if m.partial and not inDungeon then searches[#searches + 1] = m.name end
     end
     local function Search(firstCond, clearDead)
         local n = 0
@@ -366,6 +369,7 @@ function SC.ApplyBindings()
         return
     end
     ClearOverrideBindings(owner)
+    if SC.WriteDungeonChain then SC.WriteDungeonChain() end
     keyBtn:RegisterForClicks(ClickEdge())
     local text = SC.KeyMacro()
     keyBtn:SetAttribute("type", "macro")

@@ -1,145 +1,44 @@
--- Dungeon mobs. Inside an instance the nameplate scan can't read names, so
--- SpawnCamp can't learn what's around. Questie's database already knows every
--- NPC that spawns in each instance, so on zoning in the key gets that list:
+-- Dungeon mobs. Inside an instance the nameplate scan can't read names, and
+-- /target <part of a name> doesn't find anything either. /targetexact with a
+-- full name is what works, so SpawnCamp needs the full names, and Questie's
+-- database has them:
 --
---   key macro:          ... /click [noexists] SpawnCampDungeon1 ; cast lines
---   SpawnCampDungeon1:  /target [noexists] Sand
---                       /cleartarget [dead][noharm]
---                       /target [noexists] Sul'
---                       ...
---                       /click [noexists] SpawnCampDungeon2
---   last button:        ... /targetenemy [noexists]
+--   * every NPC Questie places in the instance (a spawn there, or the
+--     instance as its main zone);
+--   * spawnless NPCs of the same family: event and summoned mobs (Sandfury
+--     Slave, Sandfury Drudge, Sandfury Zealot) have no spawn point or zone in
+--     Questie, but share a first word with two or more of the instance's mobs;
+--   * your typed searches ("slave", "totem"): matched against those names
+--     first, else against every name Questie knows, preferring summons.
 --
--- Macros have no wildcards, but /target <text> matches the start of a name,
--- so names are grouped by a shared start ("Sand" covers every Sandfury mob,
--- Sandarr and Sandscalp). The game runs only 255 characters of a macro, so the
--- searches go in a chain of buttons the key /clicks. The chain ends with
--- /targetenemy: summoned pets, totems and wards that Questie has no spawn for
--- are still hostile, and nothing else in an instance is.
+-- Each name is one /targetexact line. That's far past one macro's 255
+-- characters, so the lines go into hidden buttons and a hub button /clicks
+-- them in order:
 --
--- Friendly-to-start NPCs stay on the list: Zul'Farrak's Witch Doctor and
--- Sergeant Bly's crew turn hostile mid-run. [noharm] drops them while they're
--- friendly. NPCs with a service (quest giver, vendor, trainer) never turn, so
--- they're left out, and no group's text is allowed to match one of them.
+--   key macro:  ... /click [noexists] SpawnCampDH ; cast lines
+--   hub:        /click SpcD1 ; /click SpcD2 ; ... ; /targetenemy [noexists]
+--   SpcD1:      /targetexact [noexists] Sandfury Executioner
+--               /cleartarget [dead]
+--               ...
+--
+-- Every search line has [noexists], so once one finds a live mob the rest do
+-- nothing. The hub ends with /targetenemy: whatever hostile is left (pets,
+-- totems, wards) is still part of the fight.
+--
+-- NPCs Questie marks friendly stay on the list: Zul'Farrak's Witch Doctor and
+-- Sergeant Bly's crew turn hostile mid-run. Their lines clear [noharm] too.
+-- Quest givers, vendors and trainers never turn and are left out.
 
 local _, SC = ...
 
 local MACRO_MAX = 255
-local CHAIN = 8              -- buttons in the chain; 8 x ~4 searches covers a big dungeon
-local BTN = "SpawnCampDungeon"
-local MIN_PREFIX = 4         -- shortest group text, unless a whole name is shorter
+local CHAIN = 15                 -- search buttons the hub clicks
+local HUB = "SpawnCampDH"
+local BTN = "SpcD"               -- short: the hub's 255 characters hold all the /clicks
 local LAST = "/targetenemy [noexists]"
-local CLEAR = "/cleartarget [dead][noharm]"
+local SEARCH_CAP = 8             -- names one typed search adds from outside the dungeon
 
 SC.DUNGEON_CHAIN = CHAIN
-
-------------------------------------------------------------------------------
--- Grouping
-------------------------------------------------------------------------------
-
--- Cut points that don't split a UTF-8 character or end on a space (a macro
--- line's trailing space is dropped, so "Oro " would become "Oro").
-local function Cuts(name)
-    local out = {}
-    for len = math.min(MIN_PREFIX, #name), #name do
-        local nb = name:byte(len + 1)
-        if (not nb or nb < 0x80 or nb > 0xBF) and name:byte(len) ~= 32 then out[#out + 1] = len end
-    end
-    return out
-end
-
--- mobs: { { name, rank, level } }; avoid: names a group must not match.
--- Returns { { text, names = { ... } } } in key order: biggest group first,
--- then by rank and level, so bosses and elites come before stragglers.
-function SC.GroupNames(mobs, avoid)
-    local left, info = {}, {}
-    for _, m in ipairs(mobs) do
-        local low = m.name:lower()
-        if not info[low] then
-            info[low] = { name = m.name, rank = m.rank or 0, level = m.level or 0 }
-            left[#left + 1] = low
-        end
-    end
-    local avoidLow = {}
-    for _, n in ipairs(avoid or {}) do avoidLow[#avoidLow + 1] = n:lower() end
-    local function Clean(p)
-        for _, a in ipairs(avoidLow) do
-            if a:sub(1, #p) == p then return false end
-        end
-        return true
-    end
-    local groups = {}
-    while #left > 0 do
-        local count = {}
-        for _, low in ipairs(left) do
-            for _, len in ipairs(Cuts(low)) do
-                local p = low:sub(1, len)
-                count[p] = (count[p] or 0) + 1
-            end
-        end
-        local best, bestN
-        for _, low in ipairs(left) do
-            local cuts = Cuts(low)
-            for ci, len in ipairs(cuts) do
-                local p = low:sub(1, len)
-                -- the whole name is always allowed, even if it starts a service NPC's name
-                if ci == #cuts or Clean(p) then
-                    local n = count[p]
-                    if not best or n > bestN or (n == bestN and #p < #best) or (n == bestN and #p == #best and p < best) then
-                        best, bestN = p, n
-                    end
-                end
-            end
-        end
-        local g = { names = {}, rank = 0, level = 0 }
-        local rest = {}
-        for _, low in ipairs(left) do
-            if low:sub(1, #best) == best then
-                local i = info[low]
-                g.names[#g.names + 1] = i.name
-                g.text = g.text or i.name:sub(1, #best)
-                g.rank = math.max(g.rank, i.rank)
-                g.level = math.max(g.level, i.level)
-            else
-                rest[#rest + 1] = low
-            end
-        end
-        table.sort(g.names)
-        groups[#groups + 1] = g
-        left = rest
-    end
-    table.sort(groups, function(a, b)
-        if #a.names ~= #b.names then return #a.names > #b.names end
-        if a.rank ~= b.rank then return a.rank > b.rank end
-        if a.level ~= b.level then return a.level > b.level end
-        return a.text < b.text
-    end)
-    return groups
-end
-
--- Groups into button macros. Returns the macro texts and how many groups fit.
-function SC.PackDungeon(groups)
-    local reserve = math.max(#("/click [noexists] " .. BTN .. CHAIN), #LAST) + 1
-    local buttons, cur, len, used = {}, {}, 0, 0
-    for _, g in ipairs(groups) do
-        local line = "/target [noexists] " .. g.text .. "\n" .. CLEAR
-        local cost = #line + (#cur > 0 and 1 or 0)
-        if #cur > 0 and len + cost + reserve > MACRO_MAX then
-            if #buttons + 1 >= CHAIN then break end
-            buttons[#buttons + 1] = cur
-            cur, len, cost = {}, 0, #line
-        end
-        cur[#cur + 1] = line
-        len = len + cost
-        used = used + 1
-    end
-    buttons[#buttons + 1] = cur
-    for i, lines in ipairs(buttons) do
-        lines[#lines + 1] = i < #buttons and ("/click [noexists] " .. BTN .. (i + 1)) or LAST
-        buttons[i] = table.concat(lines, "\n")
-    end
-    return buttons, used
-end
 
 ------------------------------------------------------------------------------
 -- Questie lookup
@@ -151,43 +50,84 @@ local function Service(flags)
     return type(flags) == "number" and flags > 1
 end
 
-local cache = {}   -- area id -> { mobs = {...}, avoid = {...} }
+local function FirstWord(name)
+    local w = name:match("^(%S+)")
+    return w and #w >= 4 and w:lower() or nil
+end
 
--- Every NPC Questie places in this area: a spawn there, or (summoned and
--- scripted NPCs with no spawn point) the area as its main zone. step yields
--- every few hundred NPCs so a scan never stalls a frame.
+local cache = {}      -- area id -> { mobs = {...} }
+local allNames        -- every Questie NPC: { { name, spawnless, friendly } }, built on the first scan
+
+-- One pass over Questie's NPCs. step yields every few hundred so a scan
+-- never stalls a frame.
 local function Collect(db, area, step)
-    local mobs, avoid, seen = {}, {}, {}
+    local zone, avoid, seen, spawnless = {}, {}, {}, {}
+    local all = not allNames and {} or nil
+    local allSeen = {}
     local function Q(id, k)
         local ok, v = pcall(db.QueryNPCSingle, id, k)
-        return ok and v or nil
+        if ok then return v end
     end
     local n = 0
     for id in pairs(db.NPCPointers) do
         n = n + 1
-        if step and n % 400 == 0 then step() end
-        local here = Q(id, "zoneID") == area
-        if not here then
+        if step and n % 300 == 0 then step() end
+        local name = Q(id, "name")
+        if type(name) == "string" and name ~= "" then
+            local zid = Q(id, "zoneID")
             local sp = Q(id, "spawns")
-            here = type(sp) == "table" and sp[area] ~= nil
-        end
-        if here then
-            local name = Q(id, "name")
-            if type(name) == "string" and name ~= "" then
-                if Service(Q(id, "npcFlags")) then
-                    avoid[#avoid + 1] = name
+            local hasSpawn = type(sp) == "table" and next(sp) ~= nil
+            local service = Service(Q(id, "npcFlags"))
+            local friendly = Q(id, "friendlyToFaction") ~= nil
+            if all and not service and not allSeen[name] then
+                allSeen[name] = true
+                all[#all + 1] = { name = name, spawnless = not hasSpawn, friendly = friendly }
+            end
+            local here = zid == area or (hasSpawn and sp[area] ~= nil)
+            if here then
+                if service then
+                    avoid[name] = true
                 elseif not seen[name] then
                     seen[name] = true
-                    mobs[#mobs + 1] = { name = name, rank = Q(id, "rank"), level = Q(id, "maxLevel") }
+                    zone[#zone + 1] = { name = name, rank = Q(id, "rank") or 0, level = Q(id, "maxLevel") or 0, friendly = friendly }
                 end
+            elseif not hasSpawn and zid == nil and not service then
+                spawnless[#spawnless + 1] = { name = name, friendly = friendly }
             end
         end
     end
-    table.sort(mobs, function(a, b) return a.name < b.name end)
-    return { mobs = mobs, avoid = avoid }
+    if all then
+        table.sort(all, function(a, b) return a.name < b.name end)
+        allNames = all
+    end
+    -- Families: a first word two or more of the instance's mobs share.
+    local fam = {}
+    for _, m in ipairs(zone) do
+        local w = FirstWord(m.name)
+        if w then fam[w] = (fam[w] or 0) + 1 end
+    end
+    for _, s in ipairs(spawnless) do
+        local w = FirstWord(s.name)
+        local low = s.name:lower()
+        -- invisible script helpers ("Zul'Farrak Concoction Stalker") can't be targeted
+        local helper = low:find(" stalker$") or low:find("trigger") or low:find("bunny") or low:find("%[dn")
+        if w and (fam[w] or 0) >= 2 and not seen[s.name] and not helper then
+            seen[s.name] = true
+            zone[#zone + 1] = { name = s.name, rank = 0, level = 0, friendly = s.friendly, family = true }
+        end
+    end
+    -- Bosses and elites first, then by level; family extras after the
+    -- instance's own mobs of the same rank.
+    table.sort(zone, function(a, b)
+        if a.rank ~= b.rank then return a.rank > b.rank end
+        if (a.family or false) ~= (b.family or false) then return not a.family end
+        if a.level ~= b.level then return a.level > b.level end
+        return a.name < b.name
+    end)
+    return { mobs = zone }
 end
 
--- Questie area id for the instance you're in, or nil.
+-- Questie area id and name for the instance you're in, or nil.
 local function InstanceArea(zones)
     local inInstance, kind = IsInInstance()
     if not (SC.True(inInstance) and (kind == "party" or kind == "raid")) then return nil end
@@ -202,12 +142,40 @@ local function InstanceArea(zones)
 end
 
 ------------------------------------------------------------------------------
--- The chain buttons
+-- Typed searches
 ------------------------------------------------------------------------------
 
-local buttons = {}
-for i = 1, CHAIN do
-    local b = CreateFrame("Button", BTN .. i, UIParent, "SecureActionButtonTemplate")
+-- Full names a typed search stands for in this dungeon: the dungeon's own
+-- names containing the text; if none, every Questie name containing it,
+-- summons first (no spawn point: totems, wards, pets), shortest first, up to
+-- SEARCH_CAP. Returns { { name, friendly } }.
+function SC.DungeonExpand(text)
+    local d = SC.dungeon
+    if not d or type(text) ~= "string" or text == "" then return {} end
+    local low, out = text:lower(), {}
+    for _, m in ipairs(d.mobs) do
+        if m.name:lower():find(low, 1, true) then out[#out + 1] = m end
+    end
+    if #out > 0 or not allNames then return out end
+    local hits = {}
+    for _, a in ipairs(allNames) do
+        if a.name:lower():find(low, 1, true) then hits[#hits + 1] = a end
+    end
+    table.sort(hits, function(a, b)
+        if a.spawnless ~= b.spawnless then return a.spawnless end
+        if #a.name ~= #b.name then return #a.name < #b.name end
+        return a.name < b.name
+    end)
+    for i = 1, math.min(SEARCH_CAP, #hits) do out[i] = hits[i] end
+    return out
+end
+
+------------------------------------------------------------------------------
+-- The buttons
+------------------------------------------------------------------------------
+
+local function Secure(name)
+    local b = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
     b:SetSize(1, 1)
     b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -10, -10)
     b:SetAlpha(0)
@@ -219,55 +187,133 @@ for i = 1, CHAIN do
     b:SetAttribute("type", "macro")
     b:SetAttribute("macrotext", "")
     b:Show()
-    buttons[i] = b
+    return b
 end
 
--- SC.dungeon: { name, area, mobs, groups, texts, used, set } while you're in
--- an instance Questie knows, else nil.
-SC.dungeon = nil
+local hub = Secure(HUB)
+local buttons = {}
+for i = 1, CHAIN do buttons[i] = Secure(BTN .. i) end
 
-local function WriteButtons()
-    if InCombatLockdown() then SC.AfterCombat(WriteButtons); return end
-    local texts = SC.dungeon and SC.DungeonOn() and SC.dungeon.texts or {}
+-- SC.dungeon: { name, area, mobs } while you're in an instance Questie
+-- knows, else nil. SC.dungeonChain: what's on the buttons now.
+SC.dungeon = nil
+SC.dungeonChain = nil
+
+local function Line(name, friendly)
+    return "/targetexact [noexists] " .. name .. "\n/cleartarget [dead]" .. (friendly and "[noharm]" or "")
+end
+
+-- The search names in key order: typed searches (expanded), then the
+-- dungeon's mobs when "Dungeon mobs on the key" is on. Returns
+-- { { name, friendly, from } } and whether /targetenemy ends the chain.
+local function ChainNames()
+    local d = SC.dungeon
+    if not d then return {}, false end
+    local out, seen = {}, {}
+    local function add(m, from)
+        local k = m.name:lower()
+        if seen[k] then return end
+        seen[k] = true
+        out[#out + 1] = { name = m.name, friendly = m.friendly, from = from }
+    end
+    for _, t in ipairs(SC.Actives()) do
+        if t.partial then
+            for _, m in ipairs(SC.DungeonExpand(t.name)) do add(m, t.name) end
+        elseif not seen[t.name:lower()] then
+            seen[t.name:lower()] = true   -- your own exact targets are in the key's macro
+        end
+    end
+    local on = SC.char and SC.char.dungeonMobs
+    if on then
+        for _, m in ipairs(d.mobs) do add(m, nil) end
+    end
+    return out, on
+end
+
+-- Packs names into the search buttons. Returns the button texts, the hub
+-- text and how many names fit.
+function SC.PackDungeon(names, anyEnemy)
+    local texts, cur, len, used = {}, {}, 0, 0
+    for _, n in ipairs(names) do
+        local line = Line(n.name, n.friendly)
+        local cost = #line + (#cur > 0 and 1 or 0)
+        if #cur > 0 and len + cost > MACRO_MAX then
+            texts[#texts + 1] = table.concat(cur, "\n")
+            if #texts >= CHAIN then cur = nil; break end
+            cur, len, cost = {}, 0, #line
+        end
+        if #line > MACRO_MAX then break end
+        cur[#cur + 1] = line
+        len = len + cost
+        used = used + 1
+    end
+    if cur and #cur > 0 then texts[#texts + 1] = table.concat(cur, "\n") end
+    local hubLines = {}
+    for i = 1, #texts do hubLines[i] = "/click " .. BTN .. i end
+    if anyEnemy then hubLines[#hubLines + 1] = LAST end
+    return texts, table.concat(hubLines, "\n"), used
+end
+
+-- Rebuilds the buttons from the dungeon and your searches. Out of combat
+-- only (ApplyBindings calls it).
+function SC.WriteDungeonChain()
+    if InCombatLockdown() then return end
+    local names, anyEnemy = ChainNames()
+    local texts, hubText, used = {}, "", 0
+    if #names > 0 or anyEnemy then texts, hubText, used = SC.PackDungeon(names, anyEnemy) end
     for i, b in ipairs(buttons) do b:SetAttribute("macrotext", texts[i] or "") end
+    hub:SetAttribute("macrotext", hubText)
+    if hubText == "" then
+        SC.dungeonChain = nil
+    else
+        local set = {}
+        for _, n in ipairs(names) do set[n.name:lower()] = true end
+        SC.dungeonChain = { names = names, texts = texts, hub = hubText, used = used, set = set }
+    end
 end
 
 function SC.DungeonOn()
-    return SC.char and SC.char.dungeonMobs and SC.dungeon ~= nil and #SC.dungeon.mobs > 0
+    return SC.dungeonChain ~= nil
 end
 
--- The key's stand-in for the dungeon: one "mob" the key follows once a press
+-- The key's stand-in for the chain: one "mob" the key follows once a press
 -- lands on anything the chain found.
 function SC.DungeonStandIn()
-    if not SC.DungeonOn() then return nil end
+    if not SC.dungeonChain then return nil end
     return { name = SC.dungeon.name, mode = "attack", dungeon = true }
 end
 
--- A readable target name that's one of this dungeon's mobs.
+-- A readable target name that's on the chain.
 function SC.IsDungeonName(n)
-    return SC.dungeon ~= nil and type(n) == "string" and SC.dungeon.set[n:lower()] == true
+    return SC.dungeonChain ~= nil and type(n) == "string" and SC.dungeonChain.set[n:lower()] == true
 end
 
--- The first line of the chain, for the key's macro.
+-- The key macro's line for the chain.
 function SC.DungeonClick()
-    return "/click [noexists] " .. BTN .. "1"
+    return "/click [noexists] " .. HUB
 end
+
+------------------------------------------------------------------------------
+-- Zoning
+------------------------------------------------------------------------------
 
 local function Apply(area, name, data)
-    local groups = SC.GroupNames(data.mobs, data.avoid)
-    local texts, used = SC.PackDungeon(groups)
-    local set = {}
-    for _, m in ipairs(data.mobs) do set[m.name:lower()] = true end
-    SC.dungeon = { name = name or "Dungeon", area = area, mobs = data.mobs, groups = groups,
-                   texts = texts, used = used, set = set }
-    WriteButtons()
+    SC.dungeon = { name = name or "Dungeon", area = area, mobs = data.mobs }
     if SC.ApplyBindings then SC.ApplyBindings() end
     if SC.Refresh then SC.Refresh() end
-    if SC.DungeonOn() then
-        local left = #groups - used
-        SC.Print(string.format("%s: the key goes for its %d mobs (%d searches%s). /spc dungeon lists them.",
-            SC.dungeon.name, #data.mobs, used, left > 0 and (", " .. left .. " left out") or ""))
+    local c = SC.dungeonChain
+    if c and SC.char.dungeonMobs then
+        local left = #c.names - c.used
+        SC.Print(string.format("%s: the key goes for its %d mobs%s. /spc dungeon lists them.",
+            SC.dungeon.name, #data.mobs, left > 0 and (" (" .. left .. " lowest left out)") or ""))
     end
+end
+
+local function Leave()
+    if not SC.dungeon then return end
+    SC.dungeon = nil
+    if SC.ApplyBindings then SC.ApplyBindings() end
+    if SC.Refresh then SC.Refresh() end
 end
 
 local scanning   -- area being scanned
@@ -277,22 +323,14 @@ function SC.DungeonCheck(sync, tries)
     local db, zones = SC.QuestieDBs()
     if not db then
         -- Questie starts its database a few seconds after login.
-        if (tries or 0) < 15 and IsInInstance() then
+        if (tries or 0) < 15 and SC.True(IsInInstance()) then
             C_Timer.After(2, function() SC.DungeonCheck(sync, (tries or 0) + 1) end)
         end
-        if SC.dungeon then SC.dungeon = nil; WriteButtons(); SC.ApplyBindings() end
+        Leave()
         return
     end
     local area, name = InstanceArea(zones)
-    if not area then
-        if SC.dungeon then
-            SC.dungeon = nil
-            WriteButtons()
-            SC.ApplyBindings()
-            SC.Refresh()
-        end
-        return
-    end
+    if not area then Leave(); return end
     if SC.dungeon and SC.dungeon.area == area then return end
     if cache[area] then Apply(area, name, cache[area]); return end
     if sync then
@@ -314,7 +352,6 @@ function SC.DungeonCheck(sync, tries)
         end
         if coroutine.status(co) == "dead" then
             scanning = nil
-            -- still there?
             local _, z = SC.QuestieDBs()
             if InstanceArea(z) == area then Apply(area, name, cache[area]) end
         else
@@ -326,7 +363,6 @@ end
 
 function SC.SetDungeonMobs(on)
     SC.char.dungeonMobs = on and true or false
-    WriteButtons()
     SC.ApplyBindings()
     SC.Refresh()
 end
@@ -336,19 +372,24 @@ SC.On("ZONE_CHANGED_NEW_AREA", function() SC.DungeonCheck() end)
 
 -- /spc dungeon
 function SC.DungeonReport()
-    local d = SC.dungeon
+    local d, c = SC.dungeon, SC.dungeonChain
     if not d then
-        SC.Print(IsInInstance() and "Questie has no list for this instance (or isn't loaded)." or "you're not in a dungeon.")
+        SC.Print(SC.True(IsInInstance()) and "Questie has no list for this instance (or isn't loaded)." or "you're not in a dungeon.")
         return
     end
-    SC.Print(string.format("%s: %d mobs, %d searches%s.", d.name, #d.mobs, #d.groups,
-        SC.char.dungeonMobs and "" or " (off: tick \"Dungeon mobs on the key\" in the settings)"))
-    for i, g in ipairs(d.groups) do
-        local tag = i > d.used and "|cff808080(left out, macro chain full)|r " or ""
-        print(string.format("  %s\"%s\": %s", tag, g.text, table.concat(g.names, ", ")))
+    SC.Print(string.format("%s: %d mobs from Questie%s.", d.name, #d.mobs,
+        SC.char.dungeonMobs and "" or " (not on the key: tick \"Dungeon mobs on the key\" in the settings)"))
+    if not c then return end
+    local names = {}
+    for i, n in ipairs(c.names) do
+        local s = n.name
+        if n.from then s = s .. " |cff808080(\"" .. n.from .. "\")|r" end
+        if i > c.used then s = "|cff808080" .. s .. " (left out)|r" end
+        names[#names + 1] = s
     end
-    print("  then any enemy left (pets, totems, wards)")
+    print("  in order: " .. table.concat(names, ", "))
+    if c.hub:find(LAST, 1, true) then print("  then any enemy left (pets, totems, wards)") end
 end
 
 -- For tests.
-SC._dungeon = { buttons = buttons, cache = cache, Collect = Collect }
+SC._dungeon = { buttons = buttons, hub = hub, cache = cache, Collect = Collect }

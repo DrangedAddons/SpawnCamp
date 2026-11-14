@@ -784,7 +784,8 @@ SlashCmdList.SPAWNCAMP = function(msg)
             (SC.keyDropped or 0) > 0 and (", " .. SC.keyDropped .. " lowest searches left out") or "",
             (text:gsub("\n", " ; "))))
         if SC.DungeonOn and SC.DungeonOn() then
-            for i, t in ipairs(SC.dungeon.texts) do
+            print("  dungeon hub: " .. (SC.dungeonChain.hub:gsub("\n", " ; ")))
+            for i, t in ipairs(SC.dungeonChain.texts) do
                 print(string.format("  dungeon %d (%d characters): %s", i, #t, (t:gsub("\n", " ; "))))
             end
         end
