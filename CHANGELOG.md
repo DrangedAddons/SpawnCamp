@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.43.1
+
+- Fixed the dungeon list not loading. SpawnCamp gave up after 30 seconds if Questie's database wasn't ready yet (after a login or `/reload` inside the instance), and then never tried again, so the key had no dungeon mobs and typed searches like "drinker" added nothing. It now keeps trying every 3 seconds while you're in an instance, and also finds the instance by its zone name or map if the instance ID lookup misses.
+- `/spc dungeon` retries the lookup on the spot. If there's still no list, it says why: Questie not ready, or which instance ID Questie has no zone for, with what it could read.
+
 ## 0.43.0
 
 - Targets stay until you press **Clear**. Getting the kill no longer takes a card off the key; you still get the "You got it!" alert. The **Keep** checkbox is gone.

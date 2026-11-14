@@ -158,8 +158,17 @@ local function InstanceArea(zones)
     local map = zones and zones.instanceIdToAreaId
     local area = type(map) == "table" and map[instanceID] or nil
     if not area and zones and type(zones.GetAreaIdByName) == "function" then
-        local ok, a = pcall(zones.GetAreaIdByName, zones, name)
-        area = ok and a or nil
+        for _, n in ipairs({ name, GetRealZoneText and GetRealZoneText() }) do
+            local ok, a = pcall(zones.GetAreaIdByName, zones, n)
+            if ok and a then area = a; break end
+        end
+    end
+    if not area and zones and type(zones.GetAreaIdByUiMapId) == "function" and C_Map and C_Map.GetBestMapForUnit then
+        local okM, ui = pcall(C_Map.GetBestMapForUnit, "player")
+        if okM and ui then
+            local ok, a = pcall(zones.GetAreaIdByUiMapId, zones, ui)
+            area = ok and a or nil
+        end
     end
     return area, name
 end
@@ -373,20 +382,43 @@ local function Leave()
 end
 
 local scanning   -- area being scanned
+local retrying   -- a retry is queued
+SC.dungeonWhy = nil   -- why the last lookup found no list, for /spc dungeon
+
+-- Questie can take a while to build its database after login or /reload.
+-- While you're in an instance with no list, look again every 3 seconds.
+local function Retry(sync)
+    if retrying or sync or not SC.True(IsInInstance()) then return end
+    retrying = true
+    C_Timer.After(3, function()
+        retrying = nil
+        if not SC.dungeon and SC.True(IsInInstance()) then SC.DungeonCheck() end
+    end)
+end
 
 -- Runs the lookup for the instance you're in. sync (tests) does it in one go.
-function SC.DungeonCheck(sync, tries)
+function SC.DungeonCheck(sync)
     local db, zones = SC.QuestieDBs()
     if not db then
-        -- Questie starts its database a few seconds after login.
-        if (tries or 0) < 15 and SC.True(IsInInstance()) then
-            C_Timer.After(2, function() SC.DungeonCheck(sync, (tries or 0) + 1) end)
+        SC.dungeonWhy = "Questie's database isn't ready (or Questie isn't loaded)"
+        Leave()
+        Retry(sync)
+        return
+    end
+    local area, name = InstanceArea(zones)
+    if not area then
+        if SC.True(IsInInstance()) then
+            local _, _, _, _, _, _, _, id = GetInstanceInfo()
+            SC.dungeonWhy = string.format("Questie has no zone for instance %s (%s)%s", tostring(id), tostring((GetInstanceInfo())),
+                zones and "" or ", and its ZoneDB module didn't load")
+            Retry(sync)
+        else
+            SC.dungeonWhy = nil
         end
         Leave()
         return
     end
-    local area, name = InstanceArea(zones)
-    if not area then Leave(); return end
+    SC.dungeonWhy = nil
     if SC.dungeon and SC.dungeon.area == area then return end
     if cache[area] then Apply(area, name, cache[area]); return end
     if sync then
@@ -403,6 +435,7 @@ function SC.DungeonCheck(sync, tries)
         local ok, err = coroutine.resume(co)
         if not ok then
             scanning = nil
+            SC.dungeonWhy = "reading Questie's list failed: " .. tostring(err)
             SC.Print("|cffff4040couldn't read Questie's list for this instance:|r " .. tostring(err))
             return
         end
@@ -430,7 +463,25 @@ SC.On("ZONE_CHANGED_NEW_AREA", function() SC.DungeonCheck() end)
 function SC.DungeonReport()
     local d, c = SC.dungeon, SC.dungeonChain
     if not d then
-        SC.Print(SC.True(IsInInstance()) and "Questie has no list for this instance (or isn't loaded)." or "you're not in a dungeon.")
+        if not SC.True(IsInInstance()) then SC.Print("you're not in a dungeon."); return end
+        SC.DungeonCheck()
+        d, c = SC.dungeon, SC.dungeonChain
+    end
+    if not d then
+        if scanning then
+            SC.Print("reading Questie's list for this instance now. Try /spc dungeon again in a few seconds.")
+            return
+        end
+        SC.Print("no list for this instance: " .. (SC.dungeonWhy or "unknown reason") .. ".")
+        local inI, kind = IsInInstance()
+        local name, itype, _, _, _, _, _, id = GetInstanceInfo()
+        local db, zones = SC.QuestieDBs()
+        local map = zones and zones.instanceIdToAreaId
+        print(string.format("  instance: %s, type %s / %s, id %s", tostring(name), tostring(kind), tostring(itype), tostring(id)))
+        print(string.format("  Questie: loader %s, database %s, ZoneDB %s, map entry %s",
+            rawget(_G, "QuestieLoader") and "yes" or "no", db and "ready" or "not ready", zones and "yes" or "no",
+            type(map) == "table" and tostring(map[id]) or "no map"))
+        print("  SpawnCamp keeps trying every 3 seconds while you're in here.")
         return
     end
     SC.Print(string.format("%s: %d mobs from Questie%s.", d.name, #d.mobs,
