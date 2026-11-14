@@ -26,6 +26,14 @@ function SC.QuestieReady()
     return Modules() ~= nil
 end
 
+-- Questie's database and zone modules, for Dungeon.lua. nil until Questie is ready.
+function SC.QuestieDBs()
+    local _, db = Modules()
+    if not db then return end
+    local ok, zones = pcall(QuestieLoader.ImportModule, QuestieLoader, "ZoneDB")
+    return db, ok and zones or nil
+end
+
 -- NPC ids in Questie's database for a target: the exact name (any capitals),
 -- or every name containing a search's text. Only NPCs with spawns.
 function SC.QuestieIds(name, partial)

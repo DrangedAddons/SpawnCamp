@@ -22,7 +22,7 @@ local recentOffset, histOffset = 0, 0
 local RECENT_ROWS, HIST_ROWS = 14, 14
 local RECENT_H = 22
 local W = 520
-local PANEL_H = { settings = 244 }   -- settings panel height
+local PANEL_H = { settings = 268 }   -- settings panel height
 local capturing     -- { settings = table with .key, button = key button } while setting a key
 
 -- The game's sword and chat cursors, tinted gold on the buttons.
@@ -1750,7 +1750,10 @@ local function BuildSettings(P)
         function() return not (SC.char.minimap and SC.char.minimap.hide) end,
         function(v) UI.SetLauncherShown(SC.char.minimap, v) end,
         "The SpawnCamp button on the minimap. /spawncamp and the AddOns menu still open the window.")
-    Text(P, "Right-click Attack or Talk for their options.", 8, -206, "GameFontDisableSmall")
+    Check(P, "Dungeon mobs on the key", 4, -200,
+        function() return SC.char.dungeonMobs end, function(v) SC.SetDungeonMobs(v) end,
+        "In a dungeon, the key also goes for that dungeon's mobs, from Questie's database, then any enemy left (pets, totems, wards). Needs Questie. /spc dungeon lists them.")
+    Text(P, "Right-click Attack or Talk for their options.", 8, -230, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------

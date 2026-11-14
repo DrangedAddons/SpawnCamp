@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.41.0
+
+- **Dungeon mobs on the key.** In a dungeon or raid the key now goes for that instance's mobs, after your own targets. Nameplates can't read names in instances, so the list comes from Questie's database: every NPC it places there, including summoned and scripted ones (Zul'Farrak has 35, the Witch Doctor's Greater Healing Ward among them). Quest givers, vendors and trainers are left out.
+- Macros have no wildcards, but `/target` matches the start of a name, so names are grouped by what they start with: "Sand" covers all nine Sandfury mobs, Sandarr and Sandscalp. The searches live in a chain of hidden buttons the key clicks, so the 255-character macro limit doesn't cut them and your cast line always stays.
+- The chain ends with "any enemy", for pets, totems and wards Questie has no entry for. Mobs that start friendly and turn hostile mid-run are passed over while they're still friendly.
+- `/spc dungeon` lists the searches. `/spc key` also prints the chain. Turn it off with **Dungeon mobs on the key** in the settings (per character, on by default).
+
 ## 0.40.0
 
 - Drag to reorder targets. The up/down arrows are replaced by a dotted grab bar on each card's left edge. Pick a card up and it lifts with a shadow and follows your cursor, while the other cards slide out of the way to show where it will land. Let go and it settles into the gap and the new priority is saved. Out of combat only; if combat starts mid-drag, the card goes back where it was.

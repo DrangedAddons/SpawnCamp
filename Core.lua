@@ -67,6 +67,7 @@ SC.CHAR_DEFAULTS = {
         reward = 1,       -- reward choice when a quest offers several (0 = you pick)
     },
     anyQuest = false,     -- the key also goes for any mob your quests still need
+    dungeonMobs = true,   -- in a dungeon, the key also goes for that dungeon's mobs (Questie's list)
     alertSpawn = true,    -- loud alert when a watched mob is seen alive
     alarm = true,         -- soft dings: early warning, window open, average reached
     rareAlert = true,     -- a rare's nameplate adds it as a target box (silver) with an alert
@@ -179,6 +180,10 @@ function SC.MobsIn(mode)
             if i > SC.questCap then break end
             out[#out + 1] = { name = n, mode = "attack", quest = true }
         end
+    end
+    if mode == "attack" and SC.DungeonStandIn then
+        local d = SC.DungeonStandIn()
+        if d then out[#out + 1] = d end
     end
     return out
 end
@@ -737,6 +742,7 @@ local function Help()
     print("  /spawncamp up [name] - log a spawn now")
     print("  /spawncamp probe - print and save what the addon can read (target, mouseover, a nameplate)")
     print("  /spawncamp key - the key's mode, its macro, and the last presses")
+    print("  /spawncamp dungeon - the dungeon mobs the key goes for here")
     print("  /spawncamp vignettes - list the minimap vignettes (rare stars) the game gives addons")
 end
 
@@ -777,7 +783,14 @@ SlashCmdList.SPAWNCAMP = function(msg)
         print(string.format("  macro (%d of %d characters%s): %s", #text, SC.MACRO_MAX,
             (SC.keyDropped or 0) > 0 and (", " .. SC.keyDropped .. " lowest searches left out") or "",
             (text:gsub("\n", " ; "))))
+        if SC.DungeonOn and SC.DungeonOn() then
+            for i, t in ipairs(SC.dungeon.texts) do
+                print(string.format("  dungeon %d (%d characters): %s", i, #t, (t:gsub("\n", " ; "))))
+            end
+        end
         for _, line in ipairs(SpawnCampDB.keyLog or {}) do print("  " .. line) end
+    elseif cmd == "dungeon" then
+        if SC.DungeonReport then SC.DungeonReport() end
     elseif cmd == "debug" or cmd == "probe" then
         SC.Debug()
     elseif cmd == "vignettes" then

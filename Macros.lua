@@ -161,6 +161,11 @@ SC.fastUnit = nil
 SC.onMob = false
 
 local function TalkAndAttack(lines, attack, talk, at)
+    -- In a dungeon: its mobs' searches, in the chain buttons (Dungeon.lua).
+    -- In the tail so the length limit never cuts it.
+    for _, m in ipairs(attack) do
+        if m.dungeon then lines[#lines + 1] = SC.DungeonClick(); break end
+    end
     if #attack > 0 and at then
         local A = SC.char.attack
         local body = SC.AttackMacroBody()
@@ -224,6 +229,7 @@ function SC.BuildKeyMacro()
             units[#units + 1] = clearDead and (line .. "\n/cleartarget [dead]") or line
         end
         for _, x in ipairs(all) do
+            if x.dungeon then break end   -- the chain buttons search for those
             n = n + 1
             if x.name:lower() ~= skipName then
                 unit(((n == 1 and not firstCond) and "/targetexact " or "/targetexact [noexists] ") .. x.name)
