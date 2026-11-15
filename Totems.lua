@@ -177,8 +177,13 @@ function SC.TotemReport()
         .. ", dungeon list " .. tostring(SC.dungeon and #SC.dungeon.mobs or ("none: " .. tostring(SC.dungeonWhy or "no lookup yet")))
         .. ", Auto Totem " .. tostring(SC.char and SC.char.autoTotem) .. ", in combat " .. tostring(InCombatLockdown()))
     line("totem button: " .. (SC.totemText ~= "" and (SC.totemText:gsub("\n", " ; ")) or "(empty)"))
-    local key = SC.KeyMacro and SC.KeyMacro() or ""
-    line("key clicks the totem button: " .. tostring(key:find("SpawnCampTotem", 1, true) ~= nil))
+    local liveBtn = tostring(btn:GetAttribute("macrotext") or "")
+    line("live totem button: " .. (liveBtn ~= "" and (liveBtn:gsub("\n", " ; ")) or "(empty)"))
+    local kb = _G.SpawnCampKey
+    local live = type(kb) == "table" and kb.GetAttribute and kb:GetAttribute("macrotext") or ""
+    if type(live) ~= "string" then live = "" end
+    line("live key (" .. (SC.talkBound and "bound to Interact, the macro doesn't run" or "runs its macro") .. "): "
+        .. (live ~= "" and (live:gsub("\n", " ; ")) or "(empty)"))
     local units = { "target", "mouseover" }
     for i = 1, 40 do
         local ok, v = pcall(UnitExists, "nameplate" .. i)

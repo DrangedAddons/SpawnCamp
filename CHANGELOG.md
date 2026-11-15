@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.47.4
+
+- `/spc totems` shows the key's macro as the game holds it right now (frozen in combat), and whether the key is bound to Interact instead.
+
 ## 0.47.3
 
 - Fix: a dungeon's list sometimes never loaded on zone-in (seen in Zul'Farrak), leaving the key and Auto Totem with no dungeon names until `/spc dungeon`. SpawnCamp now checks every 5 seconds while you're in an instance without its list.
