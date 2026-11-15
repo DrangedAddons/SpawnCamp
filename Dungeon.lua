@@ -110,6 +110,17 @@ local function Collect(db, area, step, mapID)
         local w = FirstWord(m.name)
         if w then fam[w] = (fam[w] or 0) + 1 end
     end
+    -- A generic first word ("Spirit": Spirit of Maraudos, Spirit of Veng) is
+    -- shared by placeless NPCs from all over the world. A family only counts
+    -- when its placeless names don't outnumber the instance's own.
+    local loose = {}
+    for _, s in ipairs(spawnless) do
+        local w = FirstWord(s.name)
+        if w and fam[w] then loose[w] = (loose[w] or 0) + 1 end
+    end
+    local function Family(w)
+        return w ~= nil and (fam[w] or 0) >= 2 and (loose[w] or 0) <= fam[w]
+    end
     local zoneLow = {}
     for _, m in ipairs(zone) do zoneLow[#zoneLow + 1] = m.name:lower() end
     -- A boss's summons: "Ward of Zum'rah", "Skeleton of Zum'rah".
@@ -126,7 +137,7 @@ local function Collect(db, area, step, mapID)
         local low = s.name:lower()
         -- invisible script helpers ("Zul'Farrak Concoction Stalker") can't be targeted
         local helper = low:find(" stalker$") or low:find("trigger") or low:find("bunny") or low:find("%[dn")
-        if ((w and (fam[w] or 0) >= 2) or OfBoss(low)) and not seen[s.name] and not helper then
+        if (Family(w) or OfBoss(low)) and not seen[s.name] and not helper then
             seen[s.name] = true
             zone[#zone + 1] = { name = s.name, rank = 0, level = 0, friendly = s.friendly, family = true }
         end
@@ -226,10 +237,34 @@ end
 -- Zoning
 ------------------------------------------------------------------------------
 
+-- Cards a search added for names that aren't on this instance's list and
+-- that you've never seen: leftovers of a list that had strangers on it
+-- (0.50.0 put every "Spirit of ..." in the game on Maraudon's).
+local function DropStrays()
+    local c = SC.char
+    if not (c and SC.dungeon) then return end
+    local on = {}
+    for _, m in ipairs(SC.dungeon.mobs) do on[m.name] = true end
+    for i = #c.targets, 1, -1 do
+        local n = c.targets[i]
+        local m = c.mobs[n]
+        if m and m.fromPartial and not m.partial and not on[n]
+            and not SC.WasSeen(n) and not (SC.nearby and SC.nearby[n]) then
+            table.remove(c.targets, i)
+            c.mobs[n] = nil
+            for j, o in ipairs(c.order) do
+                if o == n then table.remove(c.order, j); break end
+            end
+            if c.selected == n then c.selected = nil end
+        end
+    end
+end
+
 local function Apply(area, name, data)
     SC.dungeon = { name = name or "Dungeon", area = area, mobs = data.mobs }
     -- Your searches get a card for each of the dungeon's mobs they match,
     -- as outdoors when a matching nameplate shows.
+    pcall(DropStrays)
     if SC.FindPartials then pcall(SC.FindPartials) end
     if SC.ApplyBindings then SC.ApplyBindings() end
     if SC.Refresh then SC.Refresh() end

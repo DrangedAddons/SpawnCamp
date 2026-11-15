@@ -352,11 +352,20 @@ local function Replace(list, old, new)
     end
 end
 
+-- While a whole list is being matched (FindPartials): finds that didn't fit,
+-- counted per search, so chat gets one line instead of one per name.
+local overflow
+local overflowSaid = {}
+
 -- A found mob goes on the key right under its search.
 local function AddFound(key, name)
     local list = SC.char.targets
     if #list >= SC.MAX_TARGETS then
-        SC.Print("found |cffffffff" .. name .. "|r for \"" .. key .. "\", but that's " .. SC.MAX_TARGETS .. " targets already.")
+        if overflow then
+            overflow[key] = (overflow[key] or 0) + 1
+        else
+            SC.Print("found |cffffffff" .. name .. "|r for \"" .. key .. "\", but that's " .. SC.MAX_TARGETS .. " targets already.")
+        end
         return false
     end
     local mobs = SC.char.mobs
@@ -405,7 +414,16 @@ function SC.MatchPartial(name)
 end
 
 function SC.FindPartials()
-    for _, n in ipairs(SC.KnownNames()) do SC.MatchPartial(n) end
+    overflow = {}
+    for _, n in ipairs(SC.KnownNames()) do pcall(SC.MatchPartial, n) end
+    local over = overflow
+    overflow = nil
+    for key, n in pairs(over) do
+        if overflowSaid[key] ~= n then
+            SC.Print(n .. " more match \"" .. key .. "\", but that's " .. SC.MAX_TARGETS .. " targets already. Clear some, or type more of the name.")
+        end
+    end
+    overflowSaid = over
 end
 
 -- The search that found this mob, while that search is still around.

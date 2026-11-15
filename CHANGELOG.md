@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.1
+
+- **Fix: strangers on an instance's enemy list.** In Maraudon a search for "spirit of" offered Spirit of Jin'do, Spirit of Korth'azz, Spirit of Magmadar and twenty more that aren't in Maraudon. The list takes in summoned mobs that share a first word with the instance's own (how Zul'Farrak gets Sandfury Drudge and Sandfury Zealot), and "Spirit" matched every placeless "Spirit ..." in the game. A first word now only counts when its placeless names don't outnumber the instance's own. Maraudon's list drops from 67 to 45 names; Zul'Farrak's is unchanged.
+- Cards a search added for those strangers are removed when the list loads.
+- When a search finds more than fits, chat gets one line ("12 more match ...") instead of one per name, and doesn't repeat it.
+
 ## 0.50.0
 
 - **Rare pop-ups in dungeons.** Names are hidden in instances, but a nameplate still says it's a rare. When one shows (or a party member targets one), SpawnCamp names it from the instance's enemy list, alerts, and adds its card at the top. One rare on the list (Maraudon: Meshlok the Harvester) and it's named outright; several (Zul'Farrak: Dustwraith, Sandarr Dunereaver, Zerillis) and each gets a card, since which one can't be read. Clear a card and that rare doesn't come back this session. Needs the list loaded; uses the same "Pop up rares" setting.
