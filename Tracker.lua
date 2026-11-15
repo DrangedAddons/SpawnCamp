@@ -81,7 +81,7 @@ function SC.Observe(name, kind, spawn, t, src, extra)
         end
         -- Getting the kill never clears a target: cards stay until you press Clear.
         if kind == "D" and e.mine and mob.mode ~= "interact" then
-            SC.Alert("You got " .. name .. "!")
+            SC.Alert("You got " .. name .. "!", not SC.char.killSound)
         end
     end
     SC.Refresh()
@@ -187,12 +187,13 @@ end
 -- Alerts
 ------------------------------------------------------------------------------
 
-function SC.Alert(text)
+-- quiet: no sound this time (the kill alert with its sound turned off).
+function SC.Alert(text, quiet)
     SC.Print("|cffffd100" .. text .. "|r")
     if RaidNotice_AddMessage and RaidWarningFrame then
         pcall(RaidNotice_AddMessage, RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo.RAID_WARNING or { r = 1, g = 0.3, b = 0.1 })
     end
-    if SC.char.sound then
+    if SC.char.sound and not quiet then
         local kit = SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959
         pcall(PlaySound, kit, "Master")
     end

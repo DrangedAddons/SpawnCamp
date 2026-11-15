@@ -83,6 +83,7 @@ SC.CHAR_DEFAULTS = {
     logRight = false,     -- log on the right of the window instead of the left
     locked = false,       -- window can't be dragged
     sound = true,         -- play a sound with alerts
+    killSound = true,     -- ... including the "You got X!" kill alert
     minimap = { hide = false },
 }
 

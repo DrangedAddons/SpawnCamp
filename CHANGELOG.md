@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.47.1
+
+- New setting **Sound when I get the kill** (on by default). Untick it to keep the "You got <mob>!" message without the raid warning sound. Other alerts keep their sound.
+
 ## 0.47.0
 
 - Auto > Totem / Ward gets its own box, like Auto Quest's, at the **top** of the target list (the key tries totems first). It shows the totem your key is on, or "Any enemy totem or ward" with the names it knows here, and how many. **Clear** on it turns Auto Totem off. Clicking its name or portrait targets that totem.
