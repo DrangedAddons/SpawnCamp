@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.47.5
+
+- Auto Totem: a totem found by one name is no longer lost to the names after it. The totem button tried every name in a row, so with Greater Healing Ward first, the misses on Earthgrab, Lava Spout and Ward of Zum'rah could undo the hit. Each name now only runs while nothing is targeted yet. On a mob with no totem up, the key goes back to that mob.
+
 ## 0.47.4
 
 - `/spc totems` shows the key's macro as the game holds it right now (frozen in combat), and whether the key is bound to Interact instead.

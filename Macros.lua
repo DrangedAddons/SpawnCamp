@@ -279,7 +279,8 @@ function SC.BuildKeyMacro()
         -- In combat the macro is frozen and can't switch to "on target", so it
         -- casts at what it finds (the old behaviour).
         head[#head + 1] = "/cleartarget"
-        if totem then head[#head + 1] = totem end
+        -- Target already cleared: the totem button that doesn't restore it.
+        if totem then head[#head + 1] = SC.TotemClick(true) end
         Search(totem ~= nil, true)
         TalkAndAttack(tail, attack, talk, SC.inCombat and "[@target,harm,nodead]" or nil)
     end
