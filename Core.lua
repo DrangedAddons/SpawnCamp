@@ -67,7 +67,6 @@ SC.CHAR_DEFAULTS = {
         reward = 1,       -- reward choice when a quest offers several (0 = you pick)
     },
     anyQuest = false,     -- the key also goes for any mob your quests still need
-    dungeonMobs = true,   -- in a dungeon, the key also goes for that dungeon's mobs (Questie's list)
     autoTotem = false,    -- Auto > Totem / Ward: enemy totems and wards first
     alertSpawn = true,    -- loud alert when a watched mob is seen alive
     alarm = true,         -- soft dings: early warning, window open, average reached
@@ -182,10 +181,6 @@ function SC.MobsIn(mode)
             if i > SC.questCap then break end
             out[#out + 1] = { name = n, mode = "attack", quest = true }
         end
-    end
-    if mode == "attack" and SC.DungeonStandIn then
-        local d = SC.DungeonStandIn()
-        if d then out[#out + 1] = d end
     end
     return out
 end
@@ -791,12 +786,6 @@ SlashCmdList.SPAWNCAMP = function(msg)
         print(string.format("  macro (%d of %d characters%s): %s", #text, SC.MACRO_MAX,
             (SC.keyDropped or 0) > 0 and (", " .. SC.keyDropped .. " lowest searches left out") or "",
             (text:gsub("\n", " ; "))))
-        if SC.DungeonOn and SC.DungeonOn() then
-            print("  dungeon hub: " .. (SC.dungeonChain.hub:gsub("\n", " ; ")))
-            for i, t in ipairs(SC.dungeonChain.texts) do
-                print(string.format("  dungeon %d (%d characters): %s", i, #t, (t:gsub("\n", " ; "))))
-            end
-        end
         for _, line in ipairs(SpawnCampDB.keyLog or {}) do print("  " .. line) end
     elseif cmd == "dungeon" then
         if SC.DungeonReport then SC.DungeonReport() end

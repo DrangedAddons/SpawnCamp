@@ -573,19 +573,14 @@ local function TakeTarget()
         for _, m in ipairs(mobs) do
             if m.name:lower() == n:lower() then name = m.name; break end
         end
-        if not name then
-            for _, m in ipairs(mobs) do
-                if m.dungeon and SC.IsDungeonName(n) then name = m.name; break end
-            end
-        end
     elseif #mobs == 1 then
         name = mobs[1].name
-    elseif hostile == true then
-        -- Hidden name in a dungeon: whatever hostile thing the press found is
-        -- one of its mobs (the chain ends on any enemy).
-        for _, m in ipairs(mobs) do
-            if m.dungeon then name = m.name; break end
-        end
+    elseif hostile == true and SC.InstanceID and SC.InstanceID() then
+        -- Hidden name in an instance, several targets: the key only ever
+        -- looks for your own targets, so whatever hostile thing the press
+        -- found is one of them. Which one can't be read; follow it as the
+        -- first.
+        name = mobs[1].name
     end
     if not name then return end
     for _, m in ipairs(mobs) do
@@ -656,7 +651,7 @@ function SC.EvalTarget()
             local n = SC.UnitNameSafe("target")
             for _, m in ipairs(actives) do
                 if n then
-                    if n:lower() == m.name:lower() or (m.dungeon and SC.IsDungeonName(n)) then on = true; onName = onName or m.name end
+                    if n:lower() == m.name:lower() then on = true; onName = onName or m.name end
                 else
                     local f = follow[m.name]
                     if f and f.viaTarget then on = true; onName = onName or m.name end

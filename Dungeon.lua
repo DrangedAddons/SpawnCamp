@@ -16,34 +16,24 @@
 --     scripts in code, Forever-only NPCs);
 --   * your typed searches ("slave", "totem") match only those names.
 --
--- Each name is one /targetexact line. That's far past one macro's 255
--- characters, so the lines go into hidden buttons and a hub button /clicks
--- them in order:
+-- What the list is for: the key itself only ever goes for your own targets
+-- and (Auto > Totem / Ward) the instance's totems and wards, never "any
+-- enemy", so it can't pull something you didn't pick. The list supplies the
+-- full names:
+--   * a typed search ("slave") adds a card for every name on it containing
+--     the text, and each card is a full-name line in the key's own macro;
+--   * Auto Totem takes its totem and ward names from it (Totems.lua).
 --
---   key macro:  ... /click [noexists] SpawnCampDH ; cast lines
---   hub:        /click SpcD1 ; /click SpcD2 ; ... ; /targetenemy [noexists]
---   SpcD1:      /targetexact [noexists] Sandfury Executioner
---               /cleartarget [dead]
---               ...
---
--- Every search line has [noexists], so once one finds a live mob the rest do
--- nothing. The hub ends with /targetenemy: whatever hostile is left (pets,
--- totems, wards) is still part of the fight.
+-- There used to be hidden buttons holding a /targetexact line per mob, which
+-- the key reached with /click. In game that /click never targeted anything
+-- (the game refuses /click on buttons like those), so they're gone.
 --
 -- NPCs Questie marks friendly stay on the list: Zul'Farrak's Witch Doctor and
--- Sergeant Bly's crew turn hostile mid-run. Their lines clear [noharm] too.
--- Quest givers, vendors and trainers never turn and are left out.
+-- Sergeant Bly's crew turn hostile mid-run. Quest givers, vendors and
+-- trainers never turn and are left out.
 
 local _, SC = ...
 
-local MACRO_MAX = 255
-local HUBS, PER_HUB = 4, 15     -- each hub /clicks 15 search buttons, then the next hub
-local CHAIN = HUBS * PER_HUB     -- search buttons: room for about 200 names (60 x 3-4)
-local HUB = "SpawnCampDH"        -- hubs 2-4 are SpawnCampDH2 ... SpawnCampDH4
-local BTN = "SpcD"               -- short: a hub's 255 characters hold all its /clicks
-local LAST = "/targetenemy [noexists]"
-
-SC.DUNGEON_CHAIN = CHAIN
 
 ------------------------------------------------------------------------------
 -- Questie lookup
@@ -219,160 +209,17 @@ function SC.DungeonExpand(text)
 end
 
 ------------------------------------------------------------------------------
--- The buttons
+-- State
 ------------------------------------------------------------------------------
 
-local function Secure(name)
-    local b = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
-    b:SetSize(1, 1)
-    b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -10, -10)
-    b:SetAlpha(0)
-    b:EnableMouse(false)
-    -- /click sends one edge; listen on both and act on the up edge whatever
-    -- "cast on key down" says (as SpawnCampInteract does).
-    b:RegisterForClicks("AnyUp", "AnyDown")
-    b:SetAttribute("useOnKeyDown", false)
-    b:SetAttribute("type", "macro")
-    b:SetAttribute("macrotext", "")
-    b:Show()
-    return b
-end
-
-local hubs = {}
-for h = 1, HUBS do hubs[h] = Secure(h == 1 and HUB or (HUB .. h)) end
-local buttons = {}
-for i = 1, CHAIN do buttons[i] = Secure(BTN .. i) end
-
 -- SC.dungeon: { name, area, mobs } while you're in an instance Questie
--- knows, else nil. SC.dungeonChain: what's on the buttons now.
+-- knows, else nil.
 SC.dungeon = nil
-SC.dungeonChain = nil
 
-local function Line(name, friendly)
-    return "/targetexact [noexists] " .. name .. "\n/cleartarget [dead]" .. (friendly and "[noharm]" or "")
-end
-
--- The search names in key order: typed searches (expanded), then the
--- dungeon's mobs when "Dungeon mobs on the key" is on. Returns
--- { { name, friendly, from } } and whether /targetenemy ends the chain.
-local function ChainNames()
-    local d = SC.dungeon
-    if not d then return {}, false end
-    local out, seen = {}, {}
-    local function add(m, from)
-        local k = m.name:lower()
-        if seen[k] then return end
-        seen[k] = true
-        out[#out + 1] = { name = m.name, friendly = m.friendly, from = from, by = m.by, totem = m.totem }
-    end
-    -- Your own exact targets (cards, including ones a search added) are in
-    -- the key's macro already.
-    for _, t in ipairs(SC.Actives()) do
-        if not t.partial then seen[t.name:lower()] = true end
-    end
-    for _, t in ipairs(SC.Actives()) do
-        if t.partial then
-            local rejected = t.rejected or {}
-            for _, m in ipairs(SC.DungeonExpand(t.name)) do
-                if not rejected[m.name] then add(m, t.name) end
-            end
-        end
-    end
-    local on = SC.char and SC.char.dungeonMobs
-    if on then
-        for _, m in ipairs(d.mobs) do add(m, nil) end
-    end
-    return out, on
-end
-
--- Packs names into the search buttons. Returns the button texts, the hub
--- text and how many names fit.
-function SC.PackDungeon(names, anyEnemy)
-    local texts, cur, len, used = {}, {}, 0, 0
-    for _, n in ipairs(names) do
-        local line = Line(n.name, n.friendly)
-        local cost = #line + (#cur > 0 and 1 or 0)
-        if #cur > 0 and len + cost > MACRO_MAX then
-            texts[#texts + 1] = table.concat(cur, "\n")
-            if #texts >= CHAIN then cur = nil; break end
-            cur, len, cost = {}, 0, #line
-        end
-        if #line > MACRO_MAX then break end
-        cur[#cur + 1] = line
-        len = len + cost
-        used = used + 1
-    end
-    if cur and #cur > 0 then texts[#texts + 1] = table.concat(cur, "\n") end
-    -- Hubs: each clicks its share of buttons, then the next hub only while
-    -- nothing's been found yet.
-    local hubTexts = {}
-    local nHubs = math.max(1, math.ceil(#texts / PER_HUB))
-    for h = 1, nHubs do
-        local lines = {}
-        for i = (h - 1) * PER_HUB + 1, math.min(#texts, h * PER_HUB) do lines[#lines + 1] = "/click " .. BTN .. i end
-        if h < nHubs then
-            lines[#lines + 1] = "/click [noexists] " .. HUB .. (h + 1)
-        elseif anyEnemy then
-            lines[#lines + 1] = LAST
-        end
-        hubTexts[h] = table.concat(lines, "\n")
-    end
-    return texts, hubTexts, used
-end
-
--- Rebuilds the buttons from the dungeon and your searches. Out of combat
--- only (ApplyBindings calls it).
-function SC.WriteDungeonChain()
-    if InCombatLockdown() then return end
-    local names, anyEnemy = ChainNames()
-    local texts, hubTexts, used = {}, {}, 0
-    if #names > 0 or anyEnemy then texts, hubTexts, used = SC.PackDungeon(names, anyEnemy) end
-    for i, b in ipairs(buttons) do b:SetAttribute("macrotext", texts[i] or "") end
-    for h, b in ipairs(hubs) do b:SetAttribute("macrotext", hubTexts[h] or "") end
-    if (hubTexts[1] or "") == "" then
-        SC.dungeonChain = nil
-    else
-        local set = {}
-        for _, n in ipairs(names) do set[n.name:lower()] = true end
-        SC.dungeonChain = { names = names, texts = texts, hubs = hubTexts, hub = table.concat(hubTexts, "\n"),
-                            used = used, set = set }
-    end
-end
-
+-- In an instance with its list loaded. The key then skips its partial
+-- "/target <text>" lines: your searches are cards with full names there.
 function SC.DungeonOn()
-    return SC.dungeonChain ~= nil
-end
-
--- The key's stand-in for the chain: one "mob" the key follows once a press
--- lands on anything the chain found.
-function SC.DungeonStandIn()
-    if not SC.dungeonChain then return nil end
-    return { name = SC.dungeon.name, mode = "attack", dungeon = true }
-end
-
--- A readable target name that's on the chain.
-function SC.IsDungeonName(n)
-    return SC.dungeonChain ~= nil and type(n) == "string" and SC.dungeonChain.set[n:lower()] == true
-end
-
--- The key macro's line for the dungeon's mobs: any enemy, when nothing above
--- it found one. It used to be "/click [noexists] SpawnCampDH", into the chain
--- buttons, but in game that /click never targeted anything (20 presses in
--- Zul'Farrak, "target after: none" on every one, and a typed /click to the
--- same kind of button did nothing). The game's /click refuses buttons it
--- counts as access-constrained. So the names you want by name go on cards
--- (type a search), which are lines in the key itself, and this catches the rest.
-function SC.DungeonClick()
-    if SC.char and SC.char.dungeonMobs then return LAST end
-end
-
--- In a dungeon or raid with dungeon mobs on, whether or not its list has
--- loaded yet. The key gets its any-enemy line from this, so it's bound from
--- the moment you zone in or reload.
-function SC.DungeonPending()
-    if not (SC.char and SC.char.dungeonMobs) then return false end
-    local inInstance, kind = IsInInstance()
-    return SC.True(inInstance) and (kind == "party" or kind == "raid")
+    return SC.dungeon ~= nil
 end
 
 ------------------------------------------------------------------------------
@@ -386,12 +233,8 @@ local function Apply(area, name, data)
     if SC.FindPartials then pcall(SC.FindPartials) end
     if SC.ApplyBindings then SC.ApplyBindings() end
     if SC.Refresh then SC.Refresh() end
-    local c = SC.dungeonChain
-    if c and SC.char.dungeonMobs then
-        local left = #c.names - c.used
-        SC.Print(string.format("%s: the key goes for its %d mobs%s. /spc dungeon lists them.",
-            SC.dungeon.name, #data.mobs, left > 0 and (" (" .. left .. " lowest left out)") or ""))
-    end
+    SC.Print(string.format("%s: enemy list loaded (%d). Type a search to add its mobs as targets.",
+        SC.dungeon.name, #data.mobs))
 end
 
 local function Leave()
@@ -487,11 +330,6 @@ function SC.DungeonCheck(sync)
     Resume()
 end
 
-function SC.SetDungeonMobs(on)
-    SC.char.dungeonMobs = on and true or false
-    SC.ApplyBindings()
-    SC.Refresh()
-end
 
 SC.On("PLAYER_ENTERING_WORLD", function() SC.DungeonCheck() end)
 SC.On("ZONE_CHANGED_NEW_AREA", function() SC.DungeonCheck() end)
@@ -531,18 +369,18 @@ function SC.StatusLine()
         SC.totemOnKey or 0, #(SC.totemList or {})) or ""
     local wait = (hasKey and SC.keyWaiting) and "  (key updates after this fight)" or ""
     if SC.dungeon then
-        return string.format("%s: %d mobs%s%s", name, #SC.dungeon.mobs, totems, wait), 0.3, 0.9, 0.45
+        return string.format("%s: %d enemies%s%s", name, #SC.dungeon.mobs, totems, wait), 0.3, 0.9, 0.45
     end
-    return string.format("%s: loading mob list...%s%s", name, totems, wait), 1, 0.82, 0
+    return string.format("%s: loading enemy list...%s%s", name, totems, wait), 1, 0.82, 0
 end
 
 -- /spc dungeon
 function SC.DungeonReport()
-    local d, c = SC.dungeon, SC.dungeonChain
+    local d = SC.dungeon
     if not d then
         if not SC.True(IsInInstance()) then SC.Print("you're not in a dungeon."); return end
         SC.DungeonCheck()
-        d, c = SC.dungeon, SC.dungeonChain
+        d = SC.dungeon
     end
     if not d then
         if scanning then
@@ -561,20 +399,16 @@ function SC.DungeonReport()
         print("  SpawnCamp keeps trying every 3 seconds while you're in here.")
         return
     end
-    SC.Print(string.format("%s: %d mobs from Questie%s.", d.name, #d.mobs,
-        SC.char.dungeonMobs and "" or " (not on the key: tick \"Dungeon mobs on the key\" in the settings)"))
-    if not c then return end
+    SC.Print(string.format("%s: %d enemies on the list.", d.name, #d.mobs))
     local names = {}
-    for i, n in ipairs(c.names) do
-        local s = n.name
-        if n.from then s = s .. " |cff808080(\"" .. n.from .. "\")|r" end
-        if n.by then s = s .. " |cff808080(summoned by " .. n.by .. ")|r" end
-        if i > c.used then s = "|cff808080" .. s .. " (left out)|r" end
-        names[#names + 1] = s
+    for _, m in ipairs(d.mobs) do
+        local n = m.name
+        if m.totem then n = n .. " |cff808080(totem/ward)|r" end
+        if m.by then n = n .. " |cff808080(summoned by " .. m.by .. ")|r" end
+        names[#names + 1] = n
     end
-    print("  in order: " .. table.concat(names, ", "))
-    if c.hub:find(LAST, 1, true) then print("  then any enemy left (pets, totems, wards)") end
+    print("  " .. table.concat(names, ", "))
 end
 
 -- For tests.
-SC._dungeon = { buttons = buttons, hubs = hubs, cache = cache, Collect = Collect }
+SC._dungeon = { cache = cache, Collect = Collect }

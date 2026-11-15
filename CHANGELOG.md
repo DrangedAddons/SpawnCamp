@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.49.0
+
+- **The key only goes for your targets.** In a dungeon it no longer falls back to "any enemy", so it can't pull something you didn't pick. With no targets and Auto Totem off, the key does nothing.
+- "Dungeon mobs on the key" is gone from the settings, along with the hidden buttons behind it (they never worked in game). The instance's enemy list is still loaded: typed searches turn its names into cards, and Auto Totem takes its totems and wards from it.
+- Auto Totem: when a press finds no totem and none of your targets, it puts back whatever you had targeted, so the press changes nothing. It never casts at the target it put back.
+- With names hidden in an instance and several cards, whatever the key finds counts as on target (the key only looks for your cards), so the next press casts.
+- Title bar and chat both say "enemy list".
+
 ## 0.48.1
 
 - The chat line on entering an instance is just "<instance>: loading enemy list."

@@ -163,12 +163,7 @@ SC.onMob = false
 local function TalkAndAttack(lines, attack, talk, at)
     -- In a dungeon: its mobs' searches, in the chain buttons (Dungeon.lua).
     -- In the tail so the length limit never cuts it.
-    local dung = SC.DungeonPending and SC.DungeonPending()
-    for _, m in ipairs(attack) do
-        if m.dungeon then dung = true; break end
-    end
-    if dung then lines[#lines + 1] = SC.DungeonClick() end
-    if (#attack > 0 or dung or (SC.TotemOn and SC.TotemOn())) and at then
+    if (#attack > 0 or (SC.TotemOn and SC.TotemOn())) and at then
         local A = SC.char.attack
         local body = SC.AttackMacroBody()
         if body then
@@ -207,11 +202,7 @@ function SC.BuildKeyMacro()
     for _, m in ipairs(SC.Actives()) do if m.partial then anySearch = true end end
     local totem = SC.TotemOn and SC.TotemOn() or nil
     local totemAt, totemKeep   -- where in head the totem lines go, and whether to restore
-    -- In a dungeon with "Dungeon mobs on the key" on, the key is never empty,
-    -- even before Questie's list is in: an empty key isn't bound, and a key
-    -- that's unbound when a fight starts stays dead for that whole fight.
-    local pending = SC.DungeonPending and SC.DungeonPending()
-    if #attack + #talk == 0 and not anySearch and not totem and not pending then return "" end
+    if #attack + #talk == 0 and not anySearch and not totem then return "" end
     local all = {}
     for _, x in ipairs(attack) do all[#all + 1] = x end
     for _, x in ipairs(talk) do all[#all + 1] = x end
@@ -240,7 +231,6 @@ function SC.BuildKeyMacro()
             units[#units + 1] = clearDead and (line .. "\n/cleartarget [dead]") or line
         end
         for _, x in ipairs(all) do
-            if x.dungeon then break end   -- the chain buttons search for those
             n = n + 1
             if x.name:lower() ~= skipName then
                 unit(((n == 1 and not firstCond) and "/targetexact " or "/targetexact [noexists] ") .. x.name)
@@ -291,6 +281,10 @@ function SC.BuildKeyMacro()
         if totem then totemAt, totemKeep = #head + 1, false end
         Search(totem ~= nil, true)
         TalkAndAttack(tail, attack, talk, SC.inCombat and "[@target,harm,nodead]" or nil)
+        -- Auto Totem checks on every press, usually with no totem up. Found
+        -- nothing: put back what you had targeted, so the press did nothing.
+        -- After the cast line, so the key never casts at the target it put back.
+        if totem then tail[#tail + 1] = "/targetlasttarget [noexists]" end
     end
     -- Opening lines and the first search always go in; then as many searches
     -- as still leave room for the cast/attack/talk lines.
@@ -305,19 +299,6 @@ function SC.BuildKeyMacro()
             return SC.TotemLines(totemKeep, MACRO_MAX - reserve)
         end
         local tl = Fit()
-        -- On a mob, the totem names beat the dungeon's any-enemy line when
-        -- they can't all fit: you already have a target there.
-        if totemKeep and SC.totemOnKey < #SC.totemList then
-            local any = SC.DungeonClick and SC.DungeonClick()
-            for i, l in ipairs(tail) do
-                if any and l == any then
-                    table.remove(tail, i)
-                    tailText = table.concat(tail, "\n")
-                    tl = Fit()
-                    break
-                end
-            end
-        end
         for i, l in ipairs(tl or {}) do table.insert(head, totemAt + i - 1, l) end
     end
     local lines = {}
@@ -421,7 +402,6 @@ function SC.ApplyBindings()
     end
     SC.keyWaiting, SC.keyWarned, SC.keyBound = false, false, false
     ClearOverrideBindings(owner)
-    if SC.WriteDungeonChain then SC.WriteDungeonChain() end
     if SC.WriteTotemButton then SC.WriteTotemButton() end
     keyBtn:RegisterForClicks(ClickEdge())
     local text = SC.KeyMacro()

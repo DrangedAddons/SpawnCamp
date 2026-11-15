@@ -1793,10 +1793,7 @@ local function BuildSettings(P)
         function() return not (SC.char.minimap and SC.char.minimap.hide) end,
         function(v) UI.SetLauncherShown(SC.char.minimap, v) end,
         "The SpawnCamp button on the minimap. /spawncamp and the AddOns menu still open the window.")
-    Check(P, "Dungeon mobs on the key", 4, -200,
-        function() return SC.char.dungeonMobs end, function(v) SC.SetDungeonMobs(v) end,
-        "In a dungeon, the key also goes for that dungeon's mobs, from Questie's database, then any enemy left (pets, totems, wards). Needs Questie. /spc dungeon lists them.")
-    Check(P, "Sound when I get the kill", 240, -200,
+    Check(P, "Sound when I get the kill", 4, -200,
         function() return SC.char.killSound end, function(v) SC.char.killSound = v end,
         "The raid warning sound with \"You got <mob>!\" when you kill a target. Unticked, the kill still shows on screen and in chat, without the sound. \"Sound with alerts\" off silences it too.")
     Text(P, "Right-click Attack or Talk for their options.", 8, -230, "GameFontDisableSmall")
