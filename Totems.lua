@@ -174,7 +174,7 @@ function SC.TotemReport()
     SC.Print("totem probe (also saved; /reload to write it to disk):")
     local _, itype = IsInInstance()
     line("zone " .. tostring(GetRealZoneText and GetRealZoneText()) .. ", instance " .. tostring(itype)
-        .. ", dungeon list " .. tostring(SC.dungeon and #SC.dungeon.mobs or "none")
+        .. ", dungeon list " .. tostring(SC.dungeon and #SC.dungeon.mobs or ("none: " .. tostring(SC.dungeonWhy or "no lookup yet")))
         .. ", Auto Totem " .. tostring(SC.char and SC.char.autoTotem) .. ", in combat " .. tostring(InCombatLockdown()))
     line("totem button: " .. (SC.totemText ~= "" and (SC.totemText:gsub("\n", " ; ")) or "(empty)"))
     local key = SC.KeyMacro and SC.KeyMacro() or ""

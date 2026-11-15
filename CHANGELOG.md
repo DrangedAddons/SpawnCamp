@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.47.3
+
+- Fix: a dungeon's list sometimes never loaded on zone-in (seen in Zul'Farrak), leaving the key and Auto Totem with no dungeon names until `/spc dungeon`. SpawnCamp now checks every 5 seconds while you're in an instance without its list.
+- `/spc totems` says why there's no dungeon list.
+
 ## 0.47.2
 
 - `/spc totems`: a probe for totem targeting. Lists what the game tells SpawnCamp about your target and every nameplate (name, creature type, NPC id, hostile), plus what the totem button holds. Saved to SpawnCamp's saved variables.

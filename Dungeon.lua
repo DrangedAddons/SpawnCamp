@@ -464,6 +464,20 @@ end
 SC.On("PLAYER_ENTERING_WORLD", function() SC.DungeonCheck() end)
 SC.On("ZONE_CHANGED_NEW_AREA", function() SC.DungeonCheck() end)
 
+-- The zone-in events alone missed Zul'Farrak in game: no lookup ran until
+-- /spc dungeon. So while you're in an instance with no list for it (and no
+-- scan running), look again every 5 seconds.
+local function Watch()
+    if scanning or not SC.char then return end
+    local inInstance, kind = IsInInstance()
+    if not (SC.True(inInstance) and (kind == "party" or kind == "raid")) then
+        if SC.dungeon then SC.DungeonCheck() end
+        return
+    end
+    if not SC.dungeon then SC.DungeonCheck() end
+end
+if C_Timer and C_Timer.NewTicker then C_Timer.NewTicker(5, function() pcall(Watch) end) end
+
 -- /spc dungeon
 function SC.DungeonReport()
     local d, c = SC.dungeon, SC.dungeonChain
