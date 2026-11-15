@@ -757,6 +757,7 @@ SC.Scan = Scan
 SC.On("NAME_PLATE_UNIT_ADDED", function(unit)
     plates[unit] = true
     if SC.NoteTotem then pcall(SC.NoteTotem, unit) end
+    if SC.NoteDungeonRare then pcall(SC.NoteDungeonRare, unit) end
     blocked[unit] = nil
     Check(unit)
     SC.PickLock()
@@ -773,6 +774,7 @@ end)
 SC.On("PLAYER_TARGET_CHANGED", function()
     Check("target")
     if SC.NoteTotem then pcall(SC.NoteTotem, "target") end
+    if SC.NoteDungeonRare then pcall(SC.NoteDungeonRare, "target") end
 end)
 SC.On("UPDATE_MOUSEOVER_UNIT", function() Check("mouseover") end)
 

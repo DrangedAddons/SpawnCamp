@@ -79,6 +79,85 @@ local function Found(name, cls, ctype, where, how)
     SC.Refresh()
 end
 
+------------------------------------------------------------------------------
+-- Dungeons
+------------------------------------------------------------------------------
+
+-- In an instance a nameplate's name is hidden, but its classification isn't.
+-- A rare-class unit there is one of the rares on the instance's enemy list
+-- (Questie's rank: 2 rare elite, 4 rare), so the list names it: one rare on
+-- the list (Maraudon: Meshlok the Harvester) and that's the one; several
+-- (Zul'Farrak has three) and each gets a card, and the key tries them by name.
+local RANK_CLASS = { [2] = "rareelite", [4] = "rare" }
+local dungeonAlerted = {}   -- "area:class" -> time of the last alert
+
+-- unit: a nameplate, your target, or a group member's target. who = whose
+-- target it is, for the alert, or nil.
+function SC.NoteDungeonRare(unit, who)
+    local d = SC.dungeon
+    if not (SC.char and SC.char.rareAlert and d) then return end
+    if not SC.MaybeExists(unit) or SC.True(UnitIsPlayer(unit)) then return end
+    local cls = SC.Plain(UnitClassification(unit))
+    if not IS_RARE[cls] then return end
+    if SC.Bool(UnitIsDead(unit)) == true or SC.Bool(UnitCanAttack("player", unit)) == false then return end
+    if SC.UnitNameSafe(unit) then return end   -- readable: the usual path names it
+    local key = tostring(d.area) .. ":" .. cls
+    local now = GetTime()
+    if dungeonAlerted[key] and now - dungeonAlerted[key] < ALERT_AGAIN then return end
+    -- The list's rares of this class; if it has none of this class, all its rares.
+    local same, any = {}, {}
+    for _, m in ipairs(d.mobs) do
+        local c = RANK_CLASS[m.rank]
+        if c then
+            any[#any + 1] = m.name
+            if c == cls then same[#same + 1] = m.name end
+        end
+    end
+    local names = #same > 0 and same or any
+    -- Not the ones you cleared or ignored.
+    local want = {}
+    for _, n in ipairs(names) do
+        if not SC.rareDismissed[n] and not SC.IsRareIgnored(n) then want[#want + 1] = n end
+    end
+    if #names > 0 and #want == 0 then return end
+    dungeonAlerted[key] = now
+    local added
+    for i = #want, 1, -1 do   -- backwards, so the list's order ends up on top
+        local n = want[i]
+        if not SC.IsActive(n) and #SC.Targets() < SC.MAX_TARGETS then
+            local m = SC.AddMob(n, "attack")
+            if m then
+                m.rare, m.rareAuto = cls, true
+                local list = SC.char.targets
+                for j, t in ipairs(list) do
+                    if t == n then table.remove(list, j); break end
+                end
+                table.insert(list, 1, n)
+                added = true
+            end
+        end
+    end
+    if added then
+        SC.fastUnit = nil
+        SC.ApplyBindings()   -- waits for the fight to end by itself
+        if SC.EvalTarget then pcall(SC.EvalTarget) end
+    end
+    SC.char.shown = true
+    if not SC.SilverDragonOn() then
+        local what = cls == "rareelite" and "Rare elite" or "Rare"
+        local text
+        if #want == 0 then
+            text = what .. " nearby (not on this instance's enemy list)"
+        elseif #want == 1 then
+            text = what .. " nearby: " .. want[1]
+        else
+            text = what .. " nearby, one of: " .. table.concat(want, ", ")
+        end
+        SC.Alert(text .. (who and ("  (" .. who .. "'s target)") or ""))
+    end
+    SC.Refresh()
+end
+
 -- Settings > Test rare: a pretend rare elite at the top, with the alert.
 SC.TEST_RARE = "Test Rare (SpawnCamp)"
 function SC.TestRare()
@@ -180,10 +259,14 @@ local function CheckGroupTarget(unit)
     if not IS_RARE[cls] then return end
     if SC.Bool(UnitIsDead(t)) == true or SC.Bool(UnitCanAttack("player", t)) == false then return end
     local name = SC.UnitNameSafe(t)
-    if not name then return end
+    local who = SC.Plain(UnitName(unit))
+    if not name then
+        -- Hidden name: in an instance the enemy list can still name it.
+        SC.NoteDungeonRare(t, type(who) == "string" and who or nil)
+        return
+    end
     local m = SC.char.mobs[name]
     if m then m.rare = cls end
-    local who = SC.Plain(UnitName(unit))
     Found(name, cls, SC.Plain(UnitCreatureType(t)), type(who) == "string" and ("(" .. who .. "'s target)") or nil, "spotted")
 end
 
@@ -202,8 +285,21 @@ SC.On("UNIT_TARGET", function(unit)
     if type(unit) == "string" and (unit:find("^party%d") or unit:find("^raid%d")) then pcall(CheckGroupTarget, unit) end
 end)
 SC.On("GROUP_ROSTER_UPDATE", function() SC.ScanGroupTargets() end)
+-- Nameplates already up when an instance's list finishes loading.
+function SC.ScanDungeonRares()
+    if not (SC.char and SC.dungeon) then return end
+    for i = 1, 40 do
+        local u = "nameplate" .. i
+        if SC.MaybeExists(u) then pcall(SC.NoteDungeonRare, u) end
+    end
+end
+
 -- UNIT_TARGET doesn't fire for members out of range of you; a slow sweep catches those.
-C_Timer.NewTicker(3, function() if SC.char then SC.ScanGroupTargets() end end)
+C_Timer.NewTicker(3, function()
+    if not SC.char then return end
+    SC.ScanGroupTargets()
+    SC.ScanDungeonRares()
+end)
 
 for _, ev in ipairs({ "VIGNETTE_MINIMAP_UPDATED", "VIGNETTES_UPDATED" }) do
     if SC.EventValid(ev) then SC.On(ev, function() SC.ScanVignettes() end) end

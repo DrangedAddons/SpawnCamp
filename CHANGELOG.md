@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.50.0
+
+- **Rare pop-ups in dungeons.** Names are hidden in instances, but a nameplate still says it's a rare. When one shows (or a party member targets one), SpawnCamp names it from the instance's enemy list, alerts, and adds its card at the top. One rare on the list (Maraudon: Meshlok the Harvester) and it's named outright; several (Zul'Farrak: Dustwraith, Sandarr Dunereaver, Zerillis) and each gets a card, since which one can't be read. Clear a card and that rare doesn't come back this session. Needs the list loaded; uses the same "Pop up rares" setting.
+
 ## 0.49.0
 
 - **The key only goes for your targets.** In a dungeon it no longer falls back to "any enemy", so it can't pull something you didn't pick. With no targets and Auto Totem off, the key does nothing.
