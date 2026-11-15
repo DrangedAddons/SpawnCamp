@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.47.6
+
+- Auto Totem: the totem and ward names now go straight into the key's own macro, the way target cards do. They used to sit on a hidden button the key reached with `/click`, and in Zul'Farrak that `/click` did nothing, typed or from the key, while the same `/targetexact` on a card worked. The names share the key's 255 characters, ahead of your own searches, so with a target or two on the key only the first one or two fit (Zul'Farrak: Greater Healing Ward first). `/spc totems` says how many made it.
+- Locked on a nameplate, the totem search now runs before the lock, which saves room.
+
 ## 0.47.5
 
 - Auto Totem: a totem found by one name is no longer lost to the names after it. The totem button tried every name in a row, so with Greater Healing Ward first, the misses on Earthgrab, Lava Spout and Ward of Zum'rah could undo the hit. Each name now only runs while nothing is targeted yet. On a mob with no totem up, the key goes back to that mob.

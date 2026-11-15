@@ -166,7 +166,7 @@ local function TalkAndAttack(lines, attack, talk, at)
     for _, m in ipairs(attack) do
         if m.dungeon then lines[#lines + 1] = SC.DungeonClick(); break end
     end
-    if (#attack > 0 or (SC.TotemClick and SC.TotemClick())) and at then
+    if (#attack > 0 or (SC.TotemOn and SC.TotemOn())) and at then
         local A = SC.char.attack
         local body = SC.AttackMacroBody()
         if body then
@@ -203,7 +203,8 @@ function SC.BuildKeyMacro()
     local attack, talk = SC.MobsIn("attack"), SC.MobsIn("interact")
     local anySearch = false
     for _, m in ipairs(SC.Actives()) do if m.partial then anySearch = true end end
-    local totem = SC.TotemClick and SC.TotemClick()
+    local totem = SC.TotemOn and SC.TotemOn() or nil
+    local totemAt, totemKeep   -- where in head the totem lines go, and whether to restore
     if #attack + #talk == 0 and not anySearch and not totem then return "" end
     local all = {}
     for _, x in ipairs(attack) do all[#all + 1] = x end
@@ -247,7 +248,7 @@ function SC.BuildKeyMacro()
     if SC.onMob then
         -- On a mob: an enemy totem still takes over (the totem button only
         -- changes the target when one is up).
-        if totem then head[#head + 1] = totem end
+        if totem then totemAt, totemKeep = #head + 1, true end
         Search(true)
         TalkAndAttack(tail, attack, talk, "[@target,harm,nodead]")
     elseif SC.fastUnit then
@@ -260,15 +261,16 @@ function SC.BuildKeyMacro()
         -- nameplate token still lands on that mob (nearest of that name), not
         -- on whichever target is first in the list.
         head[#head + 1] = "/cleartarget"
-        head[#head + 1] = "/target " .. SC.fastUnit
+        -- Auto Totem: an enemy totem beats the lock. Its search runs first,
+        -- and the lock lines only run if it found none ([noexists]), so the
+        -- cast goes at whatever ended up targeted.
+        if totem then totemAt, totemKeep = #head + 1, false end
+        head[#head + 1] = (totem and "/target [noexists] " or "/target ") .. SC.fastUnit
         if SC.fastName then
             head[#head + 1] = "/targetexact [noexists] " .. SC.fastName
             head[#head + 1] = "/cleartarget [dead]"
             skipName = SC.fastName:lower()
         end
-        -- Auto Totem: an enemy totem beats the lock (its button runs after
-        -- these lines), so the cast goes at whatever ended up targeted.
-        if totem then head[#head + 1] = totem end
         Search(true, true)
         TalkAndAttack(tail, attack, talk, totem and "[@target,harm,nodead]" or ("[@" .. SC.fastUnit .. ",harm,nodead]"))
     else
@@ -279,16 +281,25 @@ function SC.BuildKeyMacro()
         -- In combat the macro is frozen and can't switch to "on target", so it
         -- casts at what it finds (the old behaviour).
         head[#head + 1] = "/cleartarget"
-        -- Target already cleared: the totem button that doesn't restore it.
-        if totem then head[#head + 1] = SC.TotemClick(true) end
+        -- Target already cleared: totem lines without the restore.
+        if totem then totemAt, totemKeep = #head + 1, false end
         Search(totem ~= nil, true)
         TalkAndAttack(tail, attack, talk, SC.inCombat and "[@target,harm,nodead]" or nil)
     end
     -- Opening lines and the first search always go in; then as many searches
     -- as still leave room for the cast/attack/talk lines.
+    local tailText = table.concat(tail, "\n")
+    -- Totem lines: after the opening lines, as many names as leave room for
+    -- the cast/attack/talk lines and your first own search.
+    SC.totemOnKey = 0
+    if totemAt then
+        local reserve = #table.concat(head, "\n") + 1
+            + (#tailText > 0 and #tailText + 1 or 0) + (units[1] and #units[1] + 1 or 0)
+        local tl = SC.TotemLines(totemKeep, MACRO_MAX - reserve)
+        for i, l in ipairs(tl or {}) do table.insert(head, totemAt + i - 1, l) end
+    end
     local lines = {}
     for _, l in ipairs(head) do lines[#lines + 1] = l end
-    local tailText = table.concat(tail, "\n")
     local used = #table.concat(head, "\n")
     SC.keyDropped = 0
     for i, u in ipairs(units) do
