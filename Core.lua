@@ -800,6 +800,8 @@ SlashCmdList.SPAWNCAMP = function(msg)
         for _, line in ipairs(SpawnCampDB.keyLog or {}) do print("  " .. line) end
     elseif cmd == "dungeon" then
         if SC.DungeonReport then SC.DungeonReport() end
+    elseif cmd == "totems" then
+        if SC.TotemReport then SC.TotemReport() end
     elseif cmd == "debug" or cmd == "probe" then
         SC.Debug()
     elseif cmd == "vignettes" then

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.47.2
+
+- `/spc totems`: a probe for totem targeting. Lists what the game tells SpawnCamp about your target and every nameplate (name, creature type, NPC id, hostile), plus what the totem button holds. Saved to SpawnCamp's saved variables.
+
 ## 0.47.1
 
 - New setting **Sound when I get the kill** (on by default). Untick it to keep the "You got <mob>!" message without the raid warning sound. Other alerts keep their sound.

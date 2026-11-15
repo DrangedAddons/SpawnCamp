@@ -149,4 +149,51 @@ end
 SC.On("ZONE_CHANGED_NEW_AREA", function() if SC.char then SC.ApplyBindings() end end)
 SC.On("PLAYER_ENTERING_WORLD", function() if SC.char then SC.ApplyBindings() end end)
 
+-- /spc totems: what the game tells an addon about every nameplate and your
+-- target, and what the totem button holds. For when totem targeting fails.
+-- Saved to SpawnCampDB.totemProbe (/reload writes it to disk).
+function SC.TotemReport()
+    local out = {}
+    local function line(s) out[#out + 1] = s; print("  " .. s) end
+    local function show(f, ...)
+        local ok, a, b = pcall(f, ...)
+        if not ok then return "ERROR " .. tostring(a) end
+        local function one(v)
+            if v == nil then return "nil" end
+            if SC.issecret(v) then return "SECRET" end
+            return type(v) == "string" and ('"' .. v .. '"') or tostring(v)
+        end
+        if b ~= nil then return one(a) .. "/" .. one(b) end
+        return one(a)
+    end
+    local function npcID(unit)
+        local ok, g = pcall(UnitGUID, unit)
+        if not ok or g == nil or SC.issecret(g) or type(g) ~= "string" then return "?" end
+        return g:match("^Creature%-%d+%-%d+%-%d+%-%d+%-(%d+)") or g:match("^Vehicle%-%d+%-%d+%-%d+%-%d+%-(%d+)") or "?"
+    end
+    SC.Print("totem probe (also saved; /reload to write it to disk):")
+    local _, itype = IsInInstance()
+    line("zone " .. tostring(GetRealZoneText and GetRealZoneText()) .. ", instance " .. tostring(itype)
+        .. ", dungeon list " .. tostring(SC.dungeon and #SC.dungeon.mobs or "none")
+        .. ", Auto Totem " .. tostring(SC.char and SC.char.autoTotem) .. ", in combat " .. tostring(InCombatLockdown()))
+    line("totem button: " .. (SC.totemText ~= "" and (SC.totemText:gsub("\n", " ; ")) or "(empty)"))
+    local key = SC.KeyMacro and SC.KeyMacro() or ""
+    line("key clicks the totem button: " .. tostring(key:find("SpawnCampTotem", 1, true) ~= nil))
+    local units = { "target", "mouseover" }
+    for i = 1, 40 do
+        local ok, v = pcall(UnitExists, "nameplate" .. i)
+        if ok and v ~= nil and (SC.issecret(v) or v) then units[#units + 1] = "nameplate" .. i end
+    end
+    for _, u in ipairs(units) do
+        if SC.MaybeExists(u) then
+            local n, why = SC.UnitNameSafe(u)
+            line(string.format("[%s] name %s, type %s, totem %s, npc %s, canAttack %s, dead %s, guid %s",
+                u, n and ('"' .. n .. '"') or ("(" .. why .. ")"), show(UnitCreatureType, u),
+                tostring(SC.IsTotem(u)), npcID(u), show(UnitCanAttack, "player", u), show(UnitIsDead, u),
+                show(UnitGUID, u)))
+        end
+    end
+    SpawnCampDB.totemProbe = { time = date("%Y-%m-%d %H:%M:%S"), lines = out }
+end
+
 SC._totem = { button = btn }
