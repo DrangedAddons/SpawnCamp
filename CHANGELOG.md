@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.48.1
+
+- The chat line on entering an instance is just "<instance>: loading enemy list."
+
 ## 0.48.0
 
 - **Fix: the key went dead after a /reload in a dungeon.** With no targets of your own, the key had nothing to do until Questie's list for the instance arrived, and an empty key isn't bound. If a fight started first, the game locked the key and it stayed dead for that whole fight. Now, in an instance, the key is bound the moment you zone in or reload: Auto Totem's names come from the data file that ships with the addon (no waiting on Questie), and "Dungeon mobs on the key" gives it an any-enemy line straight away. The binding is also redone as a fight starts.

@@ -427,8 +427,7 @@ local function Loading(sync)
     if told == id then return end
     told = id
     if SC.RefreshStatus then SC.RefreshStatus() end
-    SC.Print(string.format("%s: loading its mob list. Until it's in, your key goes for %s.", tostring(name),
-        SC.char.dungeonMobs and "totems, wards and any enemy" or "your own targets"))
+    SC.Print(tostring(name) .. ": loading enemy list.")
 end
 
 -- Runs the lookup for the instance you're in. sync (tests) does it in one go.
