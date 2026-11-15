@@ -5,15 +5,21 @@
 --
 --   * every NPC Questie places in the instance (a spawn there, or the
 --     instance as its main zone);
---   * spawnless NPCs of the same family: event and summoned mobs (Sandfury
---     Slave, Sandfury Drudge, Sandfury Zealot) have no spawn point or zone in
---     Questie, but share a first word with two or more of the instance's mobs;
 --   * gaps Questie leaves, from DungeonData.lua (generated from the cMaNGOS
 --     classic database by tools/build_dungeon_data.py): mobs cMaNGOS spawns
 --     there that Questie doesn't place, and what the instance's mobs summon
---     (totems, wards, adds), which Questie has no record of at all;
+--     (totems, wards, adds), which Questie has no record of at all, and
+--     what the instance's server script creates (event waves, boss adds:
+--     Sandfury Drudge, Sandfury Zealot);
 --   * the SUMMONS table below, for what neither has (summons the server
 --     scripts in code, Forever-only NPCs);
+--
+-- No name gets on the list by resemblance. An earlier version took in
+-- placeless NPCs that shared a first word with the instance's mobs, or were
+-- "<something> of <a boss>": that put every "Spirit of ..." in the game on
+-- Maraudon's list and the Defias of Westfall in the Deadmines. Every name now
+-- comes from data that ties that NPC to this instance.
+--
 --   * your typed searches ("slave", "totem") match only those names.
 --
 -- What the list is for: the key itself only ever goes for your own targets
@@ -45,11 +51,6 @@ local function Service(flags)
     return type(flags) == "number" and flags > 1
 end
 
-local function FirstWord(name)
-    local w = name:match("^(%S+)")
-    return w and #w >= 4 and w:lower() or nil
-end
-
 local cache = {}      -- area id -> { mobs = {...} }
 
 -- Summons DungeonData.lua doesn't have, by Questie area id: the ones the
@@ -73,7 +74,7 @@ SC.IsTotemName = TotemName
 -- One pass over Questie's NPCs. step yields every few hundred so a scan
 -- never stalls a frame.
 local function Collect(db, area, step, mapID)
-    local zone, avoid, seen, spawnless = {}, {}, {}, {}
+    local zone, avoid, seen = {}, {}, {}
     -- Questie reads a number it has no value for as 0 (a summon's zone is 0,
     -- not nil), so 0 counts as "none" here.
     local function Q(id, k)
@@ -97,54 +98,18 @@ local function Collect(db, area, step, mapID)
                     avoid[name] = true
                 elseif not seen[name] then
                     seen[name] = true
-                    zone[#zone + 1] = { name = name, rank = Q(id, "rank") or 0, level = Q(id, "maxLevel") or 0, friendly = friendly }
+                    zone[#zone + 1] = { name = name, rank = Q(id, "rank") or 0, level = Q(id, "maxLevel") or 0, friendly = friendly, src = "questie" }
                 end
-            elseif not hasSpawn and zid == nil and not service then
-                spawnless[#spawnless + 1] = { name = name, friendly = friendly }
             end
-        end
-    end
-    -- Families: a first word two or more of the instance's mobs share.
-    local fam = {}
-    for _, m in ipairs(zone) do
-        local w = FirstWord(m.name)
-        if w then fam[w] = (fam[w] or 0) + 1 end
-    end
-    -- A generic first word ("Spirit": Spirit of Maraudos, Spirit of Veng) is
-    -- shared by placeless NPCs from all over the world. A family only counts
-    -- when its placeless names don't outnumber the instance's own.
-    local loose = {}
-    for _, s in ipairs(spawnless) do
-        local w = FirstWord(s.name)
-        if w and fam[w] then loose[w] = (loose[w] or 0) + 1 end
-    end
-    local function Family(w)
-        return w ~= nil and (fam[w] or 0) >= 2 and (loose[w] or 0) <= fam[w]
-    end
-    local zoneLow = {}
-    for _, m in ipairs(zone) do zoneLow[#zoneLow + 1] = m.name:lower() end
-    -- A boss's summons: "Ward of Zum'rah", "Skeleton of Zum'rah".
-    local function OfBoss(low)
-        local y = low:match(" of (.+)$")
-        if not y or #y < 4 then return false end
-        for _, z in ipairs(zoneLow) do
-            if z:find(y, 1, true) then return true end
-        end
-        return false
-    end
-    for _, s in ipairs(spawnless) do
-        local w = FirstWord(s.name)
-        local low = s.name:lower()
-        -- invisible script helpers ("Zul'Farrak Concoction Stalker") can't be targeted
-        local helper = low:find(" stalker$") or low:find("trigger") or low:find("bunny") or low:find("%[dn")
-        if (Family(w) or OfBoss(low)) and not seen[s.name] and not helper then
-            seen[s.name] = true
-            zone[#zone + 1] = { name = s.name, rank = 0, level = 0, friendly = s.friendly, family = true }
         end
     end
     -- Gaps from the generated data, then the hand-written summons. A name
     -- already on the list only gets marked (a totem, who summons it).
-    local function Extra(n, totem, by)
+    -- src says why a name is on the list: "questie" (Questie places it
+    -- here), "spawn" (cMaNGOS spawns it here), "summon" (a mob here summons
+    -- it), "script" (the instance's server script creates it), "seen"
+    -- (written down from the game). A name with no src must never get on.
+    local function Extra(n, totem, by, src)
         if seen[n] then
             for _, m in ipairs(zone) do
                 if m.name == n then
@@ -156,18 +121,21 @@ local function Collect(db, area, step, mapID)
             return
         end
         seen[n] = true
-        zone[#zone + 1] = { name = n, rank = 0, level = 0, family = true, totem = totem or nil, by = by }
+        zone[#zone + 1] = { name = n, rank = 0, level = 0, family = true, totem = totem or nil, by = by, src = src }
     end
     local prof = mapID and SC.DUNGEON_DATA and SC.DUNGEON_DATA[mapID]
     if prof then
         for _, n in ipairs(prof.mobs or {}) do
-            if not avoid[n] then Extra(n, false) end
+            if not avoid[n] then Extra(n, false, nil, "spawn") end
         end
         for _, s in ipairs(prof.summons or {}) do
-            Extra(s[1], s[3] or TotemName(s[1]), s[2] ~= "" and s[2] or nil)
+            Extra(s[1], s[3] or TotemName(s[1]), s[2] ~= "" and s[2] or nil, "summon")
+        end
+        for _, n in ipairs(prof.scripted or {}) do
+            if not avoid[n] then Extra(n, TotemName(n), nil, "script") end
         end
     end
-    for _, n in ipairs(SUMMONS[area] or {}) do Extra(n, TotemName(n)) end
+    for _, n in ipairs(SUMMONS[area] or {}) do Extra(n, TotemName(n), nil, "seen") end
     -- Bosses and elites first, then by level; family extras after the
     -- instance's own mobs of the same rank.
     table.sort(zone, function(a, b)

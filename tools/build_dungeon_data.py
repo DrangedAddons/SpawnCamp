@@ -10,6 +10,14 @@ itself built from):
             summons them. Questie has no record of this at all. Found by following
             each mob's spells (its spell list, AI script casts and summons, death
             scripts) to spell effects that create an NPC, through triggered spells.
+  * scripted - NPCs the server creates from its C++ instance scripts (event waves,
+            boss adds: Zul'Farrak's Sandfury Slave, Drudge, Zealot, Acolyte). Read
+            from the NPC_... constants in the cMaNGOS core's script folder for that
+            instance, found by the instance's script name, plus what the
+            SPELL_... constants there summon.
+
+Nothing here is guessed from how a name looks. Every name is on an instance's list
+because the server data or the server code for that instance mentions that NPC.
 
 Usage:
   python tools/build_dungeon_data.py            # download the dump if not cached, build
@@ -21,6 +29,8 @@ dump is read from the repo, so --refresh picks up a new one by itself.
 """
 import argparse
 import gzip
+import io
+import tarfile
 import json
 import os
 import re
@@ -41,10 +51,16 @@ TRIGGER_AURAS = {23, 42}          # periodic trigger spell, proc trigger spell
 AI_CAST, AI_SUMMON, AI_SUMMON_ID = 11, 12, 32
 DB_SUMMON = 10                    # dbscripts: temp summon creature
 
+CORE = "https://codeload.github.com/cmangos/mangos-classic/tar.gz/refs/heads/master"
+CORE_FILE = "mangos-classic.tar.gz"
+NPC_CONST = re.compile(r"\b(?:NPC|MOB)_[A-Z0-9_]+\s*=\s*(\d+)")
+SCRIPT_NAME = re.compile(r'"(instance_[a-z0-9_]+)"')
+SPELL_CONST = re.compile(r"\bSPELL_[A-Z0-9_]+\s*=\s*(\d+)")
+
 TOTEM_TYPE = 11
 UNIT_FLAG_NOT_SELECTABLE = 0x02000000
 EXTRA_FLAG_INVISIBLE = 0x80
-HELPER_NAME = re.compile(r"trigger|bunny|\[dn[dt]\]|\bstalker$|dummy|invisible", re.I)
+HELPER_NAME = re.compile(r"trigger|bunny|\[dn[dt]\]|\bstalker$|dummy|invisible|kill credit|spawn point|\bvisual$", re.I)
 
 TABLES = {
     "instance_template", "creature_template", "creature", "creature_spawn_entry",
@@ -77,6 +93,44 @@ def fetch(refresh):
         if old != name:
             os.remove(os.path.join(CACHE, old))
     return path
+
+
+def fetch_core(refresh):
+    os.makedirs(CACHE, exist_ok=True)
+    dest = os.path.join(CACHE, CORE_FILE)
+    if os.path.exists(dest) and not refresh:
+        return dest
+    print("downloading cMaNGOS core scripts")
+    urllib.request.urlretrieve(CORE, dest + ".part")
+    os.replace(dest + ".part", dest)
+    return dest
+
+
+def script_npcs(path):
+    """{ instance script name: (NPC entries, spell ids) its script folder names }."""
+    dirs = {}                                    # folder -> [file text]
+    with tarfile.open(path, "r:gz") as tar:
+        for m in tar:
+            if not m.isfile() or "/ScriptDevAI/scripts/" not in m.name:
+                continue
+            if not m.name.endswith((".cpp", ".h")):
+                continue
+            text = tar.extractfile(m).read().decode("utf-8", "replace")
+            dirs.setdefault(os.path.dirname(m.name), []).append((os.path.basename(m.name), text))
+    out = {}
+    for folder, files in dirs.items():
+        ids, spells = set(), set()
+        for _, text in files:
+            ids.update(int(x) for x in NPC_CONST.findall(text))
+            spells.update(int(x) for x in SPELL_CONST.findall(text))
+        # The folder belongs to the instance script it registers: a
+        # "instance_molten_core" string literal in one of its files.
+        for _, text in files:
+            for name in set(SCRIPT_NAME.findall(text)):
+                e = out.setdefault(name, (set(), set()))
+                e[0].update(ids)
+                e[1].update(spells)
+    return out
 
 
 def tuples(s, i):
@@ -165,7 +219,8 @@ def load(path):
     return rows
 
 
-def build(rows):
+def build(rows, scripts=None):
+    scripts = scripts or {}
     npc = {r["Entry"]: r for r in rows["creature_template"]}
     spell = {r["Id"]: r for r in rows["spell_template"]}
     instances = {r["map"] for r in rows["instance_template"]}
@@ -260,9 +315,15 @@ def build(rows):
                         visited.add(s)
                         nxt.append(s)
             frontier, level = nxt, level + 1
-        if mobs or summons:
-            out[m] = {"script": next((r["ScriptName"] for r in rows["instance_template"] if r["map"] == m), ""),
-                      "mobs": mobs, "summons": summons}
+        script = next((r["ScriptName"] for r in rows["instance_template"] if r["map"] == m), "")
+        have = set(mobs) | set(summons)
+        s_npcs, s_spells = scripts.get(script, ((), ()))
+        made = set(s_npcs)
+        for sid in s_spells:             # spells the script casts by hand
+            made |= spell_summons(sid)
+        scripted = sorted({npc[e]["Name"] for e in made if usable(e) and not service(e)} - have)
+        if mobs or summons or scripted:
+            out[m] = {"script": script, "mobs": mobs, "summons": summons, "scripted": scripted}
     return out
 
 
@@ -277,7 +338,8 @@ def write(data, source):
         "-- instance's mobs; this only fills its gaps (see Dungeon.lua).",
         "--",
         "-- [instance map id] = { mobs = { names cMaNGOS spawns there },",
-        "--                       summons = { { name, summoned by, totem (creature type Totem) } } }",
+        "--                       summons = { { name, summoned by, totem (creature type Totem) } },",
+        "--                       scripted = { names the instance's server script creates } }",
         "",
         "local _, SC = ...",
         "",
@@ -293,6 +355,7 @@ def write(data, source):
             lines.append("            { %s, %s, %s }," % (lua_str(name), lua_str(", ".join(sorted(s["by"]))),
                                                         "true" if s["totem"] else "false"))
         lines.append("        },")
+        lines.append("        scripted = { " + ", ".join(lua_str(n) for n in d["scripted"]) + " },")
         lines.append("    },")
     lines.append("}")
     lines.append("")
@@ -307,10 +370,11 @@ def main():
     a = ap.parse_args()
     path = a.dump or fetch(a.refresh)
     print("reading", os.path.basename(path))
-    data = build(load(path))
+    data = build(load(path), script_npcs(fetch_core(a.refresh)))
     write(data, os.path.basename(path))
     n_s = sum(len(d["summons"]) for d in data.values())
-    print("wrote %s: %d instances, %d summons" % (os.path.relpath(OUT, ROOT), len(data), n_s))
+    n_c = sum(len(d["scripted"]) for d in data.values())
+    print("wrote %s: %d instances, %d summons, %d scripted" % (os.path.relpath(OUT, ROOT), len(data), n_s, n_c))
 
 
 if __name__ == "__main__":

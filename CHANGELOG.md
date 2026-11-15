@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.2
+
+- **Instance enemy lists no longer guess.** Two rules used to add names by resemblance: a shared first word with the instance's mobs, and "<something> of <a boss>". They were wrong in almost every instance (Defias Thug in the Deadmines, Son of Flame in Gnomeregan, "Naxxramas Mounts" in Naxxramas). Both are gone. A name is now on a list only when data ties that NPC to that instance: Questie places it there, cMaNGOS spawns it there, a mob there summons it, or the instance's own server script creates it.
+- New source for event and boss adds: the cMaNGOS server scripts for each instance. This is where Zul'Farrak's Sandfury Drudge, Zealot and Acolyte now come from, and it adds adds the guessing missed: Naxxramas' Unrelenting and Spectral waves, Blackwing Lair's drakonids, C'Thun's tentacles, Onyxian Whelps, Blackrock Depths' arena bosses.
+- Checked across all 26 dungeons and raids: 1,345 names, each with a recorded source.
+
 ## 0.50.1
 
 - **Fix: strangers on an instance's enemy list.** In Maraudon a search for "spirit of" offered Spirit of Jin'do, Spirit of Korth'azz, Spirit of Magmadar and twenty more that aren't in Maraudon. The list takes in summoned mobs that share a first word with the instance's own (how Zul'Farrak gets Sandfury Drudge and Sandfury Zealot), and "Spirit" matched every placeless "Spirit ..." in the game. A first word now only counts when its placeless names don't outnumber the instance's own. Maraudon's list drops from 67 to 45 names; Zul'Farrak's is unchanged.

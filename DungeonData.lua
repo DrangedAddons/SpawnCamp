@@ -3,7 +3,8 @@
 -- instance's mobs; this only fills its gaps (see Dungeon.lua).
 --
 -- [instance map id] = { mobs = { names cMaNGOS spawns there },
---                       summons = { { name, summoned by, totem (creature type Totem) } } }
+--                       summons = { { name, summoned by, totem (creature type Totem) } },
+--                       scripted = { names the instance's server script creates } }
 
 local _, SC = ...
 
@@ -16,6 +17,7 @@ SC.DUNGEON_DATA = {
             { "Imp Minion", "Morloch", false },
             { "Summoned Water Elemental", "Captain Balinda Stonehearth", false },
         },
+        scripted = {  },
     },
     [33] = { -- instance_shadowfang_keep
         mobs = { "Archmage Arugal", "Arugal", "Baron Silverlaine", "Black Rat", "Bleak Worg", "Blood Seeker", "Commander Springvale", "Deathstalker Adamant", "Deathsworn Captain", "Fel Steed", "Fenrus the Devourer", "Haunted Servitor", "Lupine Horror", "Odo the Blindwatcher", "Razorclaw the Butcher", "Rethilgore", "Sever", "Shadow Charger", "Shadowfang Darksoul", "Shadowfang Glutton", "Shadowfang Moonwalker", "Shadowfang Ragetooth", "Shadowfang Whitescalp", "Shadowfang Wolfguard", "Slavering Worg", "Son of Arugal", "Sorcerer Ashcrombe", "Tormented Officer", "Vile Bat", "Wailing Guardsman", "Wolf Master Nandos", "Wolfguard Worg" },
@@ -26,11 +28,13 @@ SC.DUNGEON_DATA = {
             { "Slavering Worg", "Wolf Master Nandos", false },
             { "Wolfguard Worg", "Shadowfang Wolfguard", false },
         },
+        scripted = { "Arugal's Voidwalker" },
     },
     [34] = { -- map 34
         mobs = { "Bazil Thredd", "Bruegal Ironknuckle", "Defias Captive", "Defias Convict", "Defias Inmate", "Defias Insurgent", "Defias Prisoner", "Dextren Ward", "Hamhock", "Kam Deepfury", "Targorr the Dread" },
         summons = {
         },
+        scripted = {  },
     },
     [36] = { -- instance_deadmines
         mobs = { "Captain Greenskin", "Cookie", "Defias Blackguard", "Defias Evoker", "Defias Miner", "Defias Overseer", "Defias Pirate", "Defias Squallshaper", "Defias Strip Miner", "Defias Taskmaster", "Defias Watchman", "Defias Wizard", "Edwin VanCleef", "Gilnid", "Goblin Craftsman", "Goblin Engineer", "Goblin Shipbuilder", "Goblin Woodcarver", "Miner Johnson", "Mr. Smite", "Rat", "Rhahk'Zor", "Sneed's Shredder" },
@@ -40,11 +44,13 @@ SC.DUNGEON_DATA = {
             { "Remote-Controlled Golem", "Goblin Engineer", false },
             { "Sneed", "Sneed's Shredder", false },
         },
+        scripted = {  },
     },
     [43] = { -- instance_wailing_caverns
         mobs = { "Biletoad", "Deviate Adder", "Deviate Crocolisk", "Deviate Dreadfang", "Deviate Faerie Dragon", "Deviate Guardian", "Deviate Lasher", "Deviate Nightmare", "Deviate Python", "Deviate Ravager", "Deviate Shambler", "Deviate Venomwing", "Deviate Viper", "Disciple of Naralex", "Druid of the Fang", "Evolving Ectoplasm", "Kresh", "Lord Cobrahn", "Lord Pythas", "Lord Serpentis", "Naralex", "Skum", "Snake", "Verdan the Everliving" },
         summons = {
         },
+        scripted = { "Deviate Moccasin", "Mutanus the Devourer", "Nightmare Ectoplasm" },
     },
     [47] = { -- instance_razorfen_kraul
         mobs = { "Agam'ar", "Agathelos the Raging", "Aggem Thorncurse", "Blood of Agamaggan", "Charlga Razorflank", "Death Speaker Jargba", "Death's Head Acolyte", "Death's Head Adept", "Death's Head Priest", "Death's Head Sage", "Death's Head Seer", "Death's Head Ward Keeper", "Earthcaller Halmgar", "Greater Kraul Bat", "Kraul Bat", "Overlord Ramtusk", "Quilguard Champion", "Raging Agam'ar", "Razorfen Beast Trainer", "Razorfen Beastmaster", "Razorfen Defender", "Razorfen Dustweaver", "Razorfen Earthbreaker", "Razorfen Geomancer", "Razorfen Groundshaker", "Razorfen Handler", "Razorfen Quilguard", "Razorfen Spearhide", "Razorfen Totemic", "Razorfen Warden", "Razorfen Warrior", "Roogug", "Rotting Agam'ar", "Ward Guardian" },
@@ -60,6 +66,7 @@ SC.DUNGEON_DATA = {
             { "Tamed Hyena", "Razorfen Beastmaster", false },
             { "Wind Howler", "Razorfen Dustweaver", false },
         },
+        scripted = { "Snufflenose Gopher" },
     },
     [48] = { -- instance_blackfathom_deeps
         mobs = { "Aku'mai", "Aku'mai Fisher", "Aku'mai Snapjaw", "Barbed Crustacean", "Blackfathom Myrmidon", "Blackfathom Sea Witch", "Blindlight Muckdweller", "Blindlight Murloc", "Blindlight Oracle", "Deep Pool Threshfin", "Fallenroot Hellcaller", "Fallenroot Shadowstalker", "Gelihast", "Ghamoo-ra", "Lady Sarevess", "Lorgus Jett", "Murkshallow Snapclaw", "Old Serra'kis", "Skittering Crustacean", "Snapping Crustacean", "Twilight Acolyte", "Twilight Aquamancer", "Twilight Elementalist", "Twilight Lord Kelris", "Twilight Loreseeker", "Twilight Reaver", "Twilight Shadowmage" },
@@ -68,6 +75,7 @@ SC.DUNGEON_DATA = {
             { "Morridune", "Aku'mai", false },
             { "Voidwalker Minion", "Twilight Shadowmage", false },
         },
+        scripted = { "Aku'mai Servant", "Baron Aquanis", "Murkshallow Softshell" },
     },
     [70] = { -- instance_uldaman
         mobs = { "Ancient Stone Keeper", "Archaedas", "Cleft Scorpid", "Deadly Cleft Scorpid", "Earthen Custodian", "Earthen Guardian", "Earthen Hallshaper", "Earthen Rocksmasher", "Earthen Sculptor", "Earthen Stonebreaker", "Earthen Stonecarver", "Galgann Firehammer", "Grimlok", "Jadespine Basilisk", "Obsidian Sentinel", "Revelosh", "Shadowforge Archaeologist", "Shadowforge Darkcaster", "Shadowforge Geologist", "Shadowforge Relic Hunter", "Shadowforge Sharpshooter", "Shrike Bat", "Stone Keeper", "Stone Steward", "Stonevault Ambusher", "Stonevault Brawler", "Stonevault Cave Lurker", "Stonevault Flameweaver", "Stonevault Geomancer", "Stonevault Mauler", "Stonevault Oracle", "Stonevault Rockchewer", "Vault Warder", "Venomlash Scorpid" },
@@ -78,6 +86,7 @@ SC.DUNGEON_DATA = {
             { "Sand Storm", "Ancient Stone Keeper", false },
             { "Tremor Totem", "Grimlok", true },
         },
+        scripted = {  },
     },
     [90] = { -- instance_gnomeregan
         mobs = { "Alarm-a-bomb 2600", "Arcane Nullifier X-21", "Blastmaster Emi Shortfuse", "Caverndeep Ambusher", "Caverndeep Burrower", "Caverndeep Reaver", "Corrosive Lurker", "Crowd Pummeler 9-60", "Dark Iron Agent", "Dark Iron Ambassador", "Electrocutioner 6000", "Holdout Medic", "Holdout Technician", "Holdout Warrior", "Irradiated Horror", "Irradiated Pillager", "Irradiated Slime", "Leprous Assistant", "Leprous Defender", "Leprous Machinesmith", "Leprous Technician", "Mechanized Guardian", "Mechanized Sentry", "Mechano-Flamewalker", "Mechano-Frostwalker", "Mechano-Tank", "Mekgineer Thermaplugg", "Mobile Alert System", "Peacekeeper Security Suit", "Viscous Fallout" },
@@ -87,6 +96,7 @@ SC.DUNGEON_DATA = {
             { "Ember", "Burning Servant", false },
             { "Mechanized Sentry", "Mobile Alert System", false },
         },
+        scripted = { "Chomper", "Grubbis", "Walking Bomb" },
     },
     [109] = { -- instance_sunken_temple
         mobs = { "Atal'ai Corpse Eater", "Atal'ai Deathwalker", "Atal'ai High Priest", "Atal'ai Slave", "Atal'ai Warrior", "Atal'ai Witch Doctor", "Deep Lurker", "Hakkari Frostwing", "Hakkari Sapper", "Hazzas", "Jammal'an the Prophet", "Morphaz", "Murk Worm", "Ogom the Wretched", "Oozeling", "Rat", "Saturated Ooze", "Shade of Eranikus", "Slime Maggot", "Snake", "Spawn of Hakkar", "Unliving Atal'ai" },
@@ -96,6 +106,7 @@ SC.DUNGEON_DATA = {
             { "Earthgrab Totem", "Jammal'an the Prophet", true },
             { "Oozeling", "Saturated Ooze", false },
         },
+        scripted = { "Atal'alarion", "Avatar of Hakkar", "Dreamscythe", "Gasher", "Hakkari Bloodkeeper", "Hakkari Minion", "Hukku", "Loro", "Mijan", "Nightmare Suppressor", "Weaver", "Zolo", "Zul'Lor" },
     },
     [129] = { -- instance_razorfen_downs
         mobs = { "Amnennar the Coldbringer", "Battle Boar Horror", "Black Rat", "Boneflayer Ghoul", "Death's Head Geomancer", "Death's Head Necromancer", "Freezing Spirit", "Frozen Soul", "Glutton", "Lady Falther'ess", "Mordresh Fire Eye", "Ragglesnout", "Roach", "Sah'rhee", "Skeletal Frostweaver", "Skeletal Summoner", "Splinterbone Captain", "Splinterbone Centurion", "Splinterbone Skeleton", "Splinterbone Warrior", "Thorn Eater Ghoul", "Withered Battle Boar", "Withered Quilguard", "Withered Reaver", "Withered Spearhide", "Withered Warrior" },
@@ -104,6 +115,7 @@ SC.DUNGEON_DATA = {
             { "Skeletal Servant", "Death's Head Necromancer", false },
             { "Skeletal Shadowcaster", "Skeletal Summoner", false },
         },
+        scripted = { "Plaguemaw the Rotting", "Tomb Fiend", "Tomb Reaver", "Tuten'kash" },
     },
     [189] = { -- instance_scarlet_monastery
         mobs = { "Anguished Dead", "Arcanist Doan", "Azshir the Sleepless", "Bloodmage Thalnos", "Fallen Champion", "Haunting Phantasm", "Herod", "High Inquisitor Fairbanks", "High Inquisitor Whitemane", "Houndmaster Loksey", "Interrogator Vishas", "Ironspine", "Rabbit", "Rat", "Scarlet Abbot", "Scarlet Adept", "Scarlet Beastmaster", "Scarlet Centurion", "Scarlet Champion", "Scarlet Chaplain", "Scarlet Commander Mograine", "Scarlet Conjuror", "Scarlet Defender", "Scarlet Diviner", "Scarlet Evoker", "Scarlet Gallant", "Scarlet Guardsman", "Scarlet Monk", "Scarlet Myrmidon", "Scarlet Protector", "Scarlet Scryer", "Scarlet Sentry", "Scarlet Soldier", "Scarlet Sorcerer", "Scarlet Torturer", "Scarlet Tracking Hound", "Scarlet Wizard", "Suffering Victim", "Unfettered Spirit" },
@@ -112,6 +124,7 @@ SC.DUNGEON_DATA = {
             { "Illusionary Phantasm", "Haunting Phantasm", false },
             { "Scorn", "Bloodmage Thalnos", false },
         },
+        scripted = { "Scarlet Trainee" },
     },
     [209] = { -- instance_zulfarrak
         mobs = { "Antu'sul", "Chief Ukorz Sandscalp", "Dustwraith", "Hydromancer Velratha", "Murta Grimgut", "Oro Eyegouge", "Raven", "Ruuzlu", "Sandarr Dunereaver", "Sandfury Blood Drinker", "Sandfury Executioner", "Sandfury Guardian", "Sandfury Shadowcaster", "Sandfury Shadowhunter", "Sandfury Soul Eater", "Sandfury Witch Doctor", "Scarab", "Sergeant Bly", "Sul'lithuz Abomination", "Sul'lithuz Hatchling", "Sul'lithuz Sandcrawler", "Theka the Martyr", "Weegli Blastfuse", "Witch Doctor Zum'rah", "Zerillis" },
@@ -124,6 +137,7 @@ SC.DUNGEON_DATA = {
             { "Servant of Antu'sul", "Antu'sul", false },
             { "Ward of Zum'rah", "Hydromancer Velratha, Witch Doctor Zum'rah", false },
         },
+        scripted = { "Gahz'rilla", "Nekrum Gutchewer", "Sandfury Acolyte", "Sandfury Cretin", "Sandfury Drudge", "Sandfury Zealot", "Shadowpriest Sezz'ziz", "Skeleton of Zum'rah", "Zul'Farrak Dead Hero", "Zul'Farrak Zombie" },
     },
     [229] = { -- instance_blackrock_spire
         mobs = { "Bannok Grimaxe", "Black Rat", "Blackhand Assassin", "Blackhand Dreadweaver", "Blackhand Elite", "Blackhand Incarcerator", "Blackhand Iron Guard", "Blackhand Summoner", "Blackhand Thug", "Blackhand Veteran", "Bloodaxe Evoker", "Bloodaxe Raider", "Bloodaxe Summoner", "Bloodaxe Veteran", "Bloodaxe Warmonger", "Bloodaxe Worg", "Bloodaxe Worg Pup", "Chromatic Elite Guard", "Crystal Fang", "Firebrand Darkweaver", "Firebrand Dreadweaver", "Firebrand Grunt", "Firebrand Invoker", "Firebrand Legionnaire", "Firebrand Pyromancer", "General Drakkisath", "Ghok Bashguud", "Goraluk Anvilcrack", "Halycon", "Highlord Omokk", "Jed Runewatcher", "Mother Smolderweb", "Overlord Wyrmthalak", "Quartermaster Zigris", "Rage Talon Captain", "Rage Talon Dragon Guard", "Rage Talon Dragonspawn", "Rage Talon Fire Tongue", "Rage Talon Flamescale", "Roach", "Scarshield Acolyte", "Scarshield Infiltrator", "Scarshield Legionnaire", "Scarshield Raider", "Scarshield Spellbinder", "Scarshield Warlock", "Scarshield Worg", "Shadow Hunter Vosh'gajin", "Smolderthorn Axe Thrower", "Smolderthorn Berserker", "Smolderthorn Headhunter", "Smolderthorn Mystic", "Smolderthorn Seer", "Smolderthorn Shadow Hunter", "Smolderthorn Shadow Priest", "Smolderthorn Witch Doctor", "Spire Scarab", "Spire Scorpid", "Spire Spider", "Spire Spiderling", "Spirestone Battle Lord", "Spirestone Battle Mage", "Spirestone Butcher", "Spirestone Enforcer", "Spirestone Lord Magus", "Spirestone Mystic", "Spirestone Ogre Magus", "Spirestone Reaver", "Spirestone Warlord", "The Beast", "War Master Voone" },
@@ -135,6 +149,7 @@ SC.DUNGEON_DATA = {
             { "Summoned Blackhand Veteran", "Blackhand Summoner", false },
             { "Superior Healing Ward", "Smolderthorn Witch Doctor", false },
         },
+        scripted = { "Blackhand Dragon Handler", "Chromatic Dragonspawn", "Chromatic Whelp", "Gyth", "Lord Victor Nefarius", "Rookery Guardian", "Rookery Hatcher", "Solakar Flamewreath", "Warchief Rend Blackhand" },
     },
     [230] = { -- instance_blackrock_depths
         mobs = { "Ambassador Flamelash", "Anger'rel", "Anvilrage Captain", "Anvilrage Footman", "Anvilrage Guardsman", "Anvilrage Marshal", "Anvilrage Medic", "Anvilrage Officer", "Anvilrage Overseer", "Anvilrage Reservist", "Anvilrage Soldier", "Anvilrage Warden", "Arena Spectator", "Bael'Gar", "Blazing Fireguard", "Bloodhound", "Bloodhound Mastiff", "Crest Killer", "Doom'rel", "Doomforge Arcanasmith", "Doomforge Craftsman", "Doomforge Dragoon", "Dope'rel", "Dughal Stormwing", "Emperor Dagran Thaurissan", "Fineous Darkvire", "Fireguard", "Fireguard Destroyer", "General Angerforge", "Gloom'rel", "Golem Lord Argelmach", "Grim Patron", "Guzzling Patron", "Hammered Patron", "Hate'rel", "High Interrogator Gerstahn", "Houndmaster Grebmar", "Jaz", "Lord Incendius", "Lord Roccor", "Magmus", "Molten War Golem", "Ograbisi", "Phalanx", "Ragereaver Golem", "Seeth'rel", "Shadowforge Citizen", "Shadowforge Flame Keeper", "Shadowforge Peasant", "Shadowforge Senator", "Slave", "Tobias Seecher", "Tortured Slave", "Twilight Bodyguard", "Twilight Emissary", "Twilight's Hammer Ambassador", "Twilight's Hammer Torturer", "Verek", "Vile'rel", "Warbringer Construct", "Warder Stilgiss", "Weapon Technician", "Wrath Hammer Construct" },
@@ -143,11 +158,13 @@ SC.DUNGEON_DATA = {
             { "Spawn of Bael'Gar", "Bael'Gar", false },
             { "Voidwalker Minion", "Doom'rel", false },
         },
+        scripted = { "Anub'shiah", "Blackbreath Crony", "Borer Beetle", "Burning Spirit", "Burrowing Thundersnout", "Cave Creeper", "Dark Screecher", "Deep Stinger", "Dredge Worm", "Eviscerator", "Gorosh the Dervish", "Grizzle", "Hedrum the Creeper", "High Justice Grimstone", "High Priestess of Thaurissan", "Hurley Blackbreath", "Korv", "Lefty", "Malgen Longspear", "Ok'thor the Breaker", "Rezznik", "Rotfang", "Snokh Blackspine", "Theldren", "Va'jashni", "Volida", "Watchman Doomgrip" },
     },
     [249] = { -- instance_onyxias_lair
         mobs = { "Onyxia", "Onyxian Warder" },
         summons = {
         },
+        scripted = { "Onyxian Whelp" },
     },
     [289] = { -- instance_scholomance
         mobs = { "Black Rat", "Blood Steward of Kirtonos", "Diseased Ghoul", "Jandice Barov", "Lady Illucia Barov", "Lord Alexei Barov", "Lord Blackwood", "Lorekeeper Polkelt", "Marduk Blackpool", "Necrofiend", "Plagued Hatchling", "Ras Frostwhisper", "Rat", "Rattlegore", "Reanimated Corpse", "Risen Aberration", "Risen Bonewarder", "Risen Construct", "Risen Guard", "Risen Protector", "Risen Warrior", "Scholomance Acolyte", "Scholomance Adept", "Scholomance Dark Summoner", "Scholomance Handler", "Scholomance Necrolyte", "Scholomance Necromancer", "Scholomance Neophyte", "Scholomance Occultist", "Scholomance Student", "Spectral Researcher", "Spectral Teacher", "Spectral Tutor", "Splintered Skeleton", "The Ravenian", "Unstable Corpse", "Vectus" },
@@ -155,6 +172,7 @@ SC.DUNGEON_DATA = {
             { "Frail Skeleton", "Scholomance Dark Summoner", false },
             { "Risen Lackey", "Scholomance Dark Summoner", false },
         },
+        scripted = { "Darkmaster Gandling", "Illusion of Jandice Barov", "Kirtonos the Herald", "Risen Guardian", "Spectral Projection" },
     },
     [309] = { -- instance_zulgurub
         mobs = { "Atal'ai Mistress", "Bloodlord Mandokir", "Bloodscalp Speaker", "Bloodseeker Bat", "Frog", "Gurubashi Axe Thrower", "Gurubashi Bat Rider", "Gurubashi Berserker", "Gurubashi Blood Drinker", "Gurubashi Champion", "Gurubashi Headhunter", "Hakkar", "Hakkari Blood Priest", "Hakkari Priest", "Hakkari Shadow Hunter", "Hakkari Shadowcaster", "Hakkari Witch Doctor", "High Priest Thekal", "High Priest Venoxis", "High Priestess Jeklik", "High Priestess Mar'li", "Hooktooth Frenzy", "Jin'do the Hexxer", "Mad Servant", "Rat", "Razzashi Adder", "Razzashi Broodwidow", "Razzashi Cobra", "Razzashi Raptor", "Razzashi Serpent", "Razzashi Skitterer", "Razzashi Venombrood", "Sacrificed Troll", "Sandfury Speaker", "Skullsplitter Speaker", "Snake", "Son of Hakkar", "Soulflayer", "Spider", "Toad", "Voodoo Slave", "Witherbark Speaker", "Withered Mistress", "Zealot Lor'Khan", "Zealot Zath", "Zulian Crocolisk", "Zulian Cub", "Zulian Panther", "Zulian Tiger" },
@@ -167,6 +185,7 @@ SC.DUNGEON_DATA = {
             { "Razzashi Skitterer", "Razzashi Broodwidow", false },
             { "Superior Healing Ward", "Witherbark Speaker", false },
         },
+        scripted = { "Chained Spirit", "Nightmare Illusion", "Ohgan", "Zulian Guardian", "Zulian Prowler" },
     },
     [329] = { -- instance_stratholme
         mobs = { "Archivist Galford", "Balzaphon", "Baron Rivendare", "Baroness Anastari", "Bile Spewer", "Cannon Master Willey", "Crimson Battle Mage", "Crimson Conjuror", "Crimson Defender", "Crimson Gallant", "Crimson Guardsman", "Crimson Initiate", "Crimson Inquisitor", "Crimson Monk", "Crimson Priest", "Crimson Sorcerer", "Crypt Beast", "Crypt Crawler", "Eye of Naxxramas", "Fleshflayer Ghoul", "Ghostly Citizen", "Ghoul Ravener", "Grand Crusader Dathrohan", "Hearthsinger Forresten", "Magistrate Barthilas", "Maleki the Pallid", "Malor the Zealous", "Mangled Cadaver", "Nerub'enkan", "Patchwork Horror", "Plague Ghoul", "Ravaged Cadaver", "Rockwing Gargoyle", "Rockwing Screecher", "Shrieking Banshee", "Skeletal Berserker", "Skeletal Guardian", "Skul", "Spectral Citizen", "Stonespine", "Stratholme Courier", "The Unforgiven", "Thuzadin Acolyte", "Thuzadin Necromancer", "Thuzadin Shadowcaster", "Vengeful Phantom", "Venom Belcher", "Wailing Banshee" },
@@ -180,6 +199,7 @@ SC.DUNGEON_DATA = {
             { "Summoned Water Elemental", "Crimson Conjuror", false },
             { "Undead Scarab", "Nerub'enkan", false },
         },
+        scripted = { "Balnazzar", "Black Guard Sentry", "Crimson Rifleman", "Freed Soul", "Jarien", "Mindless Undead", "Plagued Insect", "Plagued Maggot", "Plagued Rat", "Postmaster Malown", "Ramstein the Gorger", "Restless Soul", "Sothos", "Timmy the Cruel" },
     },
     [349] = { -- instance_maraudon
         mobs = { "Barbed Lasher", "Cavern Lurker", "Cavern Shambler", "Celebras the Cursed", "Celebrian Dryad", "Constrictor Vine", "Corrupt Force of Nature", "Corruptor", "Creeping Sludge", "Deep Borer", "Deeprot Stomper", "Deeprot Tangler", "Frog", "Landslide", "Lord Vyletongue", "Meshlok the Harvester", "Noxious Slime", "Noxxion", "Poison Sprite", "Primordial Behemoth", "Princess Theradras", "Putridus Satyr", "Putridus Shadowstalker", "Putridus Trickster", "Razorlash", "Roach", "Rotgrip", "School of Fish", "Sister of Celebrian", "Snake", "Spirit of Maraudos", "Spirit of Veng", "Stolid Snapjaw", "Subterranean Diemetradon", "Theradrim Guardian", "Thessala Hydra", "Tinkerer Gizlock", "Vile Larva" },
@@ -188,23 +208,27 @@ SC.DUNGEON_DATA = {
             { "Noxxion's Spawn", "Noxxion", false },
             { "Theradrim Shardling", "Landslide, Theradrim Guardian", false },
         },
+        scripted = { "Spewed Larva" },
     },
     [369] = { -- map 369
         mobs = { "Basking Shark", "Deeprun Diver", "Deeprun Rat", "Haggle", "Naga Siren", "Nessy" },
         summons = {
         },
+        scripted = {  },
     },
     [389] = { -- map 389
         mobs = { "Bazzalan", "Earthborer", "Jergosh the Invoker", "Molten Elemental", "Oggleflint", "Ragefire Shaman", "Ragefire Trogg", "Searing Blade Cultist", "Searing Blade Enforcer", "Searing Blade Warlock", "Taragaman the Hungerer" },
         summons = {
             { "Voidwalker Minion", "Searing Blade Warlock", false },
         },
+        scripted = {  },
     },
     [409] = { -- instance_molten_core
         mobs = { "Ancient Core Hound", "Baron Geddon", "Core Hound", "Core Rager", "Firelord", "Firesworn", "Firewalker", "Flame Imp", "Flameguard", "Flamewaker", "Flamewaker Priest", "Flamewaker Protector", "Garr", "Gehennas", "Golemagg the Incinerator", "Lava Annihilator", "Lava Elemental", "Lava Reaver", "Lava Surger", "Lucifron", "Magmadar", "Molten Destroyer", "Molten Giant", "Shazzrah", "Sulfuron Harbinger" },
         summons = {
             { "Lava Spawn", "Firelord", false },
         },
+        scripted = { "Flamewaker Elite", "Flamewaker Healer", "Majordomo Executus", "Ragnaros", "Son of Flame" },
     },
     [429] = { -- instance_dire_maul
         mobs = { "Alzzin the Wildshaper", "Arcane Aberration", "Arcane Feedback", "Arcane Torrent", "Carrion Swarmer", "Cho'Rush the Observer", "Death Lash", "Deer", "Eldreth Apparition", "Eldreth Darter", "Eldreth Phantasm", "Eldreth Seether", "Eldreth Spectre", "Eldreth Spirit", "Fel Lash", "Ferra", "Frog", "Gordok Brute", "Gordok Captain", "Gordok Mage-Lord", "Gordok Mastiff", "Gordok Reaver", "Gordok Spirit", "Gordok Warlock", "Highborne Summoner", "Hydrospawn", "Illyanna Ravenoak", "Immol'thar", "Ironbark Protector", "King Gordok", "Lethtendris", "Magister Kalendris", "Mana Remnant", "Old Ironbark", "Petrified Guardian", "Petrified Treant", "Phase Lasher", "Pimgib", "Prince Tortheldrin", "Rabbit", "Rat", "Residual Monstrosity", "Revanchion", "Roach", "Rotting Highborne", "Shen'dralar Wisp", "Shen'dralar Zealot", "Skeletal Highborne", "Snake", "Squirrel", "Tendris Warpwood", "Tsu'zee", "Wandering Eye of Kilrogg", "Warpwood Crusher", "Warpwood Guardian", "Warpwood Stomper", "Warpwood Tangler", "Warpwood Treant", "Whip Lasher", "Wildspawn Betrayer", "Wildspawn Felsworn", "Wildspawn Hellcaller", "Wildspawn Imp", "Wildspawn Rogue", "Wildspawn Satyr", "Wildspawn Shadowstalker", "Wildspawn Trickster", "Zevrim Thornhoof" },
@@ -219,31 +243,37 @@ SC.DUNGEON_DATA = {
             { "Mana Burst", "Residual Monstrosity", false },
             { "Netherwalker", "Wandering Eye of Kilrogg", false },
         },
+        scripted = { "Dread Guard", "Ironbark the Redeemed", "J'eevee", "Lord Hel'nurath", "Xorothian Imp" },
     },
     [449] = { -- map 449
         mobs = { "Archmage Gaiman", "Guard Hammon", "Guard Quine", "Lieutenant Rachel Vaccar", "Sergeant Major Skyshadow" },
         summons = {
         },
+        scripted = {  },
     },
     [450] = { -- map 450
         mobs = { "Advisor Willington", "Blood Guard Hini'wana", "Chieftain Earthbind", "Grunt Bek'rah", "Grunt Korf", "Legionnaire Teena" },
         summons = {
         },
+        scripted = {  },
     },
     [469] = { -- instance_blackwing_lair
         mobs = { "Blackwing Guardsman", "Blackwing Spellbinder", "Blackwing Taskmaster", "Blackwing Technician", "Blackwing Warlock", "Broodlord Lashlayer", "Chromaggus", "Corrupted Blue Whelp", "Corrupted Bronze Whelp", "Corrupted Green Whelp", "Corrupted Red Whelp", "Death Talon Captain", "Death Talon Flamescale", "Death Talon Hatcher", "Death Talon Overseer", "Death Talon Seether", "Death Talon Wyrmguard", "Death Talon Wyrmkin", "Ebonroc", "Firemaw", "Flamegor", "Grethok the Controller", "Lord Victor Nefarius", "Master Elemental Shaper Krixix", "Razorgore the Untamed" },
         summons = {
         },
+        scripted = { "Black Drakonid", "Blackwing Legionnaire", "Blackwing Mage", "Blue Drakonid", "Bone Construct", "Bronze Drakonid", "Chromatic Drakonid", "Death Talon Dragonspawn", "Green Drakonid", "Orb of Domination", "Red Drakonid" },
     },
     [509] = { -- instance_ruins_of_ahnqiraj
         mobs = { "Anubisath Guardian", "Ayamiss the Hunter", "Buru Egg", "Buru the Gorger", "Canal Frenzy", "Captain Drenn", "Captain Qeez", "Captain Tuubid", "Captain Xurrem", "Colonel Zerran", "Flesh Hunter", "General Rajaxx", "Hive'Zara Collector", "Hive'Zara Drone", "Hive'Zara Sandstalker", "Hive'Zara Soldier", "Hive'Zara Stinger", "Hive'Zara Tail Lasher", "Hive'Zara Wasp", "Kurinnaxx", "Major Pakkon", "Major Yeggeth", "Moam", "Obsidian Destroyer", "Ossirian the Unscarred", "Qiraji Gladiator", "Qiraji Swarmguard", "Qiraji Warrior", "Shrieker Scarab", "Silicate Feeder", "Spitting Scarab", "Swarmguard Needler", "Vile Scarab" },
         summons = {
         },
+        scripted = { "Anubisath Swarmguard", "Anubisath Warrior", "Hive'Zara Hatchling", "Hive'Zara Hornet", "Hive'Zara Larva", "Hive'Zara Swarmer", "Kaldorei Elite", "Lieutenant General Andorov", "Mana Fiend", "Sand Vortex" },
     },
     [529] = { -- map 529
         mobs = { "Arathi Stablehand", "Cleo", "Herald", "Lady", "Spike", "Underfoot" },
         summons = {
         },
+        scripted = {  },
     },
     [531] = { -- instance_temple_of_ahnqiraj
         mobs = { "Anubisath Defender", "Anubisath Sentinel", "Anubisath Warder", "Battleguard Sartura", "Beetle", "Emperor Vek'lor", "Emperor Vek'nilash", "Eye of C'Thun", "Fankriss the Unyielding", "Lord Kri", "Obsidian Eradicator", "Obsidian Nullifier", "Princess Huhuran", "Princess Yauj", "Qiraji Brainwasher", "Qiraji Champion", "Qiraji Lasher", "Qiraji Mindslayer", "Qiraji Scarab", "Qiraji Scorpion", "Qiraji Slayer", "Sartura's Royal Guard", "The Master's Eye", "The Prophet Skeram", "Vekniss Drone", "Vekniss Guardian", "Vekniss Hive Crawler", "Vekniss Soldier", "Vekniss Stinger", "Vekniss Warrior", "Vekniss Wasp", "Vem", "Viscidus" },
@@ -251,6 +281,7 @@ SC.DUNGEON_DATA = {
             { "Spawn of Fankriss", "Fankriss the Unyielding", false },
             { "Vekniss Borer", "Vekniss Warrior", false },
         },
+        scripted = { "Anubisath Swarmguard", "Anubisath Warrior", "Claw Tentacle", "Eye Tentacle", "Flesh Tentacle", "Giant Claw Tentacle", "Giant Eye Tentacle", "Glob of Viscidus", "Ouro", "Ouro Scarab", "Vekniss Hatchling", "Yauj Brood" },
     },
     [533] = { -- instance_naxxramas
         mobs = { "Anub'Rekhan", "Archmage Tarsis Kir-Moldir", "Bile Retcher", "Bony Construct", "Carrion Spinner", "Crypt Guard", "Crypt Reaver", "Dark Touched Warrior", "Death Lord", "Death Touched Warrior", "Deathknight", "Deathknight Captain", "Deathknight Cavalier", "Deathknight Understudy", "Deathknight Vindicator", "Diseased Maggot", "Doom Touched Warrior", "Dread Creeper", "Embalming Slime", "Eye Stalk", "Feugen", "Frenzied Bat", "Gluth", "Gothik the Harvester", "Grand Widow Faerlina", "Grobbulus", "Heigan the Unclean", "Highlord Mograine", "Infectious Ghoul", "Infectious Skitterer", "Instructor Razuvious", "Kel'Thuzad", "Lady Blaumeux", "Larva", "Living Monstrosity", "Loatheb", "Mad Scientist", "Maexxna", "Maggot", "Master Craftsman Omarion", "Mr. Bigglesworth", "Mutated Grub", "Naxxramas Acolyte", "Naxxramas Cultist", "Naxxramas Follower", "Naxxramas Worshipper", "Necro Knight", "Necro Knight Guardian", "Necropolis Acolyte", "Noth the Plaguebringer", "Patchwerk", "Patchwork Golem", "Plague Beast", "Plague Slime", "Plagued Bat", "Plagued Deathhound", "Plagued Gargoyle", "Plagued Ghoul", "Rat", "Risen Deathknight", "Rotting Maggot", "Shade of Naxxramas", "Sir Zeliek", "Skeletal Smith", "Skeletal Steed", "Sludge Belcher", "Spider", "Spirit of Naxxramas", "Stalagg", "Stitched Spewer", "Stoneskin Gargoyle", "Surgical Assistant", "Thane Korth'azz", "Tomb Horror" },
@@ -258,5 +289,6 @@ SC.DUNGEON_DATA = {
             { "Deathchill Servant", "Deathknight", false },
             { "Lightning Totem", "Living Monstrosity", true },
         },
+        scripted = { "Corpse Scarab", "Fallout Slime", "Guardian of Icecrown", "Maexxna Spiderling", "Plagued Champion", "Plagued Construct", "Plagued Guardian", "Plagued Warrior", "Sapphiron", "Soldier of the Frozen Wastes", "Soul Weaver", "Spectral Deathknight", "Spectral Horse", "Spectral Rider", "Spectral Trainee", "Spore", "Unrelenting Deathknight", "Unrelenting Rider", "Unrelenting Trainee", "Unstoppable Abomination", "Web Wrap", "Zombie Chow" },
     },
 }
