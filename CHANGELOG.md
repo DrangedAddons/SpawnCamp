@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.47.7
+
+- Auto Totem writes plain `/target <full name>` lines, the same as typing `/tar greater healing ward`, which works in Zul'Farrak. The first has no condition. Shorter lines, so two of Zul'Farrak's names fit next to a target.
+
 ## 0.47.6
 
 - Auto Totem: the totem and ward names now go straight into the key's own macro, the way target cards do. They used to sit on a hidden button the key reached with `/click`, and in Zul'Farrak that `/click` did nothing, typed or from the key, while the same `/targetexact` on a card worked. The names share the key's 255 characters, ahead of your own searches, so with a target or two on the key only the first one or two fit (Zul'Farrak: Greater Healing Ward first). `/spc totems` says how many made it.

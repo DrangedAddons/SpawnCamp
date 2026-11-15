@@ -129,8 +129,12 @@ function SC.TotemLines(keep, budget)
     for _, l in ipairs(pre) do len = len + #l + 1 end
     for _, l in ipairs(post) do len = len + #l + 1 end
     local names = {}
-    for _, n in ipairs(SC.totemList) do
-        local line = "/targetexact [noexists] " .. n
+    for i, n in ipairs(SC.totemList) do
+        -- Plain /target with the full name: what works typed by hand in
+        -- Zul'Farrak ("/tar greater healing ward"). The first has no
+        -- condition (the target is always clear here: the key or the line
+        -- before cleared it).
+        local line = (i == 1 and "/target " or "/target [noexists] ") .. n
         if len + #line + 1 > budget then break end
         names[#names + 1] = line
         len = len + #line + 1
