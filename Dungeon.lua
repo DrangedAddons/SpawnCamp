@@ -355,9 +355,24 @@ function SC.IsDungeonName(n)
     return SC.dungeonChain ~= nil and type(n) == "string" and SC.dungeonChain.set[n:lower()] == true
 end
 
--- The key macro's line for the chain.
+-- The key macro's line for the dungeon's mobs: any enemy, when nothing above
+-- it found one. It used to be "/click [noexists] SpawnCampDH", into the chain
+-- buttons, but in game that /click never targeted anything (20 presses in
+-- Zul'Farrak, "target after: none" on every one, and a typed /click to the
+-- same kind of button did nothing). The game's /click refuses buttons it
+-- counts as access-constrained. So the names you want by name go on cards
+-- (type a search), which are lines in the key itself, and this catches the rest.
 function SC.DungeonClick()
-    return "/click [noexists] " .. HUB
+    if SC.char and SC.char.dungeonMobs then return LAST end
+end
+
+-- In a dungeon or raid with dungeon mobs on, whether or not its list has
+-- loaded yet. The key gets its any-enemy line from this, so it's bound from
+-- the moment you zone in or reload.
+function SC.DungeonPending()
+    if not (SC.char and SC.char.dungeonMobs) then return false end
+    local inInstance, kind = IsInInstance()
+    return SC.True(inInstance) and (kind == "party" or kind == "raid")
 end
 
 ------------------------------------------------------------------------------
@@ -401,17 +416,34 @@ local function Retry(sync)
     end)
 end
 
+-- One chat line per stay in an instance while its list isn't in yet, so a
+-- wait doesn't look like a broken key.
+local told
+local function Loading(sync)
+    if sync or not SC.char then return end
+    local inInstance, kind = IsInInstance()
+    if not (SC.True(inInstance) and (kind == "party" or kind == "raid")) then told = nil; return end
+    local name, _, _, _, _, _, _, id = GetInstanceInfo()
+    if told == id then return end
+    told = id
+    if SC.RefreshStatus then SC.RefreshStatus() end
+    SC.Print(string.format("%s: loading its mob list. Until it's in, your key goes for %s.", tostring(name),
+        SC.char.dungeonMobs and "totems, wards and any enemy" or "your own targets"))
+end
+
 -- Runs the lookup for the instance you're in. sync (tests) does it in one go.
 function SC.DungeonCheck(sync)
     local db, zones = SC.QuestieDBs()
     if not db then
         SC.dungeonWhy = "Questie's database isn't ready (or Questie isn't loaded)"
         Leave()
+        Loading(sync)
         Retry(sync)
         return
     end
     local area, name, mapID = InstanceArea(zones)
     if not area then
+        Loading(sync)
         if SC.True(IsInInstance()) then
             local _, _, _, _, _, _, _, id = GetInstanceInfo()
             SC.dungeonWhy = string.format("Questie has no zone for instance %s (%s)%s", tostring(id), tostring((GetInstanceInfo())),
@@ -433,6 +465,7 @@ function SC.DungeonCheck(sync)
     end
     if scanning == area then return end
     scanning = area
+    Loading(sync)
     local co = coroutine.create(function()
         cache[area] = Collect(db, area, coroutine.yield, mapID)
     end)
@@ -468,7 +501,9 @@ SC.On("ZONE_CHANGED_NEW_AREA", function() SC.DungeonCheck() end)
 -- /spc dungeon. So while you're in an instance with no list for it (and no
 -- scan running), look again every 5 seconds.
 local function Watch()
-    if scanning or not SC.char then return end
+    if not SC.char then return end
+    if SC.RefreshStatus then SC.RefreshStatus() end
+    if scanning then return end
     local inInstance, kind = IsInInstance()
     if not (SC.True(inInstance) and (kind == "party" or kind == "raid")) then
         if SC.dungeon then SC.DungeonCheck() end
@@ -477,6 +512,30 @@ local function Watch()
     if not SC.dungeon then SC.DungeonCheck() end
 end
 if C_Timer and C_Timer.NewTicker then C_Timer.NewTicker(5, function() pcall(Watch) end) end
+
+-- The window's title-bar status: text, r, g, b. In an instance: its list
+-- (loading or loaded) and how many totem names are on the key. Anywhere: a
+-- key the game has locked because a fight is on.
+function SC.StatusLine()
+    if not SC.char then return "" end
+    local hasKey = SC.char.key ~= ""
+    if hasKey and SC.keyWaiting and not SC.keyBound then
+        return "Key locked by combat: it works when this fight ends", 1, 0.45, 0.25
+    end
+    local inInstance, kind = IsInInstance()
+    if not (SC.True(inInstance) and (kind == "party" or kind == "raid")) then
+        if hasKey and SC.keyWaiting then return "Key changes apply when this fight ends", 1, 0.82, 0 end
+        return ""
+    end
+    local name = tostring((GetInstanceInfo()))
+    local totems = SC.char.autoTotem and string.format(", %d of %d totems/wards on the key",
+        SC.totemOnKey or 0, #(SC.totemList or {})) or ""
+    local wait = (hasKey and SC.keyWaiting) and "  (key updates after this fight)" or ""
+    if SC.dungeon then
+        return string.format("%s: %d mobs%s%s", name, #SC.dungeon.mobs, totems, wait), 0.3, 0.9, 0.45
+    end
+    return string.format("%s: loading mob list...%s%s", name, totems, wait), 1, 0.82, 0
+end
 
 -- /spc dungeon
 function SC.DungeonReport()

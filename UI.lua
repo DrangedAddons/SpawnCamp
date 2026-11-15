@@ -970,6 +970,15 @@ local function BuildTop()
     recentIcon:SetPoint("RIGHT", logIcon, "LEFT", -8, 0)
     Tip(recentIcon, "Recent", "Every mob you've targeted before. Pick one again or remove it.")
 
+    -- Status line in the title bar: the dungeon's list (loading, loaded, how
+    -- many totems are on the key) and a key the game has locked in combat.
+    ui.status = Text(F, "", 0, 0, "GameFontHighlightSmall")
+    ui.status:ClearAllPoints()
+    ui.status:SetPoint("LEFT", F.title, "RIGHT", 12, 0)
+    ui.status:SetPoint("RIGHT", recentIcon, "LEFT", -10, 0)
+    ui.status:SetJustifyH("LEFT")
+    if ui.status.SetWordWrap then ui.status:SetWordWrap(false) end
+
     -- Key bar: the key as a big chip, and what the next press does.
     local bar = F:CreateTexture(nil, "BACKGROUND", nil, 1)
     bar:SetPoint("TOPLEFT", 1, -26)
@@ -2258,6 +2267,16 @@ local function RefreshKey()
     ui.keyState:SetTextColor(r, g, b)
     ui.keyDot:SetVertexColor(r, g, b)
     ui.keyDetail:SetText(detail)
+    SC.RefreshStatus()
+end
+
+-- The title bar's status line. Cheap, so the dungeon lookup and its 5 second
+-- watch call it directly.
+function SC.RefreshStatus()
+    if not (ui.status and SC.StatusLine) then return end
+    local text, r, g, b = SC.StatusLine()
+    ui.status:SetText(text or "")
+    ui.status:SetTextColor(r or 0.7, g or 0.7, b or 0.7)
 end
 
 -- The Auto Quest box: one mob when there's one to show (the only one left, or

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.48.0
+
+- **Fix: the key went dead after a /reload in a dungeon.** With no targets of your own, the key had nothing to do until Questie's list for the instance arrived, and an empty key isn't bound. If a fight started first, the game locked the key and it stayed dead for that whole fight. Now, in an instance, the key is bound the moment you zone in or reload: Auto Totem's names come from the data file that ships with the addon (no waiting on Questie), and "Dungeon mobs on the key" gives it an any-enemy line straight away. The binding is also redone as a fight starts.
+- **Status line in the title bar**: the instance, "loading mob list..." or how many mobs it has, and how many totem and ward names are on the key. It also says when the game has the key locked by combat.
+- Chat says once when an instance's list starts loading, and warns if your key can't be set up until the fight ends.
+- Auto Totem lines are `/tar <full name>`, the short form of what works typed by hand. All four of Zul'Farrak's fit in every key mode (Greater Healing Ward first; healing ones always go first).
+- Dungeon mobs on the key: the hidden-button chain is gone from the key. `/click` to those buttons never targeted anything in game. The key now ends with a plain "any enemy" line instead. Mobs you want by name go on cards: type a search.
+- `/spc totems` shows whether the key is bound.
+
 ## 0.47.7
 
 - Auto Totem writes plain `/target <full name>` lines, the same as typing `/tar greater healing ward`, which works in Zul'Farrak. The first has no condition. Shorter lines, so two of Zul'Farrak's names fit next to a target.

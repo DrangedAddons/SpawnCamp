@@ -163,10 +163,12 @@ SC.onMob = false
 local function TalkAndAttack(lines, attack, talk, at)
     -- In a dungeon: its mobs' searches, in the chain buttons (Dungeon.lua).
     -- In the tail so the length limit never cuts it.
+    local dung = SC.DungeonPending and SC.DungeonPending()
     for _, m in ipairs(attack) do
-        if m.dungeon then lines[#lines + 1] = SC.DungeonClick(); break end
+        if m.dungeon then dung = true; break end
     end
-    if (#attack > 0 or (SC.TotemOn and SC.TotemOn())) and at then
+    if dung then lines[#lines + 1] = SC.DungeonClick() end
+    if (#attack > 0 or dung or (SC.TotemOn and SC.TotemOn())) and at then
         local A = SC.char.attack
         local body = SC.AttackMacroBody()
         if body then
@@ -205,7 +207,11 @@ function SC.BuildKeyMacro()
     for _, m in ipairs(SC.Actives()) do if m.partial then anySearch = true end end
     local totem = SC.TotemOn and SC.TotemOn() or nil
     local totemAt, totemKeep   -- where in head the totem lines go, and whether to restore
-    if #attack + #talk == 0 and not anySearch and not totem then return "" end
+    -- In a dungeon with "Dungeon mobs on the key" on, the key is never empty,
+    -- even before Questie's list is in: an empty key isn't bound, and a key
+    -- that's unbound when a fight starts stays dead for that whole fight.
+    local pending = SC.DungeonPending and SC.DungeonPending()
+    if #attack + #talk == 0 and not anySearch and not totem and not pending then return "" end
     local all = {}
     for _, x in ipairs(attack) do all[#all + 1] = x end
     for _, x in ipairs(talk) do all[#all + 1] = x end
@@ -293,9 +299,25 @@ function SC.BuildKeyMacro()
     -- the cast/attack/talk lines and your first own search.
     SC.totemOnKey = 0
     if totemAt then
-        local reserve = #table.concat(head, "\n") + 1
-            + (#tailText > 0 and #tailText + 1 or 0) + (units[1] and #units[1] + 1 or 0)
-        local tl = SC.TotemLines(totemKeep, MACRO_MAX - reserve)
+        local function Fit()
+            local reserve = #table.concat(head, "\n") + 1
+                + (#tailText > 0 and #tailText + 1 or 0) + (units[1] and #units[1] + 1 or 0)
+            return SC.TotemLines(totemKeep, MACRO_MAX - reserve)
+        end
+        local tl = Fit()
+        -- On a mob, the totem names beat the dungeon's any-enemy line when
+        -- they can't all fit: you already have a target there.
+        if totemKeep and SC.totemOnKey < #SC.totemList then
+            local any = SC.DungeonClick and SC.DungeonClick()
+            for i, l in ipairs(tail) do
+                if any and l == any then
+                    table.remove(tail, i)
+                    tailText = table.concat(tail, "\n")
+                    tl = Fit()
+                    break
+                end
+            end
+        end
         for i, l in ipairs(tl or {}) do table.insert(head, totemAt + i - 1, l) end
     end
     local lines = {}
@@ -354,7 +376,9 @@ SC.inCombat = false
 SC.On("PLAYER_REGEN_DISABLED", function()
     SC.inCombat = true
     SC.fastUnit = nil
-    keyBtn:SetAttribute("macrotext", SC.KeyMacro())
+    -- The whole binding, not just the text: if the key had nothing to do a
+    -- moment ago it isn't bound yet, and this is the last chance this fight.
+    SC.ApplyBindings()
 end)
 SC.On("PLAYER_REGEN_ENABLED", function()
     SC.inCombat = false
@@ -386,8 +410,16 @@ function SC.ApplyBindings()
     if not SC.char then return end
     if InCombatLockdown() then
         SC.AfterCombat(SC.ApplyBindings)
+        SC.keyWaiting = true
+        -- The key has work to do but isn't bound, and the game won't let it
+        -- be until this fight ends. Say so once, or it just looks broken.
+        if not SC.keyBound and SC.char.key ~= "" and not SC.keyWarned then
+            SC.keyWarned = true
+            SC.Print("|cffff8040your key (" .. SC.char.key .. ") isn't set up yet|r: the game locks it in combat. It starts working when this fight ends.")
+        end
         return
     end
+    SC.keyWaiting, SC.keyWarned, SC.keyBound = false, false, false
     ClearOverrideBindings(owner)
     if SC.WriteDungeonChain then SC.WriteDungeonChain() end
     if SC.WriteTotemButton then SC.WriteTotemButton() end
@@ -397,6 +429,7 @@ function SC.ApplyBindings()
     keyBtn:SetAttribute("macrotext", text)
     SC.talkBound = false
     if SC.char.key ~= "" and text ~= "" then
+        SC.keyBound = true
         if SC.TalkBinding() then
             SetOverrideBinding(owner, true, SC.char.key, "INTERACTTARGET")
             SC.talkBound = true

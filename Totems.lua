@@ -85,16 +85,43 @@ function SC.NoteTotem(unit)
     end
 end
 
--- Totem and ward names the key goes for here: the dungeon's totems and wards,
--- then the ones seen in this zone.
+-- The map id of the dungeon or raid you're in, or nil.
+local function InstanceID()
+    local inInstance, kind = IsInInstance()
+    if not (SC.True(inInstance) and (kind == "party" or kind == "raid")) then return nil end
+    local _, _, _, _, _, _, _, id = GetInstanceInfo()
+    return id
+end
+SC.InstanceID = InstanceID
+
+-- Totem and ward names the key goes for here. In an instance: its totems and
+-- wards from DungeonData.lua, which ships with the addon, so they're there
+-- the moment you zone in or reload. That matters: the key can only be bound
+-- out of combat, and waiting on Questie's list (several seconds) left the
+-- key unbound for the whole first fight after a reload. Then the Questie-built
+-- list's, then the ones seen in this zone. Healing ones first: they share
+-- the key's 255 characters and the first names are the ones that fit.
 function SC.TotemNames()
-    local out, seen = {}, {}
+    local found, seen = {}, {}
     local function add(n)
-        if not seen[n] then seen[n] = true; out[#out + 1] = n end
+        if not seen[n] then seen[n] = true; found[#found + 1] = n end
+    end
+    local id = InstanceID()
+    local data = id and SC.DUNGEON_DATA and SC.DUNGEON_DATA[id]
+    for _, s in ipairs(data and data.summons or {}) do
+        if s[3] or (SC.IsTotemName and SC.IsTotemName(s[1])) then add(s[1]) end
     end
     local d = SC.dungeon
     for _, m in ipairs(d and d.mobs or {}) do
         if m.totem then add(m.name) end
+    end
+    local out = {}
+    for _, n in ipairs(found) do if n:lower():find("heal", 1, true) then out[#out + 1] = n end end
+    for _, n in ipairs(found) do if not n:lower():find("heal", 1, true) then out[#out + 1] = n end end
+    seen = {}
+    for _, n in ipairs(out) do seen[n] = true end
+    add = function(n)
+        if not seen[n] then seen[n] = true; out[#out + 1] = n end
     end
     local k = ZoneKey()
     local learned = k and SpawnCampDB and SpawnCampDB.totems and SpawnCampDB.totems[k]
@@ -124,17 +151,17 @@ function SC.TotemLines(keep, budget)
     -- dungeon's names are its mobs' own summons, so it's left out there.
     local post = {}
     if keep then post[#post + 1] = "/targetlasttarget [noexists]" end
-    if not SC.dungeon then post[#post + 1] = "/cleartarget [noharm]" end
+    if not (SC.dungeon or InstanceID()) then post[#post + 1] = "/cleartarget [noharm]" end
     local len = 0
     for _, l in ipairs(pre) do len = len + #l + 1 end
     for _, l in ipairs(post) do len = len + #l + 1 end
     local names = {}
     for i, n in ipairs(SC.totemList) do
-        -- Plain /target with the full name: what works typed by hand in
-        -- Zul'Farrak ("/tar greater healing ward"). The first has no
-        -- condition (the target is always clear here: the key or the line
-        -- before cleared it).
-        local line = (i == 1 and "/target " or "/target [noexists] ") .. n
+        -- "/tar <full name>": what works typed by hand in Zul'Farrak
+        -- ("/tar greater healing ward"), and the short form leaves room for
+        -- more names. The first has no condition (the target is always
+        -- clear here: the key or the line before cleared it).
+        local line = (i == 1 and "/tar " or "/tar [noexists] ") .. n
         if len + #line + 1 > budget then break end
         names[#names + 1] = line
         len = len + #line + 1
@@ -203,6 +230,8 @@ function SC.TotemReport()
     local kb = _G.SpawnCampKey
     local live = type(kb) == "table" and kb.GetAttribute and kb:GetAttribute("macrotext") or ""
     if type(live) ~= "string" then live = "" end
+    line("key " .. tostring(SC.char and SC.char.key) .. ": " .. (SC.keyBound and "bound" or "NOT BOUND (presses do nothing)")
+        .. (SC.keyWaiting and ", an update is waiting for this fight to end" or ""))
     line("live key (" .. (SC.talkBound and "bound to Interact, the macro doesn't run" or "runs its macro") .. "): "
         .. (live ~= "" and (live:gsub("\n", " ; ")) or "(empty)"))
     local units = { "target", "mouseover" }
