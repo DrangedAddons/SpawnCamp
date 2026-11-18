@@ -65,6 +65,9 @@ SC.CHAR_DEFAULTS = {
         gossip = true,    -- click through chat options
         prefer = "",      -- chat options to pick first, one text match per line
         reward = 1,       -- reward choice when a quest offers several (0 = you pick)
+        buy = "",         -- vendor item to buy when the Talk key opens a vendor ("" = none)
+        buyID = 0,        -- ... its item id, when known
+        buyCount = 0,     -- how many (0 = all in stock; one if it never runs out)
     },
     anyQuest = false,     -- the key also goes for any mob your quests still need
     autoTotem = false,    -- Auto > Totem / Ward: enemy totems and wards first
@@ -506,6 +509,8 @@ function SC.On(event, fn)
     table.insert(handlers[event], fn)
     return true
 end
+
+SC._handlers = handlers   -- for the offline tests
 
 evFrame:SetScript("OnEvent", function(_, event, ...)
     local list = handlers[event]

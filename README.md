@@ -59,6 +59,7 @@ The game requires a real keypress for every target and cast. Keep enemy nameplat
 
 - **Hand in and accept quests** and **Click through chat**: both on by default. With several chat options it picks one matching your **Prefer** list, otherwise the first.
 - **Quest reward**: which reward to take when a quest offers a choice. 1 (the default) = first. Empty = you pick.
+- **Vendor auto-buy**: right-click the bubble and pick an item under **Buy** (a search list of everything vendors sell). When your key opens a vendor window, that item is bought if it's in stock. Empty amount = everything in stock. Made for limited-stock items such as recipes.
 - Hold **Shift** while talking to do a window yourself.
 ## Respawn timer
 

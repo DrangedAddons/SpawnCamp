@@ -697,7 +697,7 @@ end
 -- Clicks that shouldn't close the options: in the spellbook (to drag a spell
 -- onto the Spell box), on the action bars, or while holding something.
 local KEEP_OPEN = { "SpellBookFrame", "PlayerSpellsFrame", "ProfessionsBookFrame", "MainMenuBar",
-                    "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarRight", "MultiBarLeft" }
+                    "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarRight", "MultiBarLeft", "MerchantFrame" }
 
 local function ClickKeepsOpen()
     if GetCursorInfo and GetCursorInfo() then return true end
@@ -738,7 +738,8 @@ local function RefreshChooser()
     local f = CH.filterText or ""
     local list = {}
     for _, it in ipairs(all) do
-        if f == "" or it.text:lower():find(f, 1, true) or (it.sub and it.sub:lower():find(f, 1, true)) then
+        if f == "" or it.text:lower():find(f, 1, true) or (it.sub and it.sub:lower():find(f, 1, true))
+            or (it.find and it.find:find(f, 1, true)) then
             list[#list + 1] = it
         end
     end
@@ -747,7 +748,7 @@ local function RefreshChooser()
         local r, it = CH.rows[i], list[i + CH.offset]
         if it then
             r.item = it
-            r.icon:SetTexture(it.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+            r.icon:SetTexture(it.icon or (it.id and SC.ItemIcon and SC.ItemIcon(it.id)) or "Interface\\Icons\\INV_Misc_QuestionMark")
             r.icon:SetShown(not it.noIcon)
             r.text:SetText(it.text .. (it.sub and it.sub ~= "" and ("  |cff999999" .. it.sub .. "|r") or ""))
             r.sel:SetShown(it.selected and true or false)
@@ -794,7 +795,7 @@ local function BuildChooser()
         r.text:SetJustifyH("LEFT")
         r.text:SetWordWrap(false)
         r:SetScript("OnClick", Safe(function(self)
-            if self.item and CH.onPick then
+            if self.item and self.item.value ~= nil and CH.onPick then
                 CH.onPick(self.item)
                 CH:Hide()
                 SC.ApplyBindings()
@@ -802,6 +803,13 @@ local function BuildChooser()
             end
         end))
         r:SetScript("OnEnter", function(self)
+            if self.item and (self.item.id or 0) > 0 then
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                if pcall(GameTooltip.SetHyperlink, GameTooltip, "item:" .. self.item.id) then
+                    GameTooltip:Show()
+                    return
+                end
+            end
             if not (self.item and self.item.tip) then return end
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:AddLine(self.item.text)
@@ -816,7 +824,7 @@ local function BuildChooser()
     CH.count = Text(CH, "", 10, -62 - CH_ROWS * CH_H, "GameFontDisableSmall")
 end
 
-local function OpenChooser(title, items, onPick, ranks)
+local function OpenChooser(title, items, onPick, ranks, beside)
     if CH:IsShown() and CH.title:GetText() == title then CH:Hide(); return end
     CH.title:SetText(title)
     CH.items, CH.onPick = items, onPick
@@ -824,7 +832,7 @@ local function OpenChooser(title, items, onPick, ranks)
     CH.filterText, CH.offset = "", 0
     CH.filter:SetText("")
     CH:ClearAllPoints()
-    CH:SetPoint("TOPLEFT", AP, "TOPRIGHT", 2, 0)
+    CH:SetPoint("TOPLEFT", beside or AP, "TOPRIGHT", 2, 0)
     CH:Show()
     CH.ranks:SetChecked(SC.char.showRanks and true or false)
     RefreshChooser()
@@ -910,7 +918,8 @@ end
 
 local function BuildTalkPopup()
     local I = SC.char.interact
-    TP = Popup("SpawnCampTalkOptions", 380, 250, "Talk  |T" .. BUBBLE .. ":14|t")
+    TP = Popup("SpawnCampTalkOptions", 380, 346, "Talk  |T" .. BUBBLE .. ":14|t")
+    TP:HookScript("OnHide", function() if CH then CH:Hide() end end)
     Check(TP, "Hand in and accept quests (follow-ups too)", 8, -30,
         function() return I.autoQuest end, function(v) I.autoQuest = v end)
     Check(TP, "Click through chat", 8, -52,
@@ -921,7 +930,33 @@ local function BuildTalkPopup()
     Text(TP, "Quest reward", 12, -168)
     ui.reward = Edit(TP, 30, 92, -164, function(t) I.reward = tonumber(t) or 0 end, true)
     Wrapped(TP, "When a quest offers a choice of rewards: 1 = first, 2 = second, and so on. Empty = you pick.", 12, -190, 356)
-    Text(TP, "Hold Shift while talking to do a window yourself.", 12, -224, "GameFontDisableSmall")
+    -- Vendor auto-buy.
+    Text(TP, "Buy", 12, -230)
+    local s = CreateFrame("Button", nil, TP)
+    s:SetSize(206, 26)
+    s:SetPoint("TOPLEFT", 56, -224)
+    s.icon = s:CreateTexture(nil, "ARTWORK")
+    s.icon:SetSize(24, 24)
+    s.icon:SetPoint("LEFT", 0, 0)
+    s.text = s:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    s.text:SetPoint("LEFT", s.icon, "RIGHT", 6, 0)
+    s.text:SetPoint("RIGHT", 0, 0)
+    s.text:SetJustifyH("LEFT")
+    s.text:SetWordWrap(false)
+    ui.buySlot = s
+    local pickItem = function()
+        OpenChooser("Choose a vendor item", SC.VendorItems, function(it)
+            I.buy, I.buyID = it.value, it.id or 0
+        end, false, TP)
+    end
+    s:SetScript("OnClick", Safe(pickItem))
+    Tip(Btn(TP, "Choose item", 100, 268, -226, pickItem), "Choose item",
+        "Search every item vendors sell (type an item or a vendor's name). With a vendor window open, what they sell is listed first.")
+    Text(TP, "Amount", 12, -262)
+    ui.buyCount = Edit(TP, 30, 92, -258, function(t) I.buyCount = tonumber(t) or 0 end, true)
+    Text(TP, "empty = all in stock", 140, -262, "GameFontDisableSmall")
+    Wrapped(TP, "When your key opens a vendor's window, this item is bought if it's in stock. Made for limited-stock items: camp the vendor and press the key.", 12, -284, 356)
+    Text(TP, "Hold Shift while talking to do a window yourself.", 12, -322, "GameFontDisableSmall")
 end
 ------------------------------------------------------------------------------
 -- Build: header, key row, add row, target, recent
@@ -1348,7 +1383,7 @@ local function BuildTargetBox(slot, quest)
 
     -- The two big buttons.
     bx.talk = ModeButton(T, BUBBLE, function() HideSidePanels(); SetMode("interact", slot) end, function(self) ShowBeside(TP, self) end,
-        "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests.\n|cffffd100Right-click|r for the chat and quest options.")
+        "Talk", "Your key talks to this NPC: chat, quest hand-ins, new and follow-up quests, and buying a vendor item.\n|cffffd100Right-click|r for the chat, quest and vendor options.")
     bx.talk:SetPoint("RIGHT", T, "RIGHT", -74, 0)
     bx.talk.accent = MODE_COLOR.talk
     bx.attack = ModeButton(T, SWORD, function() HideSidePanels(); if not quest then SetMode("attack", slot) end end, function(self) ShowBeside(AP, self) end,
@@ -2563,6 +2598,11 @@ local function RefreshPopups()
         ui.spellNote:SetText("|cff40ff40Instant cast.|r")
     end
     SetEditText(ui.prefer, I.prefer)
+    local hasBuy = (I.buy or "") ~= ""
+    ui.buySlot.icon:SetTexture((hasBuy and SC.ItemIcon and SC.ItemIcon(I.buyID)) or "Interface\\Icons\\INV_Misc_QuestionMark")
+    ui.buySlot.icon:SetDesaturated(not hasBuy)
+    ui.buySlot.text:SetText(hasBuy and I.buy or "|cff808080None|r")
+    SetEditText(ui.buyCount, (I.buyCount or 0) > 0 and tostring(I.buyCount) or "")
     SetEditText(ui.reward, (I.reward or 0) > 0 and tostring(I.reward) or "")
 end
 

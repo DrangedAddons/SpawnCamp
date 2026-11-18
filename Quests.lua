@@ -47,6 +47,7 @@ local function WindowMob()
     end
     return nil
 end
+SC.TalkWindow = WindowMob
 
 -- Closing the window yourself ends the chain, so the next NPC you talk to isn't handled.
 SC.On("GOSSIP_CLOSED", function()
@@ -102,7 +103,8 @@ SC.On("GOSSIP_SHOW", function()
         local options = G.GetOptions and G.GetOptions() or {}
         local noQuestsWaiting = #avail == 0
         if not mob.gossip then return end
-        local opt = PickGossipOption(mob, options, noQuestsWaiting)
+        -- An item to buy: the option that opens the shop comes first.
+        local opt = (SC.VendorOption and SC.VendorOption(options)) or PickGossipOption(mob, options, noQuestsWaiting)
         if opt and opt.gossipOptionID then G.SelectOption(opt.gossipOptionID) end
     end)
 end)

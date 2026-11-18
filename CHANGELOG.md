@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.51.0
+
+- **Vendor auto-buy.** Right-click the Talk bubble: the options now have a **Buy** slot. "Choose item" opens a search list of every item vendors sell (from Questie); type an item's name or a vendor's name. With a vendor window open, what that vendor sells is listed first, with its stock. When your key opens a vendor's window, the item is bought if it's in stock, with an alert. Made for limited-stock items: put Pratt McGrubben on a Talk card, pick Pattern: Turtle Scale Gloves, and press the key each time you check.
+- Amount: empty buys everything in stock (one, for an item that never runs out); a number buys that many.
+- If the vendor chats first, the option that opens the shop is picked.
+- Chat says once per visit when the item is out of stock, isn't sold there, or you can't afford it. Only a window your key opened is handled; hold Shift to shop yourself.
+
 ## 0.50.2
 
 - **Instance enemy lists no longer guess.** Two rules used to add names by resemblance: a shared first word with the instance's mobs, and "<something> of <a boss>". They were wrong in almost every instance (Defias Thug in the Deadmines, Son of Flame in Gnomeregan, "Naxxramas Mounts" in Naxxramas). Both are gone. A name is now on a list only when data ties that NPC to that instance: Questie places it there, cMaNGOS spawns it there, a mob there summons it, or the instance's own server script creates it.
