@@ -75,6 +75,7 @@ SC.IsTotemName = TotemName
 -- never stalls a frame.
 local function Collect(db, area, step, mapID)
     local zone, avoid, seen = {}, {}, {}
+    local entry = {}   -- name -> its line, to widen the level range of a name several NPC ids share
     -- Questie reads a number it has no value for as 0 (a summon's zone is 0,
     -- not nil), so 0 counts as "none" here.
     local function Q(id, k)
@@ -96,9 +97,19 @@ local function Collect(db, area, step, mapID)
             if here then
                 if service then
                     avoid[name] = true
-                elseif not seen[name] then
-                    seen[name] = true
-                    zone[#zone + 1] = { name = name, rank = Q(id, "rank") or 0, level = Q(id, "maxLevel") or 0, friendly = friendly, src = "questie" }
+                else
+                    local hi = Q(id, "maxLevel") or 0
+                    local lo = Q(id, "minLevel") or hi
+                    local e = entry[name]
+                    if not e then
+                        seen[name] = true
+                        e = { name = name, rank = Q(id, "rank") or 0, level = hi, min = lo, friendly = friendly, src = "questie" }
+                        entry[name] = e
+                        zone[#zone + 1] = e
+                    elseif hi > 0 then
+                        if e.level == 0 or hi > e.level then e.level = hi end
+                        if e.min == 0 or (lo > 0 and lo < e.min) then e.min = lo end
+                    end
                 end
             end
         end
@@ -185,6 +196,39 @@ function SC.DungeonExpand(text)
         if m.name:lower():find(low, 1, true) then out[#out + 1] = m end
     end
     return out
+end
+
+------------------------------------------------------------------------------
+-- My Target
+------------------------------------------------------------------------------
+
+-- In an instance the game hides a target's name and GUID from addons, so My
+-- Target can't look the mob up. Its level and elite/boss rank are readable,
+-- and the list has a level range for most names. Lines for the chooser: the
+-- names whose range holds that level first, then the rest of the list.
+-- level -1 is a skull (a boss).
+local RANK_WORD = { [1] = "elite", [2] = "rare elite", [3] = "boss", [4] = "rare" }
+
+function SC.DungeonCandidates(level)
+    local d = SC.dungeon
+    if not d then return {} end
+    level = tonumber(level)
+    local first, rest = {}, {}
+    for _, m in ipairs(d.mobs) do
+        local lo, hi = m.min or 0, m.level or 0
+        if lo == 0 then lo = hi end
+        local sub = hi > 0 and ("level " .. (lo < hi and (lo .. "-" .. hi) or hi)) or ""
+        if RANK_WORD[m.rank] then sub = sub .. (sub ~= "" and " " or "") .. RANK_WORD[m.rank] end
+        if m.totem then sub = sub .. (sub ~= "" and ", " or "") .. "totem/ward" end
+        local fits = level ~= nil and ((level == -1 and m.rank == 3) or (hi > 0 and level >= lo and level <= hi))
+        local it = { text = m.name, sub = sub, value = m.name, noIcon = true, selected = fits or false }
+        if fits then first[#first + 1] = it else rest[#rest + 1] = it end
+    end
+    local byName = function(a, b) return a.text < b.text end
+    table.sort(first, byName)
+    table.sort(rest, byName)
+    for _, it in ipairs(rest) do first[#first + 1] = it end
+    return first, #first - #rest
 end
 
 ------------------------------------------------------------------------------

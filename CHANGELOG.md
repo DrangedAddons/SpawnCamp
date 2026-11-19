@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.52.0
+
+- **My Target works in dungeons.** The game hides a mob's name inside instances, so My Target used to ask you to type it. Now it opens the dungeon's enemy list beside the window: the names that fit your target's level are at the top and highlighted, the rest follow, and you can type to filter. Click the name and it's added as a target (Attack if hostile, Talk if friendly).
+- SpawnCamp can't pick the name for you: of a target in an instance it can read the level and little else, and several mobs usually share a level.
+
 ## 0.51.0
 
 - **Vendor auto-buy.** Right-click the Talk bubble: the options now have a **Buy** slot. "Choose item" opens a search list of every item vendors sell (from Questie); type an item's name or a vendor's name. With a vendor window open, what that vendor sells is listed first, with its stock. When your key opens a vendor's window, the item is bought if it's in stock, with an alert. Made for limited-stock items: put Pratt McGrubben on a Talk card, pick Pattern: Turtle Scale Gloves, and press the key each time you check.

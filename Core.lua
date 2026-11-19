@@ -834,13 +834,27 @@ function SC.AddTarget()
         return
     end
     local name = SC.UnitNameSafe("target")
+    local friendly = SC.Bool(UnitCanAttack("player", "target")) == false
+    if not name and SC.dungeon and SC.ChooseDungeonTarget then
+        -- In an instance the name and GUID are hidden, so which mob on the
+        -- list this is can't be read. Its level can: offer the names that fit.
+        local level = SC.Plain(UnitLevel("target"))
+        local _, fits = SC.DungeonCandidates(level)
+        SC.ChooseDungeonTarget(function() return (SC.DungeonCandidates(level)) end, function(it)
+            SC.AddMob(it.value, friendly and "interact" or "attack")
+            if SC.CapturePortrait and SC.MaybeExists("target") then SC.CapturePortrait(it.value, "target") end
+        end)
+        SC.Print(fits > 0
+            and string.format("the game hides this mob's name in here. %d on the list fit its level: pick it from the list.", fits)
+            or "the game hides this mob's name in here. Pick it from the list.")
+        return
+    end
     if not name then
         -- Forever hides NPC names from addons: ask for it typed, mode from what is readable.
         SC.Print("the game hides this NPC's name from addons here (dungeons do). Type it exactly as your target frame shows it and press Enter.")
         if SC.FocusAddName then SC.FocusAddName() end
         return
     end
-    local friendly = SC.Bool(UnitCanAttack("player", "target")) == false
     SC.AddMob(name, friendly and "interact" or "attack")
     if SC.CapturePortrait then SC.CapturePortrait(name, "target") end
 end

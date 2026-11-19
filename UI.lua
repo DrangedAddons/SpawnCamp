@@ -710,6 +710,11 @@ end
 
 SC.On("GLOBAL_MOUSE_DOWN", function()
     if ClickKeepsOpen() then return end
+    -- The My Target list (opened beside the window, not by an options popup).
+    if CH and CH:IsShown() and CH.loose and not CH:IsMouseOver()
+        and not (ui.pickMy and ui.pickMy:IsMouseOver()) then
+        CH:Hide()
+    end
     for _, p in ipairs({ AP, TP }) do
         if p and p:IsShown() and not p:IsMouseOver() and not (p.opener and p.opener:IsMouseOver())
             and not (CH and CH:IsShown() and CH:IsMouseOver()) then
@@ -828,6 +833,7 @@ local function OpenChooser(title, items, onPick, ranks, beside)
     if CH:IsShown() and CH.title:GetText() == title then CH:Hide(); return end
     CH.title:SetText(title)
     CH.items, CH.onPick = items, onPick
+    CH.loose = beside ~= nil and beside == F
     CH.ranks:SetShown(ranks and true or false)
     CH.filterText, CH.offset = "", 0
     CH.filter:SetText("")
@@ -1080,7 +1086,7 @@ local function BuildPicker()
     Tip(ui.addName, "Add a mob or search", "Type a name or part of one and press Enter. Adds a search for the typed text: any mob with it in its name, capitals don't matter (\"owl\" finds Vicious Owlbeast). Your key looks for it straight away, and every mob seen that matches is added as its own target. Clear a wrong one and the search skips it from then on.")
     ui.pickMy = Btn(T, "My Target", 74, 0, 0, function() SC.AddTarget(); SC.Refresh() end)
     at(ui.pickMy, 222)
-    Tip(ui.pickMy, "My Target", "Adds the mob you have targeted in game to your targets: Attack if hostile, Talk if friendly.")
+    Tip(ui.pickMy, "My Target", "Adds the mob you have targeted in game to your targets: Attack if hostile, Talk if friendly.\n\nIn a dungeon the game hides the mob's name, so you pick it from the dungeon's list. The names that fit its level come first.")
     ui.pickNear = Btn(T, "Nearby", 62, 0, 0, function() SC.ToggleNearby() end)
     at(ui.pickNear, 300)
     Tip(ui.pickNear, "Nearby", "Lists mobs around you, with a button to use each one.")
@@ -2656,6 +2662,15 @@ function SC.RefreshWindow()
     SC.char.panel = nil
     F:SetHeight(-y + 6)
     pcall(PlaceNameSecure)
+end
+
+-- My Target in an instance: the list of the instance's mobs to pick from.
+function SC.ChooseDungeonTarget(items, onPick)
+    if not (CH and F) then return end
+    SC.char.shown = true
+    SC.Refresh()
+    if CH:IsShown() then CH:Hide() end
+    OpenChooser("Which mob is your target?", items, onPick, false, F)
 end
 
 -- Focuses the name box (when the game hides a target's name).
