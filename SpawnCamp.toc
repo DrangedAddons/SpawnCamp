@@ -4,6 +4,7 @@
 ## Author: Dranged
 ## Version: 0.52.0
 ## X-DrangedAddons-Games: _forever_
+## X-DrangedHub-Actions: SpawnCamp window=/spawncamp; Settings=/spawncamp settings
 ## IconTexture: Interface\AddOns\SpawnCamp\icon
 ## AddonCompartmentFunc: SpawnCamp_OnCompartmentClick
 ## OptionalDeps: Questie
