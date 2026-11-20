@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.53.0
+
+- **Raid marker on the target, done the way RestedXP does it.** The key's macro now carries a `/tm !8` line right after its targeting, so the mob your key lands on gets a skull. RestedXP's target buttons mark this way on Forever. The `!` sets the marker without toggling, so spamming the key doesn't take it off again. 0.14 tried a plain `/tm 8`, which toggles, and every route through addon code is blocked by the client.
+- Settings (gear) has a **Marker** list: None or any of the eight icons, skull by default. It's per character. In a raid you need lead or assist.
+- With Auto Totem on, a totem the key targets gets the marker too.
+
 ## 0.52.0
 
 - **My Target works in dungeons.** The game hides a mob's name inside instances, so My Target used to ask you to type it. Now it opens the dungeon's enemy list beside the window: the names that fit your target's level are at the top and highlighted, the rest follow, and you can type to filter. Click the name and it's added as a target (Attack if hostile, Talk if friendly).

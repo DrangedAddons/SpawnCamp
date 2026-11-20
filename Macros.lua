@@ -286,6 +286,13 @@ function SC.BuildKeyMacro()
         -- After the cast line, so the key never casts at the target it put back.
         if totem then tail[#tail + 1] = "/targetlasttarget [noexists]" end
     end
+    -- Raid marker, the way RestedXP's target buttons do it on Forever: a
+    -- "/tm !N" line in the macro itself, right after the targeting. The "!"
+    -- sets the marker without toggling, so spamming the key can't take it
+    -- off again. (SetRaidTarget from addon code is blocked on this client,
+    -- and a plain "/tm N" toggles.)
+    local mark = tonumber(SC.char.mark) or 0
+    if mark >= 1 and mark <= 8 then table.insert(tail, 1, "/tm !" .. mark) end
     -- Opening lines and the first search always go in; then as many searches
     -- as still leave room for the cast/attack/talk lines.
     local tailText = table.concat(tail, "\n")

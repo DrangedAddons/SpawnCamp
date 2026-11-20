@@ -71,6 +71,7 @@ SC.CHAR_DEFAULTS = {
     },
     anyQuest = false,     -- the key also goes for any mob your quests still need
     autoTotem = false,    -- Auto > Totem / Ward: enemy totems and wards first
+    mark = 8,             -- raid marker the key puts on its target (1-8, 0 = none)
     alertSpawn = true,    -- loud alert when a watched mob is seen alive
     alarm = true,         -- soft dings: early warning, window open, average reached
     rareAlert = true,     -- a rare's nameplate adds it as a target box (silver) with an alert

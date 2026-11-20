@@ -1837,6 +1837,17 @@ local function BuildSettings(P)
     Check(P, "Sound when I get the kill", 4, -200,
         function() return SC.char.killSound end, function(v) SC.char.killSound = v end,
         "The raid warning sound with \"You got <mob>!\" when you kill a target. Unticked, the kill still shows on screen and in chat, without the sound. \"Sound with alerts\" off silences it too.")
+    Text(P, "Marker:", 244, -204)
+    local MARKS = { "Star", "Circle", "Diamond", "Triangle", "Moon", "Square", "Cross", "Skull" }
+    local mark = UI.Dropdown(P, 130, function()
+        local out = { { value = 0, label = "None" } }
+        for i = 8, 1, -1 do
+            out[#out + 1] = { value = i, label = "|TInterface/TargetingFrame/UI-RaidTargetingIcon_" .. i .. ":14|t " .. MARKS[i] }
+        end
+        return out
+    end, function() return tonumber(SC.char.mark) or 0 end, function(v) SC.char.mark = tonumber(v) or 0; SC.ApplyBindings() end)
+    mark:SetPoint("TOPLEFT", 296, -198)
+    Tip(mark, "Marker", "The raid marker your key puts on the mob it targets, so you can see it at a glance. None turns it off. In a raid you need lead or assist. In a fight, a change applies when the fight ends.")
     Text(P, "Right-click Attack or Talk for their options.", 8, -230, "GameFontDisableSmall")
 end
 
