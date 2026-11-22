@@ -973,6 +973,62 @@ local function SavePos()
     SC.char.framePos = { p, rp, x, y }
 end
 
+-- The minimised window: just the icon. Drag to move, left-click to expand.
+-- It sits where the window's top-left corner was, and the window opens
+-- where the icon was dragged to.
+local MINI
+local function BuildMini()
+    MINI = CreateFrame("Button", "SpawnCampMini", UIParent, "BackdropTemplate")
+    MINI:SetSize(40, 40)
+    MINI:SetFrameStrata("MEDIUM")
+    MINI:SetClampedToScreen(true)
+    MINI:SetMovable(true)
+    MINI:RegisterForClicks("LeftButtonUp")
+    MINI:RegisterForDrag("LeftButton")
+    Backdrop(MINI)
+    local icon = MINI:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("TOPLEFT", 3, -3)
+    icon:SetPoint("BOTTOMRIGHT", -3, 3)
+    icon:SetTexture(SC.ICON)
+    icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    MINI:SetHighlightTexture("Interface/Buttons/ButtonHilight-Square", "ADD")
+    MINI:SetScript("OnDragStart", function(self) if not SC.char.locked then self:StartMoving() end end)
+    MINI:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local x, y = self:GetLeft(), self:GetTop()
+        if x and y then SC.char.miniPos, SC.char.miniMoved = { x, y }, true end
+    end)
+    MINI:SetScript("OnClick", function() SC.SetMini(false) end)
+    Tip(MINI, "SpawnCamp", "Click to open the window. Drag to move.")
+    MINI:Hide()
+end
+
+local function ShowMini()
+    if not MINI then BuildMini() end
+    if not MINI:IsShown() then
+        MINI:ClearAllPoints()
+        local p = SC.char.miniPos
+        if p then
+            MINI:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", p[1], p[2])
+        else
+            MINI:SetPoint("TOP", UIParent, "TOP", 0, -160)
+        end
+        MINI:Show()
+    end
+end
+
+function SC.SetMini(on)
+    if on and F then
+        -- The icon starts at the window's top-left corner.
+        local x, y = F:GetLeft(), F:GetTop()
+        if x and y then SC.char.miniPos = { x, y } end
+        SC.char.miniMoved = nil
+    end
+    SC.char.mini = on and true or false
+    if on then SC.char.shown = true end
+    SC.Refresh()
+end
+
 local function BuildTop()
     local icon = F:CreateTexture(nil, "ARTWORK")
     icon:SetSize(16, 16)
@@ -990,9 +1046,19 @@ local function BuildTop()
         SC.Refresh()
     end)
 
+    -- Minimise: the window shrinks to its icon (BuildMini).
+    local mini = CreateFrame("Button", nil, F)
+    mini:SetSize(22, 22)
+    mini:SetPoint("RIGHT", close, "LEFT", 4, 0)
+    mini:SetNormalTexture("Interface/Buttons/UI-Panel-HideButton-Up")
+    mini:SetPushedTexture("Interface/Buttons/UI-Panel-HideButton-Down")
+    mini:SetHighlightTexture("Interface/Buttons/UI-Panel-MinimizeButton-Highlight", "ADD")
+    mini:SetScript("OnClick", function() SC.SetMini(true) end)
+    Tip(mini, "Minimise", "Shrinks the window to just the SpawnCamp icon. Your key keeps working. Click the icon to open the window again; drag it to move it.")
+
     local gear = CreateFrame("Button", nil, F)
     gear:SetSize(16, 16)
-    gear:SetPoint("RIGHT", close, "LEFT", -2, 0)
+    gear:SetPoint("RIGHT", mini, "LEFT", -2, 0)
     gear:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
     gear:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     gear:SetScript("OnClick", function() ShowBeside(ui.settingsPopup) end)
@@ -2627,6 +2693,7 @@ function SC.RefreshWindow()
     if not SC.char then return end
     if not SC.char.shown then
         if F then F:Hide(); HideSidePanels() end
+        if MINI then MINI:Hide() end
         if not InCombatLockdown() then
             for _, b in pairs(nameSecure) do b:Hide() end
             for _, b in pairs(portSecure) do b:Hide() end
@@ -2634,6 +2701,24 @@ function SC.RefreshWindow()
         return
     end
     if not F then Build() end
+    if SC.char.mini then
+        F:Hide()
+        HideSidePanels()
+        if not InCombatLockdown() then
+            for _, b in pairs(nameSecure) do b:Hide() end
+            for _, b in pairs(portSecure) do b:Hide() end
+        end
+        ShowMini()
+        return
+    end
+    if MINI then MINI:Hide() end
+    -- The icon was dragged while minimised: the window opens there.
+    if SC.char.miniMoved and SC.char.miniPos then
+        F:ClearAllPoints()
+        F:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", SC.char.miniPos[1], SC.char.miniPos[2])
+        SavePos()
+    end
+    SC.char.miniMoved = nil
     F:Show()
     for _, p in pairs(portraits) do p:Hide() end
 
@@ -2678,7 +2763,7 @@ end
 -- My Target in an instance: the list of the instance's mobs to pick from.
 function SC.ChooseDungeonTarget(items, onPick)
     if not (CH and F) then return end
-    SC.char.shown = true
+    SC.char.shown, SC.char.mini = true, false
     SC.Refresh()
     if CH:IsShown() then CH:Hide() end
     OpenChooser("Which mob is your target?", items, onPick, false, F)
@@ -2686,13 +2771,13 @@ end
 
 -- Focuses the name box (when the game hides a target's name).
 function SC.FocusAddName()
-    SC.char.shown = true
+    SC.char.shown, SC.char.mini = true, false
     SC.Refresh()
     if ui.addName then ui.addName:SetFocus() end
 end
 
 function SC.OpenSettings()
-    SC.char.shown = true
+    SC.char.shown, SC.char.mini = true, false
     SC.char.panel = "settings"
     SC.Refresh()
 end
@@ -2701,11 +2786,13 @@ end
 UI.RegisterSettingsPage(SC.ICON, "/spawncamp", function() SC.OpenSettings() end)
 
 function SC.ShowWindow()
-    SC.char.shown = true
+    SC.char.shown, SC.char.mini = true, false
     SC.Refresh()
 end
 
 function SC.ToggleWindow()
+    -- Minimised: /spawncamp and the minimap button open it.
+    if SC.char.shown and SC.char.mini then SC.SetMini(false); return end
     SC.char.shown = not SC.char.shown
     SC.Refresh()
 end

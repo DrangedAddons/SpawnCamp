@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.54.0
+
+- **Minimise button** in the title bar, left of the close button. It shrinks the window to just the SpawnCamp icon. Your key keeps working while it's minimised.
+- Left-click the icon to open the window again. Drag the icon to move it; the window opens where you left the icon. ("Lock window" locks the icon too.)
+- `/spawncamp`, the minimap button and a rare popping up also open a minimised window.
+
 ## 0.53.0
 
 - **Raid marker on the target, done the way RestedXP does it.** The key's macro now carries a `/tm !8` line right after its targeting, so the mob your key lands on gets a skull. RestedXP's target buttons mark this way on Forever. The `!` sets the marker without toggling, so spamming the key doesn't take it off again. 0.14 tried a plain `/tm 8`, which toggles, and every route through addon code is blocked by the client.

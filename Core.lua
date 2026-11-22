@@ -81,6 +81,7 @@ SC.CHAR_DEFAULTS = {
     shareRaid = true,     -- ... your raid
     shareGuild = true,    -- ... your guild
     shown = true,         -- the window is on screen
+    mini = false,         -- ... shrunk to just its icon
     showDone = true,      -- keep mobs you already got on the list
     logOpen = true,       -- the log drawer beside the window is open
     logRight = false,     -- log on the right of the window instead of the left
@@ -793,7 +794,7 @@ SlashCmdList.SPAWNCAMP = function(msg)
         else
             SC.AddTarget()
         end
-        SC.char.shown = true
+        SC.char.shown, SC.char.mini = true, false
         SC.Refresh()
     elseif cmd == "died" or cmd == "up" then
         local n = MobArg(rest)
@@ -801,7 +802,7 @@ SlashCmdList.SPAWNCAMP = function(msg)
         SC.Observe(n, cmd == "died" and "D" or "A", nil, nil, "you", { manual = true })
         SC.Refresh()
     elseif cmd == "settings" or cmd == "config" or cmd == "more" then
-        SC.char.shown = true
+        SC.char.shown, SC.char.mini = true, false
         SC.char.panel = SC.char.panel ~= "settings" and "settings" or nil
         SC.Refresh()
     elseif cmd == "key" then

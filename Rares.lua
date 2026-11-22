@@ -72,7 +72,7 @@ local function Found(name, cls, ctype, where, how)
             if SC.EvalTarget then pcall(SC.EvalTarget) end
         end
     end
-    SC.char.shown = true
+    SC.char.shown, SC.char.mini = true, false
     if not SC.SilverDragonOn() then
         SC.Alert((cls == "rareelite" and "Rare elite " or "Rare ") .. how .. ": " .. name .. (where and ("  " .. where) or ""))
     end
@@ -142,7 +142,7 @@ function SC.NoteDungeonRare(unit, who)
         SC.ApplyBindings()   -- waits for the fight to end by itself
         if SC.EvalTarget then pcall(SC.EvalTarget) end
     end
-    SC.char.shown = true
+    SC.char.shown, SC.char.mini = true, false
     if not SC.SilverDragonOn() then
         local what = cls == "rareelite" and "Rare elite" or "Rare"
         local text
@@ -175,7 +175,7 @@ function SC.TestRare()
     end
     table.insert(list, 1, name)
     SC.ApplyBindings()
-    SC.char.shown = true
+    SC.char.shown, SC.char.mini = true, false
     SC.Alert("Rare elite spotted: " .. name .. "  (test)")
     SC.Refresh()
 end
