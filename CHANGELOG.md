@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.55.0
+
+- **The icon is the expand/collapse button.** The minimise button from 0.54.0 is gone. The SpawnCamp icon in the window's top-left corner is now big (the same size as the collapsed icon) and is the button: left-click it to shrink the window to just the icon, left-click again to open it. The icon stays in the same spot either way.
+- Drag the icon to move the window, or just the icon while it's collapsed; the window opens under it.
+- A short animation: the window fades and grows out of the icon's corner when it opens, fades back into it when it closes, and the icon gives a small bounce.
+- The title and the key bar moved right to make room for the icon.
+
 ## 0.54.0
 
 - **Minimise button** in the title bar, left of the close button. It shrinks the window to just the SpawnCamp icon. Your key keeps working while it's minimised.

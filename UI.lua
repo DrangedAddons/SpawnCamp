@@ -973,14 +973,94 @@ local function SavePos()
     SC.char.framePos = { p, rp, x, y }
 end
 
--- The minimised window: just the icon. Drag to move, left-click to expand.
--- It sits where the window's top-left corner was, and the window opens
--- where the icon was dragged to.
+-- The big icon at the window's top-left corner is the expand/collapse
+-- button. Collapsed, the window is gone and only the icon is left, in the
+-- same place. Drag it to move (the window too, when it's open); left-click
+-- to collapse or expand. It's its own frame, so it can outlive the window.
 local MINI
+local detached = false   -- the icon stands alone (window collapsed)
+local opened = false     -- the window has been on screen, open, this session
+local MINI_IN = 3        -- icon inset from the window's corner
+
+-- A short fade, plus a slight grow from the icon's corner. done runs at the end.
+local function NewAnim(frame, fromA, toA, fromS, toS, dur, done)
+    local ok, g = pcall(function()
+        local g = frame:CreateAnimationGroup()
+        local a = g:CreateAnimation("Alpha")
+        a:SetFromAlpha(fromA); a:SetToAlpha(toA); a:SetDuration(dur); a:SetSmoothing("OUT")
+        local s = g:CreateAnimation("Scale")
+        if s.SetScaleFrom then
+            s:SetScaleFrom(fromS, fromS); s:SetScaleTo(toS, toS)
+            s:SetOrigin("TOPLEFT", 0, 0); s:SetDuration(dur); s:SetSmoothing("OUT")
+        end
+        if g.SetToFinalAlpha then g:SetToFinalAlpha(true) end
+        if done then g:SetScript("OnFinished", done) end
+        return g
+    end)
+    return ok and g or nil
+end
+
+local function Playing(g)
+    return g ~= nil and g.IsPlaying ~= nil and g:IsPlaying() == true
+end
+
+local function PlayExpand()
+    if F.scOut and Playing(F.scOut) then F.scOut:Stop() end
+    F:SetAlpha(1)
+    F.scIn = F.scIn or NewAnim(F, 0, 1, 0.94, 1, 0.16)
+    if F.scIn then pcall(F.scIn.Play, F.scIn) end
+end
+
+local function PlayCollapse()
+    local function done() F:Hide(); F:SetAlpha(1) end
+    F.scOut = F.scOut or NewAnim(F, 1, 0, 1, 0.94, 0.12, done)
+    if not (F.scOut and pcall(F.scOut.Play, F.scOut) and Playing(F.scOut)) then done() end
+end
+
+-- A small bounce on the icon itself for either click.
+local function Pulse()
+    if not MINI.scPulse then
+        local ok, g = pcall(function()
+            local g = MINI.icon:CreateAnimationGroup()
+            local s = g:CreateAnimation("Scale")
+            s:SetScaleFrom(0.82, 0.82); s:SetScaleTo(1, 1); s:SetDuration(0.2); s:SetSmoothing("OUT")
+            return g
+        end)
+        MINI.scPulse = ok and g or false
+    end
+    if MINI.scPulse then pcall(MINI.scPulse.Play, MINI.scPulse) end
+end
+
+local function AttachMini()
+    MINI:ClearAllPoints()
+    MINI:SetPoint("TOPLEFT", F, "TOPLEFT", MINI_IN, -MINI_IN)
+    detached = false
+end
+
+-- Collapsing: the icon stays where it is on screen, anchored to the screen.
+local function DetachMini()
+    local x, y = F:GetLeft(), F:GetTop()
+    if type(x) ~= "number" or type(y) ~= "number" then x, y = nil, nil end
+    -- From an open window, the icon stays put. At login (never opened) it
+    -- goes back to where it was left.
+    if opened and x and y then SC.char.miniPos = { x + MINI_IN, y - MINI_IN } end
+    local p = SC.char.miniPos
+    MINI:ClearAllPoints()
+    if p then
+        MINI:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", p[1], p[2])
+    elseif x and y then
+        MINI:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x + MINI_IN, y - MINI_IN)
+    else
+        MINI:SetPoint("TOP", UIParent, "TOP", 0, -160)
+    end
+    detached = true
+end
+
 local function BuildMini()
     MINI = CreateFrame("Button", "SpawnCampMini", UIParent, "BackdropTemplate")
     MINI:SetSize(40, 40)
     MINI:SetFrameStrata("MEDIUM")
+    MINI:SetFrameLevel(F:GetFrameLevel() + 30)
     MINI:SetClampedToScreen(true)
     MINI:SetMovable(true)
     MINI:RegisterForClicks("LeftButtonUp")
@@ -991,50 +1071,50 @@ local function BuildMini()
     icon:SetPoint("BOTTOMRIGHT", -3, 3)
     icon:SetTexture(SC.ICON)
     icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    MINI.icon = icon
     MINI:SetHighlightTexture("Interface/Buttons/ButtonHilight-Square", "ADD")
-    MINI:SetScript("OnDragStart", function(self) if not SC.char.locked then self:StartMoving() end end)
-    MINI:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        local x, y = self:GetLeft(), self:GetTop()
-        if x and y then SC.char.miniPos, SC.char.miniMoved = { x, y }, true end
+    -- Dragging the icon moves the window while it's open, the icon alone
+    -- while it's collapsed.
+    MINI:SetScript("OnDragStart", function(self)
+        if SC.char.locked then return end
+        self.moving = detached and self or F
+        self.moving:StartMoving()
     end)
-    MINI:SetScript("OnClick", function() SC.SetMini(false) end)
-    Tip(MINI, "SpawnCamp", "Click to open the window. Drag to move.")
-    MINI:Hide()
-end
-
-local function ShowMini()
-    if not MINI then BuildMini() end
-    if not MINI:IsShown() then
-        MINI:ClearAllPoints()
-        local p = SC.char.miniPos
-        if p then
-            MINI:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", p[1], p[2])
+    MINI:SetScript("OnDragStop", function(self)
+        local m = self.moving
+        self.moving = nil
+        if not m then return end
+        m:StopMovingOrSizing()
+        if m == F then
+            SavePos()
         else
-            MINI:SetPoint("TOP", UIParent, "TOP", 0, -160)
+            local x, y = self:GetLeft(), self:GetTop()
+            if type(x) == "number" and type(y) == "number" then SC.char.miniPos = { x, y } end
         end
-        MINI:Show()
-    end
+    end)
+    MINI:SetScript("OnClick", function() SC.SetMini(not SC.char.mini) end)
+    MINI:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("SpawnCamp")
+        GameTooltip:AddLine(SC.char.mini and "Click to open the window." or "Click to shrink the window to this icon.", 1, 1, 1)
+        GameTooltip:AddLine("Drag to move.", 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    MINI:SetScript("OnLeave", GameTooltip_Hide)
+    AttachMini()
 end
 
 function SC.SetMini(on)
-    if on and F then
-        -- The icon starts at the window's top-left corner.
-        local x, y = F:GetLeft(), F:GetTop()
-        if x and y then SC.char.miniPos = { x, y } end
-        SC.char.miniMoved = nil
-    end
     SC.char.mini = on and true or false
     if on then SC.char.shown = true end
+    if MINI then Pulse() end
     SC.Refresh()
 end
 
 local function BuildTop()
-    local icon = F:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(16, 16)
-    icon:SetPoint("TOPLEFT", 6, -5)
-    icon:SetTexture(SC.ICON)
-    F.title = Text(F, "SpawnCamp", 26, -7, "GameFontNormal")
+    -- The icon (BuildMini) covers the top-left corner; the title and the
+    -- key bar start to its right.
+    F.title = Text(F, "SpawnCamp", 50, -7, "GameFontNormal")
 
     local close = CreateFrame("Button", nil, F, "UIPanelCloseButton")
     close:SetSize(22, 22)
@@ -1046,19 +1126,9 @@ local function BuildTop()
         SC.Refresh()
     end)
 
-    -- Minimise: the window shrinks to its icon (BuildMini).
-    local mini = CreateFrame("Button", nil, F)
-    mini:SetSize(22, 22)
-    mini:SetPoint("RIGHT", close, "LEFT", 4, 0)
-    mini:SetNormalTexture("Interface/Buttons/UI-Panel-HideButton-Up")
-    mini:SetPushedTexture("Interface/Buttons/UI-Panel-HideButton-Down")
-    mini:SetHighlightTexture("Interface/Buttons/UI-Panel-MinimizeButton-Highlight", "ADD")
-    mini:SetScript("OnClick", function() SC.SetMini(true) end)
-    Tip(mini, "Minimise", "Shrinks the window to just the SpawnCamp icon. Your key keeps working. Click the icon to open the window again; drag it to move it.")
-
     local gear = CreateFrame("Button", nil, F)
     gear:SetSize(16, 16)
-    gear:SetPoint("RIGHT", mini, "LEFT", -2, 0)
+    gear:SetPoint("RIGHT", close, "LEFT", -2, 0)
     gear:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
     gear:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     gear:SetScript("OnClick", function() ShowBeside(ui.settingsPopup) end)
@@ -1092,16 +1162,16 @@ local function BuildTop()
     bar:SetPoint("TOPRIGHT", -1, -26)
     bar:SetHeight(44)
     bar:SetColorTexture(0.1, 0.1, 0.11, 0.9)
-    local chip = KeyButton(F, 10, -31, SC.char)
+    local chip = KeyButton(F, 50, -31, SC.char)
     chip.scBigFont = true
     chip:SetSize(84, 34)
     ui.keyDot = F:CreateTexture(nil, "ARTWORK")
     ui.keyDot:SetSize(8, 8)
-    ui.keyDot:SetPoint("TOPLEFT", 106, -38)
+    ui.keyDot:SetPoint("TOPLEFT", 146, -38)
     ui.keyDot:SetTexture("Interface\\Buttons\\WHITE8X8")
-    ui.keyState = Text(F, "", 118, -35, "GameFontNormal")
-    ui.keyDetail = Text(F, "", 106, -53, "GameFontHighlightSmall")
-    ui.keyDetail:SetWidth(330)
+    ui.keyState = Text(F, "", 158, -35, "GameFontNormal")
+    ui.keyDetail = Text(F, "", 146, -53, "GameFontHighlightSmall")
+    ui.keyDetail:SetWidth(290)
     ui.keyDetail:SetWordWrap(false)
     ui.clearKey = Btn(F, "Unassign", 64, 0, 0, function()
         SC.char.key = ""
@@ -2297,6 +2367,7 @@ local function Build()
     end
     ui.checks, ui.keys = {}, {}
     Shell(F)
+    BuildMini()
     BuildTop()
     F.scShell.nsTitle = F.title
     BuildTarget()
@@ -2701,24 +2772,36 @@ function SC.RefreshWindow()
         return
     end
     if not F then Build() end
+    MINI:Show()
     if SC.char.mini then
-        F:Hide()
+        -- Collapsed: only the icon. The window fades out, then hides.
+        if not detached then
+            DetachMini()
+            if opened and F:IsShown() then PlayCollapse() else F:Hide() end
+        elseif F:IsShown() and not Playing(F.scOut) then
+            F:Hide()
+        end
         HideSidePanels()
         if not InCombatLockdown() then
             for _, b in pairs(nameSecure) do b:Hide() end
             for _, b in pairs(portSecure) do b:Hide() end
         end
-        ShowMini()
         return
     end
-    if MINI then MINI:Hide() end
-    -- The icon was dragged while minimised: the window opens there.
-    if SC.char.miniMoved and SC.char.miniPos then
-        F:ClearAllPoints()
-        F:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", SC.char.miniPos[1], SC.char.miniPos[2])
-        SavePos()
+    if detached then
+        -- Expanding: the window opens with its corner under the icon,
+        -- wherever the icon was dragged to.
+        local p = SC.char.miniPos
+        if p then
+            F:ClearAllPoints()
+            F:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", p[1] - MINI_IN, p[2] + MINI_IN)
+            SavePos()
+        end
+        AttachMini()
+        F:Show()
+        PlayExpand()
     end
-    SC.char.miniMoved = nil
+    opened = true
     F:Show()
     for _, p in pairs(portraits) do p:Hide() end
 
