@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.56.0
+
+- **A rare in a dungeon no longer adds every rare on the instance's list.** The game hides the mob's name in there, so SpawnCamp could only tell it was "a rare elite" and added a target for all of them (three in Zul'Farrak). Now it reads the mob's level and keeps the rares that level fits. One left: it's added, as before. Still several (Zul'Farrak's three are all level 45): one chat line and a short list, and you pick the one you see. Only that one is added.
+- **Ping** (Settings > "Ping the mob my key finds", off by default): the key also pings the mob it targets, with a `/ping` line in its macro. It pings while the key is searching and stops once you're on the mob, so spamming the cast doesn't spam pings.
+
 ## 0.55.0
 
 - **The icon is the expand/collapse button.** The minimise button from 0.54.0 is gone. The SpawnCamp icon in the window's top-left corner is now big (the same size as the collapsed icon) and is the button: left-click it to shrink the window to just the icon, left-click again to open it. The icon stays in the same spot either way.

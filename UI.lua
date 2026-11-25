@@ -22,7 +22,7 @@ local recentOffset, histOffset = 0, 0
 local RECENT_ROWS, HIST_ROWS = 14, 14
 local RECENT_H = 22
 local W = 520
-local PANEL_H = { settings = 268 }   -- settings panel height
+local PANEL_H = { settings = 292 }   -- settings panel height
 local capturing     -- { settings = table with .key, button = key button } while setting a key
 
 -- The game's sword and chat cursors, tinted gold on the buttons.
@@ -1984,7 +1984,10 @@ local function BuildSettings(P)
     end, function() return tonumber(SC.char.mark) or 0 end, function(v) SC.char.mark = tonumber(v) or 0; SC.ApplyBindings() end)
     mark:SetPoint("TOPLEFT", 296, -198)
     Tip(mark, "Marker", "The raid marker your key puts on the mob it targets, so you can see it at a glance. None turns it off. In a raid you need lead or assist. In a fight, a change applies when the fight ends.")
-    Text(P, "Right-click Attack or Talk for their options.", 8, -230, "GameFontDisableSmall")
+    Check(P, "Ping the mob my key finds", 240, -224,
+        function() return SC.char.ping end, function(v) SC.char.ping = v; SC.ApplyBindings() end,
+        "Your key also pings the mob it targets, so you and your group see where it is. It pings while the key is searching, and stops once you're on the mob. In a fight, a change applies when the fight ends.")
+    Text(P, "Right-click Attack or Talk for their options.", 8, -254, "GameFontDisableSmall")
 end
 
 ------------------------------------------------------------------------------
@@ -2844,12 +2847,12 @@ function SC.RefreshWindow()
 end
 
 -- My Target in an instance: the list of the instance's mobs to pick from.
-function SC.ChooseDungeonTarget(items, onPick)
+function SC.ChooseDungeonTarget(items, onPick, title)
     if not (CH and F) then return end
     SC.char.shown, SC.char.mini = true, false
     SC.Refresh()
     if CH:IsShown() then CH:Hide() end
-    OpenChooser("Which mob is your target?", items, onPick, false, F)
+    OpenChooser(title or "Which mob is your target?", items, onPick, false, F)
 end
 
 -- Focuses the name box (when the game hides a target's name).

@@ -293,6 +293,13 @@ function SC.BuildKeyMacro()
     -- and a plain "/tm N" toggles.)
     local mark = tonumber(SC.char.mark) or 0
     if mark >= 1 and mark <= 8 then table.insert(tail, 1, "/tm !" .. mark) end
+    -- Ping, the same way: a "/ping" line after the marker, so the mob the
+    -- search found gets a ping in the world. Not once you're on the mob
+    -- (SC.onMob): spamming the cast would ping on every press, and the game
+    -- locks pings out when they come too fast.
+    if SC.char.ping and not SC.onMob then
+        table.insert(tail, (mark >= 1 and mark <= 8) and 2 or 1, "/ping [exists,nodead] Ping")
+    end
     -- Opening lines and the first search always go in; then as many searches
     -- as still leave room for the cast/attack/talk lines.
     local tailText = table.concat(tail, "\n")
