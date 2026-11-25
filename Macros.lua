@@ -297,7 +297,7 @@ function SC.BuildKeyMacro()
     -- search found gets a ping in the world. Not once you're on the mob
     -- (SC.onMob): spamming the cast would ping on every press, and the game
     -- locks pings out when they come too fast.
-    if SC.char.ping and not SC.onMob then
+    if SC.char.pingTarget and not SC.onMob then
         table.insert(tail, (mark >= 1 and mark <= 8) and 2 or 1, "/ping [exists,nodead] Ping")
     end
     -- Opening lines and the first search always go in; then as many searches

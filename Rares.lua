@@ -83,28 +83,16 @@ end
 -- Dungeons
 ------------------------------------------------------------------------------
 
--- In an instance a nameplate's name is hidden, but its classification isn't.
--- A rare-class unit there is one of the rares on the instance's enemy list
--- (Questie's rank: 2 rare elite, 4 rare), so the list names it: one rare on
--- the list (Maraudon: Meshlok the Harvester) and that's the one. With several
--- (Zul'Farrak has three) the unit's level, which is readable too, picks the
--- ones it can be: those whose level range holds it, or failing that the
--- nearest in level. One left: it gets a card. Still several (Zul'Farrak's
--- three are all level 45): no cards, one alert and a list to pick the one
--- you see from. Adding a card for every rare on the list filled the window
--- with mobs that weren't there.
+-- In an instance a nameplate's name is hidden, but its classification and
+-- level aren't. A rare-class unit there is named only when the instance's
+-- enemy list (Questie's rank: 2 rare elite, 4 rare) leaves exactly one rare it
+-- can be: the same class, with a level range that holds the unit's level.
+-- Maraudon has one rare (Meshlok the Harvester), so that's the one.
+-- Zul'Farrak's three rare elites are all level 45, so a rare there can't be
+-- told apart and nothing happens: no card, no alert. A wrong or doubled
+-- pop-up is worse than none.
 local RANK_CLASS = { [2] = "rareelite", [4] = "rare" }
-local dungeonAlerted = {}   -- "area:class:level" -> time of the last alert
-
--- How far level is outside a list entry's range; 0 = inside it.
-local function LevelGap(m, level)
-    local hi = m.level or 0
-    local lo = (m.min or 0) > 0 and m.min or hi
-    if hi <= 0 then return 99 end
-    if level < lo then return lo - level end
-    if level > hi then return level - hi end
-    return 0
-end
+local dungeonAlerted = {}   -- "area:name" -> time of the last alert
 
 -- unit: a nameplate, your target, or a group member's target. who = whose
 -- target it is, for the alert, or nil.
@@ -118,69 +106,43 @@ function SC.NoteDungeonRare(unit, who)
     if SC.UnitNameSafe(unit) then return end   -- readable: the usual path names it
     local level = tonumber(SC.Plain(UnitLevel(unit)))
     if level and level <= 0 then level = nil end
-    local key = tostring(d.area) .. ":" .. cls .. ":" .. tostring(level)
+    -- The list's rares of this class that the level allows. An unreadable
+    -- level rules nothing out.
+    local name, count = nil, 0
+    for _, m in ipairs(d.mobs) do
+        if RANK_CLASS[m.rank] == cls then
+            local hi = m.level or 0
+            local lo = (m.min or 0) > 0 and m.min or hi
+            if not level or (hi > 0 and level >= lo and level <= hi) then
+                name, count = m.name, count + 1
+            end
+        end
+    end
+    if count ~= 1 then return end
+    if SC.rareDismissed[name] or SC.IsRareIgnored(name) or SC.IsActive(name) then return end
+    local key = tostring(d.area) .. ":" .. name
     local now = GetTime()
     if dungeonAlerted[key] and now - dungeonAlerted[key] < ALERT_AGAIN then return end
-    -- The list's rares of this class; if it has none of this class, all its rares.
-    local same, any = {}, {}
-    for _, m in ipairs(d.mobs) do
-        local c = RANK_CLASS[m.rank]
-        if c then
-            any[#any + 1] = m
-            if c == cls then same[#same + 1] = m end
-        end
-    end
-    local pool = #same > 0 and same or any
-    -- Of those, the ones nearest this unit's level.
-    local names, best = {}, nil
-    for _, m in ipairs(pool) do
-        local gap = level and LevelGap(m, level) or 0
-        if not best or gap < best then best, names = gap, {} end
-        if gap == best then names[#names + 1] = m.name end
-    end
-    -- Not the ones you cleared or ignored.
-    local want = {}
-    for _, n in ipairs(names) do
-        if not SC.rareDismissed[n] and not SC.IsRareIgnored(n) then want[#want + 1] = n end
-    end
-    if #names > 0 and #want == 0 then return end
     dungeonAlerted[key] = now
     -- A card at the top for the rare, and its name on the key.
-    local function Card(n)
-        if SC.IsActive(n) or #SC.Targets() >= SC.MAX_TARGETS then return end
-        local m = SC.AddMob(n, "attack")
-        if not m then return end
-        m.rare, m.rareAuto = cls, true
-        local list = SC.char.targets
-        for j, t in ipairs(list) do
-            if t == n then table.remove(list, j); break end
+    if #SC.Targets() < SC.MAX_TARGETS then
+        local m = SC.AddMob(name, "attack")
+        if m then
+            m.rare, m.rareAuto = cls, true
+            local list = SC.char.targets
+            for j, t in ipairs(list) do
+                if t == name then table.remove(list, j); break end
+            end
+            table.insert(list, 1, name)
+            SC.fastUnit = nil
+            SC.ApplyBindings()   -- waits for the fight to end by itself
+            if SC.EvalTarget then pcall(SC.EvalTarget) end
         end
-        table.insert(list, 1, n)
-        SC.fastUnit = nil
-        SC.ApplyBindings()   -- waits for the fight to end by itself
-        if SC.EvalTarget then pcall(SC.EvalTarget) end
     end
-    if #want == 1 then Card(want[1]) end
     SC.char.shown, SC.char.mini = true, false
-    if #want > 1 and SC.ChooseDungeonTarget then
-        local items = {}
-        for _, n in ipairs(want) do
-            items[#items + 1] = { text = n, value = n, noIcon = true, selected = true,
-                sub = (level and ("level " .. level .. " ") or "") .. (cls == "rareelite" and "rare elite" or "rare") }
-        end
-        SC.ChooseDungeonTarget(function() return items end, function(it) Card(it.value); SC.Refresh() end, "Which rare is it?")
-    end
     if not SC.SilverDragonOn() then
-        local what = cls == "rareelite" and "Rare elite" or "Rare"
-        local text
-        if #want == 0 then
-            text = what .. " nearby (not on this instance's enemy list)"
-        elseif #want == 1 then
-            text = what .. " nearby: " .. want[1]
-        else
-            text = what .. " nearby, one of: " .. table.concat(want, ", ") .. ". Pick the one you see from the list."
-        end
-        SC.Alert(text .. (who and ("  (" .. who .. "'s target)") or ""))
+        SC.Alert((cls == "rareelite" and "Rare elite" or "Rare") .. " nearby: " .. name
+            .. (who and ("  (" .. who .. "'s target)") or ""))
     end
     SC.Refresh()
 end

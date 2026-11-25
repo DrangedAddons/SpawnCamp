@@ -1985,7 +1985,7 @@ local function BuildSettings(P)
     mark:SetPoint("TOPLEFT", 296, -198)
     Tip(mark, "Marker", "The raid marker your key puts on the mob it targets, so you can see it at a glance. None turns it off. In a raid you need lead or assist. In a fight, a change applies when the fight ends.")
     Check(P, "Ping the mob my key finds", 240, -224,
-        function() return SC.char.ping end, function(v) SC.char.ping = v; SC.ApplyBindings() end,
+        function() return SC.char.pingTarget end, function(v) SC.char.pingTarget = v; SC.ApplyBindings() end,
         "Your key also pings the mob it targets, so you and your group see where it is. It pings while the key is searching, and stops once you're on the mob. In a fight, a change applies when the fight ends.")
     Text(P, "Right-click Attack or Talk for their options.", 8, -254, "GameFontDisableSmall")
 end

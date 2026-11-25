@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.56.1
+
+- **A rare in a dungeon is named for certain, or not at all.** 0.56.0 still listed every rare it could be and asked you to pick. Now SpawnCamp pops a rare up only when the instance's list leaves exactly one it can be: the same class (rare or rare elite) with a level that matches. Otherwise nothing happens: no target, no chat line, no window. Zul'Farrak's three rare elites are all level 45, so they can't be told apart and won't pop up; add one with its name if you want it on your key.
+- **Ping is on by default.** Untick Settings > "Ping the mob my key finds" to turn it off.
+
 ## 0.56.0
 
 - **A rare in a dungeon no longer adds every rare on the instance's list.** The game hides the mob's name in there, so SpawnCamp could only tell it was "a rare elite" and added a target for all of them (three in Zul'Farrak). Now it reads the mob's level and keeps the rares that level fits. One left: it's added, as before. Still several (Zul'Farrak's three are all level 45): one chat line and a short list, and you pick the one you see. Only that one is added.
