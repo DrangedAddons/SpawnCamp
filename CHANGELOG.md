@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.57.0
+
+- **Camping a limited-stock item: just spam the key.** An open vendor window never shows a restock, so when the item you picked to buy is out of stock, SpawnCamp now closes the vendor window. Your next key press opens a fresh one and buys the item if it's there. The "out of stock" chat line shows once a minute at most.
+- It only closes a window your Talk key opened, with a buy item picked, when that item is out of stock (or missing at a vendor Questie lists as selling it). Not enough money, a vendor who doesn't sell it, or Shift held: the window stays open.
+
 ## 0.56.1
 
 - **A rare in a dungeon is named for certain, or not at all.** 0.56.0 still listed every rare it could be and asked you to pick. Now SpawnCamp pops a rare up only when the instance's list leaves exactly one it can be: the same class (rare or rare elite) with a level that matches. Otherwise nothing happens: no target, no chat line, no window. Zul'Farrak's three rare elites are all level 45, so they can't be told apart and won't pop up; add one with its name if you want it on your key.

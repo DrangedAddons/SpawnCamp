@@ -6,6 +6,11 @@
 -- Only a window the Talk key opened (or a Talk target's own window) is
 -- handled, the same rule as auto-chat and quests. Hold Shift to shop yourself.
 --
+-- An open vendor window never shows a restock: the game sends the stock list
+-- when the window opens and not again. So when the picked item is out of
+-- stock the window is closed, and the next key press opens a fresh one. That
+-- makes spamming the key enough to camp a limited item.
+--
 -- The item list in the picker comes from two places:
 --   * the vendor window that's open right now, if there is one;
 --   * Questie's item database, which records who sells each item.
@@ -80,11 +85,43 @@ local function HowMany(I, i)
 end
 
 local visit = { done = false, said = {} }
+local list, scanning      -- Questie's vendor items, once read
+local Scan
 
+-- Once per window, and not again for SAY_AGAIN seconds: the key reopens the
+-- window on every press while you camp, and that would fill the chat.
+local SAY_AGAIN = 60
+local lastSaid = {}
 local function Say(key, text)
     if visit.said[key] then return end
     visit.said[key] = true
+    local now = GetTime()
+    if lastSaid[key] and lastSaid[key].text == text and now - lastSaid[key].t < SAY_AGAIN then return end
+    lastSaid[key] = { text = text, t = now }
     SC.Print(text)
+end
+
+-- Closes the vendor window so the next key press opens a fresh one. A frame
+-- later: this runs inside the event that is still opening the window.
+local function CloseToRecheck()
+    local token = visit
+    C_Timer.After(0, function()
+        if visit == token and visit.open and CloseMerchant then pcall(CloseMerchant) end
+    end)
+end
+
+-- Questie lists this vendor as a seller of the picked item. A sold-out
+-- limited item can be missing from the window altogether; this tells that
+-- apart from a vendor who never sells it.
+local function SellsPicked(I)
+    Scan()
+    local who = SC.UnitNameSafe and SC.UnitNameSafe("npc")
+    if not (list and type(who) == "string") then return false end
+    local want = (I.buy or ""):lower()
+    for _, it in ipairs(list) do
+        if it.text:lower() == want then return it.find:find(who:lower(), 1, true) ~= nil end
+    end
+    return false
 end
 
 local function TryBuy()
@@ -96,8 +133,13 @@ local function TryBuy()
     if not i then
         -- Names still loading: MERCHANT_UPDATE or the retry comes back to it.
         if loaded and NumSlots() > 0 then
-            Say("none", "|cffffffff" .. I.buy .. "|r isn't sold here.")
             visit.done = true
+            if SellsPicked(I) then
+                Say("out", "|cffffffff" .. I.buy .. "|r is out of stock. Closing the vendor: press your key again to check.")
+                CloseToRecheck()
+            else
+                Say("none", "|cffffffff" .. I.buy .. "|r isn't sold here.")
+            end
         end
         return
     end
@@ -106,7 +148,8 @@ local function TryBuy()
     visit.done = true
     if n <= 0 then
         if why == "out" then
-            Say("out", "|cffffffff" .. name .. "|r is out of stock.")
+            Say("out", "|cffffffff" .. name .. "|r is out of stock. Closing the vendor: press your key again to check.")
+            CloseToRecheck()
         else
             Say("money", "not enough money for |cffffffff" .. name .. "|r.")
         end
@@ -156,8 +199,6 @@ end
 ------------------------------------------------------------------------------
 -- The picker's list
 ------------------------------------------------------------------------------
-
-local list, scanning      -- Questie's vendor items, once read
 
 local function Faction()
     local f = UnitFactionGroup and UnitFactionGroup("player")
@@ -212,9 +253,9 @@ local function Collect(db, step)
     table.sort(out, function(a, b) return a.text < b.text end)
     return out
 end
-SC._vendor = { Collect = Collect }
+SC._vendor = { Collect = Collect, SetList = function(l) list = l end }
 
-local function Scan()
+function Scan()
     if list or scanning then return end
     local db = SC.QuestieDBs and SC.QuestieDBs()
     if not (db and db.ItemPointers and db.QueryItemSingle) then return end
