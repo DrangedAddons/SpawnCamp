@@ -413,9 +413,39 @@ local function SetKey(key)
     if not capturing then return end
     local mods = (IsAltKeyDown() and "ALT-" or "") .. (IsControlKeyDown() and "CTRL-" or "")
         .. (IsShiftKeyDown() and "SHIFT-" or "")
-    capturing.settings.key = mods .. key
-    SC.ApplyBindings()
+    if capturing.apply then
+        capturing.apply(mods .. key)
+    else
+        capturing.settings.key = mods .. key
+        SC.ApplyBindings()
+    end
     StopCapture()
+end
+
+-- The game's own "Interact With Target" binding (Options > Controls), first
+-- slot. Changing it here changes it there, and the other way round.
+local INTERACT = "INTERACTTARGET"
+
+function SC.InteractKey()
+    return (GetBindingKey and GetBindingKey(INTERACT)) or nil
+end
+
+-- key = a binding like "SHIFT-T", or nil to unbind the first slot. The second
+-- slot is left as it is.
+function SC.SetInteractKey(key)
+    if InCombatLockdown() then SC.Print("set the key out of combat"); return false end
+    if not (SetBinding and GetBindingKey) then return false end
+    local old = GetBindingKey(INTERACT)
+    if old == key then return true end
+    if old then SetBinding(old) end
+    if key and not SetBinding(key, INTERACT) then
+        if old then SetBinding(old, INTERACT) end
+        SC.Print("the game wouldn't bind " .. SC.KeyLabel(key) .. " to Interact With Target.")
+        return false
+    end
+    local set = GetCurrentBindingSet and GetCurrentBindingSet()
+    if SaveBindings and set then pcall(SaveBindings, set) end
+    return true
 end
 
 local function KeyButton(parent, x, y, settings)
@@ -451,6 +481,45 @@ local function KeyButton(parent, x, y, settings)
     b:SetScript("OnHide", function(self) if capturing and capturing.button == self then StopCapture() end end)
     Tip(b, "SpawnCamp key", "Click, then press a key, roll the mouse wheel, or press mouse button 3-5. Shift/Ctrl/Alt combos work. Escape cancels. It only takes over while you have a target selected.")
     table.insert(ui.keys, b)
+    return b
+end
+
+-- The same kind of button for the game's Interact With Target key.
+local function InteractKeyButton(parent, x, y)
+    local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    b:SetSize(84, 34)
+    b:SetPoint("TOPLEFT", x, y)
+    b:RegisterForClicks("AnyUp")
+    b:SetScript("OnClick", function(self, button)
+        if capturing then
+            if capturing.button == self and MOUSE_KEYS[button] then SetKey(MOUSE_KEYS[button]) else StopCapture() end
+            return
+        end
+        if InCombatLockdown() then SC.Print("set the key out of combat"); return end
+        if button == "RightButton" then
+            SC.SetInteractKey(nil)
+            SC.Refresh()
+            return
+        end
+        capturing = { button = self, apply = SC.SetInteractKey }
+        self:SetText("|cffffd100Press...|r")
+        self:EnableKeyboard(true)
+        if self.SetPropagateKeyboardInput then self:SetPropagateKeyboardInput(false) end
+    end)
+    b:SetScript("OnKeyDown", function(self, key)
+        if not capturing or capturing.button ~= self then return end
+        if key == "ESCAPE" then StopCapture(); return end
+        if MODIFIERS[key] then return end
+        SetKey(key)
+    end)
+    b:EnableKeyboard(false)
+    b:EnableMouseWheel(true)
+    b:SetScript("OnMouseWheel", function(self, delta)
+        if not capturing or capturing.button ~= self then return end
+        SetKey(delta > 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN")
+    end)
+    b:SetScript("OnHide", function(self) if capturing and capturing.button == self then StopCapture() end end)
+    Tip(b, "Interact key", "The game's own Interact With Target key (Options > Controls): talks to, loots or attacks your target. This button and that option are the same binding, so changing one changes the other.\n\nClick, then press a key, roll the mouse wheel, or press mouse button 3-5. Shift/Ctrl/Alt combos work. Escape cancels. Right-click removes the key.\n\nIt needs \"Enable Interact Key\" ticked in Options > Controls.")
     return b
 end
 
@@ -1167,11 +1236,19 @@ local function BuildTop()
     chip:SetSize(84, 34)
     ui.keyDot = F:CreateTexture(nil, "ARTWORK")
     ui.keyDot:SetSize(8, 8)
-    ui.keyDot:SetPoint("TOPLEFT", 146, -38)
+    ui.keyDot:SetPoint("TOPLEFT", 234, -38)
     ui.keyDot:SetTexture("Interface\\Buttons\\WHITE8X8")
-    ui.keyState = Text(F, "", 158, -35, "GameFontNormal")
-    ui.keyDetail = Text(F, "", 146, -53, "GameFontHighlightSmall")
-    ui.keyDetail:SetWidth(290)
+    ui.keyState = Text(F, "", 246, -35, "GameFontNormal")
+    ui.keyDetail = Text(F, "", 234, -53, "GameFontHighlightSmall")
+    ui.keyDetail:SetWidth(202)
+    -- Next to it: the game's Interact With Target key, with a small label so
+    -- the two aren't mixed up.
+    ui.interactKey = InteractKeyButton(F, 138, -31)
+    ui.interactKey.scBigFont = true
+    local cap = ui.interactKey:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    cap:SetPoint("BOTTOM", ui.interactKey, "TOP", 0, -9)
+    cap:SetText("interact")
+    cap:SetScale(0.8)
     ui.keyDetail:SetWordWrap(false)
     ui.clearKey = Btn(F, "Unassign", 64, 0, 0, function()
         SC.char.key = ""
@@ -2435,6 +2512,10 @@ local function RefreshKey()
             b:SetText(SC.char.key ~= "" and SC.KeyLabel(SC.char.key) or "|cff999999Set key|r")
         end
     end
+    if ui.interactKey and not (capturing and capturing.button == ui.interactKey) then
+        local k = SC.InteractKey()
+        ui.interactKey:SetText(k and SC.KeyLabel(k) or "|cff999999Interact|r")
+    end
     ui.clearKey:SetShown(SC.char.key ~= "")
     local state, detail, r, g, b = nil, nil, 0.6, 0.6, 0.6
     if SC.char.key == "" then
@@ -2892,3 +2973,7 @@ C_Timer.NewTicker(1, function()
 end)
 
 SC.On("PLAYER_REGEN_DISABLED", function() if capturing then StopCapture() end end)
+-- The interact key changed in the game's own options.
+if SC.EventValid("UPDATE_BINDINGS") then
+    SC.On("UPDATE_BINDINGS", function() if F and F:IsShown() and not capturing then SC.Refresh() end end)
+end

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.58.0
+
+- **Interact key button**, next to your SpawnCamp key in the key bar (small "interact" label). It shows and sets the game's own Interact With Target key, the one in Options > Controls. It's the same binding: change it here and the game's option changes, and the other way round.
+- It works like the SpawnCamp key button: click, then press a key, roll the wheel or press mouse button 3-5, with Shift/Ctrl/Alt if you like. Escape cancels. Right-click removes the key. Out of combat only.
+- The key bar's status text moved right to make room.
+
 ## 0.57.0
 
 - **Camping a limited-stock item: just spam the key.** An open vendor window never shows a restock, so when the item you picked to buy is out of stock, SpawnCamp now closes the vendor window. Your next key press opens a fresh one and buys the item if it's there. The "out of stock" chat line shows once a minute at most.
