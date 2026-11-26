@@ -487,7 +487,7 @@ end
 -- The same kind of button for the game's Interact With Target key.
 local function InteractKeyButton(parent, x, y)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    b:SetSize(84, 34)
+    b:SetSize(84, 26)
     b:SetPoint("TOPLEFT", x, y)
     b:RegisterForClicks("AnyUp")
     b:SetScript("OnClick", function(self, button)
@@ -1231,9 +1231,19 @@ local function BuildTop()
     bar:SetPoint("TOPRIGHT", -1, -26)
     bar:SetHeight(44)
     bar:SetColorTexture(0.1, 0.1, 0.11, 0.9)
-    local chip = KeyButton(F, 50, -31, SC.char)
+    -- Two keys side by side, each under a small caps label in the style of
+    -- the TARGETS header: yours, and the game's Interact With Target key.
+    local function KeyLabel(text, x)
+        local fs = Text(F, text, x + 2, -29, "GameFontNormalSmall")
+        fs:SetWidth(84)
+        if fs.SetWordWrap then fs:SetWordWrap(false) end
+        return fs
+    end
+    KeyLabel("KEY", 50)
+    KeyLabel("INTERACT", 138)
+    local chip = KeyButton(F, 50, -42, SC.char)
     chip.scBigFont = true
-    chip:SetSize(84, 34)
+    chip:SetSize(84, 26)
     ui.keyDot = F:CreateTexture(nil, "ARTWORK")
     ui.keyDot:SetSize(8, 8)
     ui.keyDot:SetPoint("TOPLEFT", 234, -38)
@@ -1241,14 +1251,9 @@ local function BuildTop()
     ui.keyState = Text(F, "", 246, -35, "GameFontNormal")
     ui.keyDetail = Text(F, "", 234, -53, "GameFontHighlightSmall")
     ui.keyDetail:SetWidth(202)
-    -- Next to it: the game's Interact With Target key, with a small label so
-    -- the two aren't mixed up.
-    ui.interactKey = InteractKeyButton(F, 138, -31)
+    ui.interactKey = InteractKeyButton(F, 138, -42)
     ui.interactKey.scBigFont = true
-    local cap = ui.interactKey:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    cap:SetPoint("BOTTOM", ui.interactKey, "TOP", 0, -9)
-    cap:SetText("interact")
-    cap:SetScale(0.8)
+    ui.interactKey:SetSize(84, 26)
     ui.keyDetail:SetWordWrap(false)
     ui.clearKey = Btn(F, "Unassign", 64, 0, 0, function()
         SC.char.key = ""
@@ -2514,7 +2519,7 @@ local function RefreshKey()
     end
     if ui.interactKey and not (capturing and capturing.button == ui.interactKey) then
         local k = SC.InteractKey()
-        ui.interactKey:SetText(k and SC.KeyLabel(k) or "|cff999999Interact|r")
+        ui.interactKey:SetText(k and SC.KeyLabel(k) or "|cff999999Set key|r")
     end
     ui.clearKey:SetShown(SC.char.key ~= "")
     local state, detail, r, g, b = nil, nil, 0.6, 0.6, 0.6

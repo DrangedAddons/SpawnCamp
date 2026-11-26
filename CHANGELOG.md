@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.58.1
+
+- **Both keys in the key bar are labelled.** "KEY" over your SpawnCamp key and "INTERACT" over the game's interact key, in the same small caps as the TARGETS header. The tiny "interact" tag stuck on the button's edge is gone, and the two buttons are a little slimmer to fit their labels.
+
 ## 0.58.0
 
 - **Interact key button**, next to your SpawnCamp key in the key bar (small "interact" label). It shows and sets the game's own Interact With Target key, the one in Options > Controls. It's the same binding: change it here and the game's option changes, and the other way round.
