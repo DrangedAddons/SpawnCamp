@@ -993,7 +993,7 @@ end
 
 local function BuildTalkPopup()
     local I = SC.char.interact
-    TP = Popup("SpawnCampTalkOptions", 380, 480, "Talk  |T" .. BUBBLE .. ":14|t")
+    TP = Popup("SpawnCampTalkOptions", 380, 504, "Talk  |T" .. BUBBLE .. ":14|t")
     TP:HookScript("OnHide", function() if CH then CH:Hide() end end)
     Check(TP, "Hand in and accept quests (follow-ups too)", 8, -30,
         function() return I.autoQuest end, function(v) I.autoQuest = v end)
@@ -1046,8 +1046,11 @@ local function BuildTalkPopup()
     Check(TP, "Skip recipes I already know", 8, -356,
         function() return I.skipKnown ~= false end, function(v) I.skipKnown = v; SC.Refresh() end,
         "A recipe, pattern or plans this character has already learned isn't bought, and its row says \"known\". Untick to buy it anyway (to sell, or for another character).")
-    Wrapped(TP, "When your key opens a vendor's window, these are bought if they're in stock. Amount empty = whatever is in stock. An item that's out of stock closes the window, so spamming your key rechecks it. A bought item is skipped after that; change its amount or pick it again to buy more.", 12, -384, 356)
-    Text(TP, "Hold Shift while talking to do a window yourself.", 12, -456, "GameFontDisableSmall")
+    Check(TP, "Mute vendor sounds while I spam the key", 8, -378,
+        function() return I.quiet ~= false end, function(v) I.quiet = v; if not v and SC.Unquiet then SC.Unquiet() end end,
+        "While an item you want is out of stock and your key keeps reopening the vendor, the game's Sound Effects and Dialog sounds are switched off: no greeting on every press, no window open and close sounds. They come back 8 seconds after your last press, or as soon as there's nothing left to wait for. Music stays on, and the \"Bought\" alert is still heard.")
+    Wrapped(TP, "When your key opens a vendor's window, these are bought if they're in stock. Amount empty = whatever is in stock. An item that's out of stock closes the window, so spamming your key rechecks it. A bought item is skipped after that; change its amount or pick it again to buy more.", 12, -408, 356)
+    Text(TP, "Hold Shift while talking to do a window yourself.", 12, -480, "GameFontDisableSmall")
 end
 ------------------------------------------------------------------------------
 -- Build: header, key row, add row, target, recent

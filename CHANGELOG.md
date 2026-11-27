@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.61.0
+
+- **Quiet while you camp a vendor** (Talk options: "Mute vendor sounds while I spam the key", on by default). Once an item you want is out of stock and your key starts reopening the vendor, the game's Sound Effects and Dialog sounds are switched off: no "What can I do for you?" on every press, no window open and close sounds.
+- The sounds come back 8 seconds after your last press, or straight away when the item is bought or there's nothing left to wait for. Music and ambience stay on, and the "Bought ...!" alert is still heard.
+- The first press of a camp still makes its usual sounds: quiet mode starts when the vendor turns out to be out of stock.
+- If you log out or the game closes while it's quiet, your sound settings are put back at the next login.
+
 ## 0.60.0
 
 - **Skip recipes I already know** (Talk options, under the buy list, on by default). A recipe, pattern or plans this character has already learned isn't bought. Its row says "known", chat says so once, and the vendor window isn't closed and reopened to wait for it. Untick it to buy known recipes anyway, to sell or for another character.

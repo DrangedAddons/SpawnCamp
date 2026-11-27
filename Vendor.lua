@@ -217,9 +217,75 @@ local function Say(key, text)
     SC.Print(text)
 end
 
+------------------------------------------------------------------------------
+-- Quiet mode
+------------------------------------------------------------------------------
+
+-- Camping a vendor means opening him over and over: his greeting ("What can
+-- I do for you?") and the window's open and close sounds on every press.
+-- While that goes on, the game's Sound Effects and Dialog channels are
+-- switched off, and put back QUIET_FOR seconds after the last reopen. Music
+-- and ambience aren't touched, and SpawnCamp's own alerts play on the Master
+-- channel, so "Bought ...!" is still heard.
+--
+-- What the two settings were is kept in the saved variables, so a crash or
+-- logout in the middle can't leave them off: they're put back at login.
+local QUIET_FOR = 8
+local QUIET_CVARS = { "Sound_EnableSFX", "Sound_EnableDialog" }
+local quietUntil = 0
+
+local function CVarGet(n)
+    if type(C_CVar) == "table" and C_CVar.GetCVar then return C_CVar.GetCVar(n) end
+    return GetCVar and GetCVar(n)
+end
+
+local function CVarSet(n, v)
+    if type(C_CVar) == "table" and C_CVar.SetCVar then C_CVar.SetCVar(n, v) elseif SetCVar then SetCVar(n, v) end
+end
+
+function SC.Unquiet()
+    local db = rawget(_G, "SpawnCampDB")
+    local saved = type(db) == "table" and db.quiet
+    if type(saved) ~= "table" then return end
+    db.quiet = nil
+    for _, n in ipairs(QUIET_CVARS) do
+        if type(saved[n]) == "string" then pcall(CVarSet, n, saved[n]) end
+    end
+end
+
+local function Quiet()
+    local I = SC.char and SC.char.interact
+    local db = rawget(_G, "SpawnCampDB")
+    if not I or I.quiet == false or type(db) ~= "table" then return end
+    quietUntil = GetTime() + QUIET_FOR
+    if type(db.quiet) ~= "table" then
+        local saved = {}
+        for _, n in ipairs(QUIET_CVARS) do
+            local ok, v = pcall(CVarGet, n)
+            if ok and v ~= nil then
+                saved[n] = tostring(v)
+                pcall(CVarSet, n, "0")
+            end
+        end
+        db.quiet = saved
+        if not SC.quietTold then
+            SC.quietTold = true
+            SC.Print("vendor sounds are muted while you camp. They come back " .. QUIET_FOR .. " seconds after your last press.")
+        end
+    end
+    C_Timer.After(QUIET_FOR + 0.1, function()
+        if GetTime() >= quietUntil then SC.Unquiet() end
+    end)
+end
+SC.Quiet = Quiet
+
+SC.On("PLAYER_LOGIN", function() SC.Unquiet() end)
+SC.On("PLAYER_LOGOUT", function() SC.Unquiet() end)
+
 -- Closes the vendor window so the next key press opens a fresh one. A frame
 -- later: this runs inside the event that is still opening the window.
 local function CloseToRecheck()
+    Quiet()
     local token = visit
     C_Timer.After(0, function()
         if visit == token and visit.open and CloseMerchant then pcall(CloseMerchant) end
@@ -332,6 +398,9 @@ local function TryBuy()
     if #out > 0 then
         Say("out", Names(out) .. (#out > 1 and " are" or " is") .. " out of stock. Closing the vendor: press your key again to check.")
         CloseToRecheck()
+    else
+        -- Nothing left to wait for: the window stays open, sounds come back.
+        SC.Unquiet()
     end
 end
 SC.TryBuy = TryBuy

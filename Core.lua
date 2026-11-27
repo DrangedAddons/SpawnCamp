@@ -69,6 +69,7 @@ SC.CHAR_DEFAULTS = {
         buyID = 0,        -- ... its item id, when known
         buyCount = 0,     -- how many (0 = all in stock; one if it never runs out)
         skipKnown = true, -- don't buy a recipe this character already knows
+        quiet = true,     -- mute the vendor's greeting and window sounds while you spam the key
     },
     anyQuest = false,     -- the key also goes for any mob your quests still need
     autoTotem = false,    -- Auto > Totem / Ward: enemy totems and wards first
