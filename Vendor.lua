@@ -74,7 +74,15 @@ function SC.Buys()
     return I.buys
 end
 
+-- A recipe this character already knows, when "Skip recipes I already
+-- know" is on. b.known is set when a vendor's window showed it as known.
+local function SkipKnown(b)
+    local I = SC.char and SC.char.interact
+    return b.known == true and I ~= nil and I.skipKnown ~= false
+end
+
 function SC.BuyPending(b)
+    if SkipKnown(b) then return false end
     local count, got = tonumber(b.count) or 0, tonumber(b.got) or 0
     if count > 0 then return got < count end
     return got == 0
@@ -104,7 +112,7 @@ function SC.SetBuy(slot, name, id)
         b = { count = 0 }
         buys[#buys + 1] = b
     end
-    b.name, b.id, b.got = name, tonumber(id) or 0, 0
+    b.name, b.id, b.got, b.known = name, tonumber(id) or 0, 0, nil
 end
 
 -- A new amount also starts the item afresh.
@@ -114,6 +122,41 @@ function SC.SetBuyCount(slot, n)
     n = math.max(0, math.floor(tonumber(n) or 0))
     if n == (tonumber(b.count) or 0) then return end
     b.count, b.got = n, 0
+end
+
+-- Slot i's tooltip says "Already known" (a recipe you've learned). true,
+-- false, or nil when the tooltip has no lines yet (item still loading).
+local scanTip
+local function ReadKnown(i)
+    local known = ITEM_SPELL_KNOWN
+    if type(known) ~= "string" then return false end
+    if type(C_TooltipInfo) == "table" and C_TooltipInfo.GetMerchantItem then
+        local data = C_TooltipInfo.GetMerchantItem(i)
+        if type(data) == "table" and type(data.lines) == "table" then
+            if #data.lines == 0 then return nil end
+            for _, l in ipairs(data.lines) do
+                if SC.Plain(l.leftText) == known then return true end
+            end
+            return false
+        end
+    end
+    scanTip = scanTip or CreateFrame("GameTooltip", "SpawnCampScanTip", nil, "GameTooltipTemplate")
+    scanTip:SetOwner(WorldFrame, "ANCHOR_NONE")
+    scanTip:ClearLines()
+    scanTip:SetMerchantItem(i)
+    local n = scanTip:NumLines()
+    if type(n) ~= "number" or n == 0 then return nil end
+    for k = 1, n do
+        local fs = _G["SpawnCampScanTipTextLeft" .. k]
+        if fs and SC.Plain(fs:GetText()) == known then return true end
+    end
+    return false
+end
+
+local function Known(i)
+    local ok, r = pcall(ReadKnown, i)
+    if not ok then return false end
+    return r
 end
 
 -- The slot selling item b: by item id when both sides have one, else by
@@ -207,7 +250,8 @@ local function TryBuy()
     if visit.done or not SC.char then return end
     if not (MerchantFrame and MerchantFrame:IsShown()) and not visit.open then return end
     if not AnyPending() then return end
-    if not (SC.TalkWindow and SC.TalkWindow()) then return end
+    local I = SC.TalkWindow and SC.TalkWindow()
+    if not I then return end
     visit.tried = visit.tried or {}
     visit.spent = visit.spent or 0
     local waiting = false
@@ -224,9 +268,26 @@ local function TryBuy()
                 end
             else
                 local name, _, batch = Slot(i)
+                -- A recipe you already know: not bought, and not waited for.
+                local known = false
+                if I.skipKnown ~= false then
+                    known = Known(i)
+                    -- Tooltip not in yet: the retries come back, and the
+                    -- last one buys rather than wait for ever.
+                    if known == nil and not visit.last then waiting = true end
+                end
                 local money = (GetMoney and GetMoney() or 0) - visit.spent
-                local n, why, price = HowMany(b, i, money)
-                visit.tried[b] = why or "bought"
+                local n, why, price = 0, nil, 0
+                if known == true then
+                    b.known = true
+                    visit.tried[b] = "known"
+                    if SC.Refresh then SC.Refresh() end
+                elseif known == nil and waiting then
+                    n = 0
+                else
+                    n, why, price = HowMany(b, i, money)
+                    visit.tried[b] = why or "bought"
+                end
                 if n > 0 and BuyMerchantItem then
                     if batch > 1 then
                         for _ = 1, n do BuyMerchantItem(i) end
@@ -252,10 +313,12 @@ local function TryBuy()
     visit.done = true
     -- Out of stock (or short of the amount wanted) and still wanted: the
     -- window has to be reopened to see a restock.
-    local out, none, money = {}, {}, {}
+    local out, none, money, known = {}, {}, {}, {}
     for _, b in ipairs(SC.Buys()) do
         local r = visit.tried[b]
-        if r == "none" then
+        if r == "known" then
+            known[#known + 1] = b.name
+        elseif r == "none" then
             none[#none + 1] = b.name
         elseif r == "money" then
             money[#money + 1] = b.name
@@ -263,6 +326,7 @@ local function TryBuy()
             out[#out + 1] = b.name
         end
     end
+    if #known > 0 then Say("known", "you already know " .. Names(known) .. ": not bought.") end
     if #none > 0 then Say("none", Names(none) .. (#none > 1 and " aren't" or " isn't") .. " sold here.") end
     if #money > 0 then Say("money", "not enough money for " .. Names(money) .. ".") end
     if #out > 0 then
@@ -276,8 +340,14 @@ SC.On("MERCHANT_SHOW", function()
     visit = { done = false, said = {}, open = true }
     TryBuy()
     -- Item names can arrive a moment after the window does.
+    local token = visit
     for _, t in ipairs({ 0.3, 1 }) do
-        C_Timer.After(t, function() if visit.open then pcall(TryBuy) end end)
+        C_Timer.After(t, function()
+            if visit == token and visit.open then
+                if t == 1 then visit.last = true end
+                pcall(TryBuy)
+            end
+        end)
     end
 end)
 SC.On("MERCHANT_UPDATE", function() if visit.open then TryBuy() end end)

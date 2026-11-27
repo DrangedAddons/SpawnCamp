@@ -993,7 +993,7 @@ end
 
 local function BuildTalkPopup()
     local I = SC.char.interact
-    TP = Popup("SpawnCampTalkOptions", 380, 456, "Talk  |T" .. BUBBLE .. ":14|t")
+    TP = Popup("SpawnCampTalkOptions", 380, 480, "Talk  |T" .. BUBBLE .. ":14|t")
     TP:HookScript("OnHide", function() if CH then CH:Hide() end end)
     Check(TP, "Hand in and accept quests (follow-ups too)", 8, -30,
         function() return I.autoQuest end, function(v) I.autoQuest = v end)
@@ -1043,8 +1043,11 @@ local function BuildTalkPopup()
         Tip(row.remove, "Remove", "Takes this item off the list.")
         ui.buyRows[i] = row
     end
-    Wrapped(TP, "When your key opens a vendor's window, these are bought if they're in stock. Amount empty = whatever is in stock. An item that's out of stock closes the window, so spamming your key rechecks it. A bought item is skipped after that; change its amount or pick it again to buy more.", 12, -360, 356)
-    Text(TP, "Hold Shift while talking to do a window yourself.", 12, -432, "GameFontDisableSmall")
+    Check(TP, "Skip recipes I already know", 8, -356,
+        function() return I.skipKnown ~= false end, function(v) I.skipKnown = v; SC.Refresh() end,
+        "A recipe, pattern or plans this character has already learned isn't bought, and its row says \"known\". Untick to buy it anyway (to sell, or for another character).")
+    Wrapped(TP, "When your key opens a vendor's window, these are bought if they're in stock. Amount empty = whatever is in stock. An item that's out of stock closes the window, so spamming your key rechecks it. A bought item is skipped after that; change its amount or pick it again to buy more.", 12, -384, 356)
+    Text(TP, "Hold Shift while talking to do a window yourself.", 12, -456, "GameFontDisableSmall")
 end
 ------------------------------------------------------------------------------
 -- Build: header, key row, add row, target, recent
@@ -2868,7 +2871,9 @@ local function RefreshPopups()
             row.slot.text:SetText(b.name)
             SetEditText(row.count, (b.count or 0) > 0 and tostring(b.count) or "")
             local got = tonumber(b.got) or 0
-            if not SC.BuyPending(b) then
+            if b.known and SC.char.interact.skipKnown ~= false then
+                row.state:SetText("|cff808080known|r")
+            elseif not SC.BuyPending(b) then
                 row.state:SetText("|cff40ff40bought|r")
             elseif got > 0 then
                 row.state:SetText("|cffffd100" .. got .. " / " .. b.count .. "|r")

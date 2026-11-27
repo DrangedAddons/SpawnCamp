@@ -2,7 +2,7 @@
 ## Title: SpawnCamp
 ## Notes: Tag or interact with a camped mob on one key, auto-handle its chat and quests, and time its respawn from kill history.
 ## Author: Dranged
-## Version: 0.59.0
+## Version: 0.60.0
 ## X-DrangedAddons-Games: _forever_
 ## X-DrangedHub-Actions: SpawnCamp window=/spawncamp; Settings=/spawncamp settings
 ## IconTexture: Interface\AddOns\SpawnCamp\icon

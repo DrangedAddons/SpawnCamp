@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.60.0
+
+- **Skip recipes I already know** (Talk options, under the buy list, on by default). A recipe, pattern or plans this character has already learned isn't bought. Its row says "known", chat says so once, and the vendor window isn't closed and reopened to wait for it. Untick it to buy known recipes anyway, to sell or for another character.
+- It reads the vendor's own "Already known" line, so it can only tell while the item is listed in the vendor's window.
+
 ## 0.59.0
 
 - **Camp several limited-stock items at one vendor.** The Talk options now hold a list of up to four items to buy, each with its own amount. Click a row to choose an item, click the empty row under the last one to add another, and the x takes one off. The item you had picked before is the first row.
