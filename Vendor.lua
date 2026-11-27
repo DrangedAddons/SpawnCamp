@@ -1,5 +1,5 @@
 -- SpawnCamp vendor auto-buy: when the Talk key opens a vendor window, buy the
--- item picked in the Talk options. Made for limited-stock items (Pratt
+-- items picked in the Talk options (up to four). Made for limited-stock items (Pratt
 -- McGrubben's Pattern: Turtle Scale Gloves): camp the vendor, press the key,
 -- and the pattern is bought the moment it's in stock.
 --
@@ -47,10 +47,79 @@ local function NumSlots()
     return (GetMerchantNumItems and GetMerchantNumItems()) or 0
 end
 
--- The slot selling the picked item: by item id when both sides have one,
--- else by name. Second result: every slot's name was readable.
-local function Find(I)
-    local want, wantID, loaded = (I.buy or ""):lower(), tonumber(I.buyID) or 0, true
+------------------------------------------------------------------------------
+-- The buy list
+------------------------------------------------------------------------------
+
+-- Up to MAX_BUYS items, each { name, id, count, got }:
+--   count  how many you want (0 = whatever is in stock, once)
+--   got    how many have been bought so far
+-- An item is finished once got reaches count (or after one purchase when
+-- count is 0), and is skipped from then on. Without that, a restock of a
+-- pattern you already bought would be bought again while you camp the next.
+local MAX_BUYS = 4
+SC.MAX_BUYS = MAX_BUYS
+
+function SC.Buys()
+    local I = SC.char and SC.char.interact
+    if not I then return {} end
+    if type(I.buys) ~= "table" then
+        -- Before 0.59.0 there was one item, in buy / buyID / buyCount.
+        I.buys = {}
+        if type(I.buy) == "string" and I.buy ~= "" then
+            I.buys[1] = { name = I.buy, id = tonumber(I.buyID) or 0, count = tonumber(I.buyCount) or 0, got = 0 }
+        end
+        I.buy, I.buyID, I.buyCount = "", 0, 0
+    end
+    return I.buys
+end
+
+function SC.BuyPending(b)
+    local count, got = tonumber(b.count) or 0, tonumber(b.got) or 0
+    if count > 0 then return got < count end
+    return got == 0
+end
+
+local function AnyPending()
+    for _, b in ipairs(SC.Buys()) do
+        if SC.BuyPending(b) then return true end
+    end
+    return false
+end
+
+-- Sets row slot's item (a new row when slot is past the end). An empty name
+-- removes the row. Picking an item starts it afresh.
+function SC.SetBuy(slot, name, id)
+    local buys = SC.Buys()
+    if type(name) ~= "string" or name == "" then
+        if buys[slot] then table.remove(buys, slot) end
+        return
+    end
+    for i, b in ipairs(buys) do
+        if i ~= slot and b.name:lower() == name:lower() then return end   -- already on the list
+    end
+    local b = buys[slot]
+    if not b then
+        if #buys >= MAX_BUYS then return end
+        b = { count = 0 }
+        buys[#buys + 1] = b
+    end
+    b.name, b.id, b.got = name, tonumber(id) or 0, 0
+end
+
+-- A new amount also starts the item afresh.
+function SC.SetBuyCount(slot, n)
+    local b = SC.Buys()[slot]
+    if not b then return end
+    n = math.max(0, math.floor(tonumber(n) or 0))
+    if n == (tonumber(b.count) or 0) then return end
+    b.count, b.got = n, 0
+end
+
+-- The slot selling item b: by item id when both sides have one, else by
+-- name. Second result: every slot's name was readable.
+local function Find(b)
+    local want, wantID, loaded = (b.name or ""):lower(), tonumber(b.id) or 0, true
     for i = 1, NumSlots() do
         local name = Slot(i)
         if not name then
@@ -62,26 +131,30 @@ local function Find(I)
     return nil, loaded
 end
 
--- How many of slot i to buy: the amount set, or everything in stock for a
--- limited item (one, for an item that never runs out). Returns purchases
--- (bundles), or 0 and why not.
-local function HowMany(I, i)
+-- How many of slot i to buy for item b with this much money: what's left of
+-- the amount set, or everything in stock for a limited item (one, for an
+-- item that never runs out). Returns purchases (bundles) and the price of
+-- one, or 0 and why not.
+local function HowMany(b, i, money)
     local _, price, batch, avail, extended = Slot(i)
     if avail == 0 then return 0, "out" end
-    local want = tonumber(I.buyCount) or 0
+    local want = (tonumber(b.count) or 0) - (tonumber(b.got) or 0)
     local purchases
-    if want > 0 then
+    if (tonumber(b.count) or 0) > 0 then
         purchases = math.ceil(want / math.max(1, batch))
     else
         purchases = avail > 0 and avail or 1
     end
+    local short = avail > 0 and purchases > avail
     if avail > 0 then purchases = math.min(purchases, avail) end
     if not extended and price > 0 then
-        local can = math.floor((GetMoney and GetMoney() or 0) / price)
+        local can = math.floor(money / price)
         if can <= 0 then return 0, "money" end
         purchases = math.min(purchases, can)
+    else
+        price = 0
     end
-    return purchases
+    return purchases, short and "short" or nil, price
 end
 
 local visit = { done = false, said = {} }
@@ -110,65 +183,92 @@ local function CloseToRecheck()
     end)
 end
 
--- Questie lists this vendor as a seller of the picked item. A sold-out
--- limited item can be missing from the window altogether; this tells that
--- apart from a vendor who never sells it.
-local function SellsPicked(I)
+-- Questie lists this vendor as a seller of the item. A sold-out limited
+-- item can be missing from the window altogether; this tells that apart
+-- from a vendor who never sells it.
+local function SellsPicked(name)
     Scan()
     local who = SC.UnitNameSafe and SC.UnitNameSafe("npc")
     if not (list and type(who) == "string") then return false end
-    local want = (I.buy or ""):lower()
+    local want = (name or ""):lower()
     for _, it in ipairs(list) do
         if it.text:lower() == want then return it.find:find(who:lower(), 1, true) ~= nil end
     end
     return false
 end
 
+local function Names(t)
+    local out = {}
+    for _, n in ipairs(t) do out[#out + 1] = "|cffffffff" .. n .. "|r" end
+    return table.concat(out, ", ")
+end
+
 local function TryBuy()
     if visit.done or not SC.char then return end
     if not (MerchantFrame and MerchantFrame:IsShown()) and not visit.open then return end
-    local I = SC.TalkWindow and SC.TalkWindow()
-    if not I or (I.buy or "") == "" then return end
-    local i, loaded = Find(I)
-    if not i then
-        -- Names still loading: MERCHANT_UPDATE or the retry comes back to it.
-        if loaded and NumSlots() > 0 then
-            visit.done = true
-            if SellsPicked(I) then
-                Say("out", "|cffffffff" .. I.buy .. "|r is out of stock. Closing the vendor: press your key again to check.")
-                CloseToRecheck()
+    if not AnyPending() then return end
+    if not (SC.TalkWindow and SC.TalkWindow()) then return end
+    visit.tried = visit.tried or {}
+    visit.spent = visit.spent or 0
+    local waiting = false
+    for _, b in ipairs(SC.Buys()) do
+        -- One go per item per window: stock read back after a purchase is stale.
+        if not visit.tried[b] and SC.BuyPending(b) then
+            local i, loaded = Find(b)
+            if not i then
+                -- Names still loading: MERCHANT_UPDATE or the retry comes back to it.
+                if loaded and NumSlots() > 0 then
+                    visit.tried[b] = SellsPicked(b.name) and "out" or "none"
+                else
+                    waiting = true
+                end
             else
-                Say("none", "|cffffffff" .. I.buy .. "|r isn't sold here.")
+                local name, _, batch = Slot(i)
+                local money = (GetMoney and GetMoney() or 0) - visit.spent
+                local n, why, price = HowMany(b, i, money)
+                visit.tried[b] = why or "bought"
+                if n > 0 and BuyMerchantItem then
+                    if batch > 1 then
+                        for _ = 1, n do BuyMerchantItem(i) end
+                    else
+                        local stack = math.max(1, GetMerchantItemMaxStack and GetMerchantItemMaxStack(i) or 1)
+                        local left = n
+                        while left > 0 do
+                            local k = math.min(left, stack)
+                            BuyMerchantItem(i, k)
+                            left = left - k
+                        end
+                    end
+                    visit.spent = visit.spent + n * (price or 0)
+                    b.got = (tonumber(b.got) or 0) + n * batch
+                    local what = (n * batch > 1 and (n * batch .. " x ") or "") .. name
+                    if SC.Alert then SC.Alert("Bought " .. what .. "!") else SC.Print("bought " .. what .. ".") end
+                    if SC.Refresh then SC.Refresh() end
+                end
             end
         end
-        return
     end
-    local name, _, batch = Slot(i)
-    local n, why = HowMany(I, i)
+    if waiting then return end
     visit.done = true
-    if n <= 0 then
-        if why == "out" then
-            Say("out", "|cffffffff" .. name .. "|r is out of stock. Closing the vendor: press your key again to check.")
-            CloseToRecheck()
-        else
-            Say("money", "not enough money for |cffffffff" .. name .. "|r.")
-        end
-        return
-    end
-    if not BuyMerchantItem then return end
-    if batch > 1 then
-        for _ = 1, n do BuyMerchantItem(i) end
-    else
-        local stack = math.max(1, GetMerchantItemMaxStack and GetMerchantItemMaxStack(i) or 1)
-        local left = n
-        while left > 0 do
-            local k = math.min(left, stack)
-            BuyMerchantItem(i, k)
-            left = left - k
+    -- Out of stock (or short of the amount wanted) and still wanted: the
+    -- window has to be reopened to see a restock.
+    local out, none, money = {}, {}, {}
+    for _, b in ipairs(SC.Buys()) do
+        local r = visit.tried[b]
+        if r == "none" then
+            none[#none + 1] = b.name
+        elseif r == "money" then
+            money[#money + 1] = b.name
+        elseif (r == "out" or r == "short") and SC.BuyPending(b) then
+            out[#out + 1] = b.name
         end
     end
-    local what = (n * batch > 1 and (n * batch .. " x ") or "") .. name
-    if SC.Alert then SC.Alert("Bought " .. what .. "!") else SC.Print("bought " .. what .. ".") end
+    if #none > 0 then Say("none", Names(none) .. (#none > 1 and " aren't" or " isn't") .. " sold here.") end
+    if #money > 0 then Say("money", "not enough money for " .. Names(money) .. ".") end
+    if #out > 0 then
+        Say("out", Names(out) .. (#out > 1 and " are" or " is") .. " out of stock. Closing the vendor: press your key again to check.")
+        CloseToRecheck()
+    end
 end
 SC.TryBuy = TryBuy
 
@@ -185,8 +285,7 @@ SC.On("MERCHANT_CLOSED", function() visit.open = false end)
 
 -- A vendor who chats first: the chat option that opens the shop.
 function SC.VendorOption(options)
-    local I = SC.char and SC.char.interact
-    if not I or (I.buy or "") == "" then return nil end
+    if not (SC.char and AnyPending()) then return nil end
     for _, opt in ipairs(options or {}) do
         local text = (SC.Plain and SC.Plain(opt.name) or opt.name or ""):lower()
         if opt.icon == 132060 or text:find("browse", 1, true) or text:find("your goods", 1, true)
@@ -275,11 +374,11 @@ function Scan()
 end
 
 -- Lines for the chooser: None, what the open vendor sells, then every
--- vendor item Questie knows.
+-- vendor item Questie knows. Items already on the buy list are marked.
 function SC.VendorItems()
-    local I = SC.char.interact
-    local picked = (I.buy or ""):lower()
-    local out = { { text = "None", sub = "buy nothing", noIcon = true, value = "", id = 0, selected = picked == "" } }
+    local on = {}
+    for _, b in ipairs(SC.Buys()) do on[b.name:lower()] = true end
+    local out = { { text = "None", sub = "take this item off the list", noIcon = true, value = "", id = 0 } }
     local here = {}
     if visit.open then
         for i = 1, NumSlots() do
@@ -287,7 +386,7 @@ function SC.VendorItems()
             if name and not here[name] then
                 here[name] = true
                 local stock = avail == 0 and "sold here, out of stock" or (avail > 0 and ("sold here, " .. avail .. " in stock") or "sold here")
-                out[#out + 1] = { text = name, sub = stock, id = SlotID(i) or 0, value = name, selected = name:lower() == picked }
+                out[#out + 1] = { text = name, sub = stock, id = SlotID(i) or 0, value = name, selected = on[name:lower()] or false }
             end
         end
     end
@@ -295,7 +394,7 @@ function SC.VendorItems()
     if list then
         for _, it in ipairs(list) do
             if not here[it.text] then
-                it.selected = it.text:lower() == picked
+                it.selected = on[it.text:lower()] or false
                 out[#out + 1] = it
             end
         end

@@ -993,7 +993,7 @@ end
 
 local function BuildTalkPopup()
     local I = SC.char.interact
-    TP = Popup("SpawnCampTalkOptions", 380, 346, "Talk  |T" .. BUBBLE .. ":14|t")
+    TP = Popup("SpawnCampTalkOptions", 380, 456, "Talk  |T" .. BUBBLE .. ":14|t")
     TP:HookScript("OnHide", function() if CH then CH:Hide() end end)
     Check(TP, "Hand in and accept quests (follow-ups too)", 8, -30,
         function() return I.autoQuest end, function(v) I.autoQuest = v end)
@@ -1005,33 +1005,46 @@ local function BuildTalkPopup()
     Text(TP, "Quest reward", 12, -168)
     ui.reward = Edit(TP, 30, 92, -164, function(t) I.reward = tonumber(t) or 0 end, true)
     Wrapped(TP, "When a quest offers a choice of rewards: 1 = first, 2 = second, and so on. Empty = you pick.", 12, -190, 356)
-    -- Vendor auto-buy.
-    Text(TP, "Buy", 12, -230)
-    local s = CreateFrame("Button", nil, TP)
-    s:SetSize(206, 26)
-    s:SetPoint("TOPLEFT", 56, -224)
-    s.icon = s:CreateTexture(nil, "ARTWORK")
-    s.icon:SetSize(24, 24)
-    s.icon:SetPoint("LEFT", 0, 0)
-    s.text = s:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    s.text:SetPoint("LEFT", s.icon, "RIGHT", 6, 0)
-    s.text:SetPoint("RIGHT", 0, 0)
-    s.text:SetJustifyH("LEFT")
-    s.text:SetWordWrap(false)
-    ui.buySlot = s
-    local pickItem = function()
-        OpenChooser("Choose a vendor item", SC.VendorItems, function(it)
-            I.buy, I.buyID = it.value, it.id or 0
-        end, false, TP)
+    -- Vendor auto-buy: a short list of items, one row each. The row after
+    -- the last item is the empty one you click to add another.
+    Text(TP, "BUY AT VENDORS", 12, -228, "GameFontNormalSmall")
+    Text(TP, "amount", 266, -228, "GameFontDisableSmall")
+    ui.buyRows = {}
+    for i = 1, SC.MAX_BUYS or 4 do
+        local y = -244 - (i - 1) * 28
+        local row = {}
+        local s = CreateFrame("Button", nil, TP)
+        s:SetSize(244, 26)
+        s:SetPoint("TOPLEFT", 12, y)
+        s:SetHighlightTexture("Interface/Buttons/WHITE8X8", "ADD")
+        s:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
+        s.icon = s:CreateTexture(nil, "ARTWORK")
+        s.icon:SetSize(24, 24)
+        s.icon:SetPoint("LEFT", 0, 0)
+        s.text = s:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        s.text:SetPoint("LEFT", s.icon, "RIGHT", 6, 0)
+        s.text:SetPoint("RIGHT", 0, 0)
+        s.text:SetJustifyH("LEFT")
+        s.text:SetWordWrap(false)
+        s:SetScript("OnClick", Safe(function()
+            OpenChooser("Choose a vendor item", SC.VendorItems, function(it)
+                SC.SetBuy(i, it.value, it.id or 0)
+            end, false, TP)
+        end))
+        Tip(s, "Vendor item", "Click to search every item vendors sell (type an item or a vendor's name). With a vendor window open, what they sell is listed first. Pick None to take the item off the list.")
+        row.slot = s
+        row.count = Edit(TP, 30, 262, y - 3, function(t) SC.SetBuyCount(i, tonumber(t) or 0); SC.Refresh() end, true)
+        row.state = Text(TP, "", 306, y - 7, "GameFontHighlightSmall")
+        row.remove = Btn(TP, "x", 20, 350, y - 2, function()
+            SC.SetBuy(i, "")
+            if CH then CH:Hide() end
+            SC.Refresh()
+        end)
+        Tip(row.remove, "Remove", "Takes this item off the list.")
+        ui.buyRows[i] = row
     end
-    s:SetScript("OnClick", Safe(pickItem))
-    Tip(Btn(TP, "Choose item", 100, 268, -226, pickItem), "Choose item",
-        "Search every item vendors sell (type an item or a vendor's name). With a vendor window open, what they sell is listed first.")
-    Text(TP, "Amount", 12, -262)
-    ui.buyCount = Edit(TP, 30, 92, -258, function(t) I.buyCount = tonumber(t) or 0 end, true)
-    Text(TP, "empty = all in stock", 140, -262, "GameFontDisableSmall")
-    Wrapped(TP, "When your key opens a vendor's window, this item is bought if it's in stock. Made for limited-stock items: camp the vendor and press the key.", 12, -284, 356)
-    Text(TP, "Hold Shift while talking to do a window yourself.", 12, -322, "GameFontDisableSmall")
+    Wrapped(TP, "When your key opens a vendor's window, these are bought if they're in stock. Amount empty = whatever is in stock. An item that's out of stock closes the window, so spamming your key rechecks it. A bought item is skipped after that; change its amount or pick it again to buy more.", 12, -360, 356)
+    Text(TP, "Hold Shift while talking to do a window yourself.", 12, -432, "GameFontDisableSmall")
 end
 ------------------------------------------------------------------------------
 -- Build: header, key row, add row, target, recent
@@ -2841,11 +2854,33 @@ local function RefreshPopups()
         ui.spellNote:SetText("|cff40ff40Instant cast.|r")
     end
     SetEditText(ui.prefer, I.prefer)
-    local hasBuy = (I.buy or "") ~= ""
-    ui.buySlot.icon:SetTexture((hasBuy and SC.ItemIcon and SC.ItemIcon(I.buyID)) or "Interface\\Icons\\INV_Misc_QuestionMark")
-    ui.buySlot.icon:SetDesaturated(not hasBuy)
-    ui.buySlot.text:SetText(hasBuy and I.buy or "|cff808080None|r")
-    SetEditText(ui.buyCount, (I.buyCount or 0) > 0 and tostring(I.buyCount) or "")
+    local buys = SC.Buys and SC.Buys() or {}
+    for i, row in ipairs(ui.buyRows) do
+        local b = buys[i]
+        local shown = i <= #buys + 1
+        row.slot:SetShown(shown)
+        row.count:SetShown(b ~= nil)
+        row.remove:SetShown(b ~= nil)
+        row.state:SetShown(b ~= nil)
+        if b then
+            row.slot.icon:SetTexture((SC.ItemIcon and SC.ItemIcon(b.id)) or "Interface/Icons/INV_Misc_QuestionMark")
+            row.slot.icon:SetDesaturated(false)
+            row.slot.text:SetText(b.name)
+            SetEditText(row.count, (b.count or 0) > 0 and tostring(b.count) or "")
+            local got = tonumber(b.got) or 0
+            if not SC.BuyPending(b) then
+                row.state:SetText("|cff40ff40bought|r")
+            elseif got > 0 then
+                row.state:SetText("|cffffd100" .. got .. " / " .. b.count .. "|r")
+            else
+                row.state:SetText("")
+            end
+        elseif shown then
+            row.slot.icon:SetTexture("Interface/Icons/INV_Misc_QuestionMark")
+            row.slot.icon:SetDesaturated(true)
+            row.slot.text:SetText(i == 1 and "|cff808080None. Click to choose an item|r" or "|cff808080Add another item|r")
+        end
+    end
     SetEditText(ui.reward, (I.reward or 0) > 0 and tostring(I.reward) or "")
 end
 

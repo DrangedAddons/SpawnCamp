@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.59.0
+
+- **Camp several limited-stock items at one vendor.** The Talk options now hold a list of up to four items to buy, each with its own amount. Click a row to choose an item, click the empty row under the last one to add another, and the x takes one off. The item you had picked before is the first row.
+- When your key opens the vendor, everything on the list that's in stock is bought. If any item you still want is out of stock, the window closes so the next key press rechecks.
+- **A bought item is skipped from then on**, and its row says "bought". Before, a restock of something you'd already bought would be bought again on a later press. With an amount set, it keeps buying across restocks until you have that many (the row shows the count, like 5 / 10). Change the amount or pick the item again to start it over.
+- When nothing on the list is left to buy, the vendor window is left alone.
+
 ## 0.58.1
 
 - **Both keys in the key bar are labelled.** "KEY" over your SpawnCamp key and "INTERACT" over the game's interact key, in the same small caps as the TARGETS header. The tiny "interact" tag stuck on the button's edge is gone, and the two buttons are a little slimmer to fit their labels.
